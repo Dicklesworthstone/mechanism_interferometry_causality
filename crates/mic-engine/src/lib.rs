@@ -8,6 +8,7 @@ use mic_design::{
     audit_sampling_odds,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
@@ -83,6 +84,8 @@ pub struct PreflightReport {
     schema_version: String,
     /// Experiment identifier.
     experiment_id: String,
+    /// SHA-256 of the validated manifest's canonical serialized value.
+    manifest_canonical_sha256: String,
     /// Requested inference track.
     requested_track: InferenceTrack,
     /// Main-effects and lack-of-fit geometry.
@@ -110,6 +113,15 @@ impl PreflightReport {
     #[must_use]
     pub fn experiment_id(&self) -> &str {
         &self.experiment_id
+    }
+
+    /// Returns the content binding for the validated manifest value.
+    ///
+    /// This is a hash of the canonical Rust serialization after validation,
+    /// not a hash of the source file's whitespace or key ordering.
+    #[must_use]
+    pub fn manifest_canonical_sha256(&self) -> &str {
+        &self.manifest_canonical_sha256
     }
 
     /// Returns the requested inference track.
@@ -185,6 +197,9 @@ pub enum EngineError {
     /// A numerical policy value would loosen a load-bearing gate.
     #[error("preflight policy is invalid: {0}")]
     InvalidPolicy(String),
+    /// The validated manifest could not be serialized for content binding.
+    #[error("validated manifest could not be fingerprinted: {0}")]
+    ManifestFingerprint(#[source] serde_json::Error),
 }
 
 impl PreflightPolicy {
@@ -520,6 +535,7 @@ pub fn run_preflight(
     policy: PreflightPolicy,
 ) -> Result<PreflightReport, EngineError> {
     manifest.validate()?;
+    let manifest_canonical_sha256 = canonical_manifest_sha256(manifest)?;
     let mode = if manifest.strict {
         ExecutionMode::Strict
     } else {
@@ -527,6 +543,10 @@ pub fn run_preflight(
     };
     let mut ledger = EvidenceLedger::new(mode);
     ledger.provenance("experiment_id", &manifest.experiment_id);
+    ledger.provenance(
+        "manifest_canonical_sha256",
+        manifest_canonical_sha256.clone(),
+    );
     ledger.provenance("schema_version", &manifest.schema_version);
     ledger.provenance("requested_track", format!("{:?}", manifest.inference_track));
     let product_odds_tolerance = policy.bounded_product_odds_tolerance()?;
@@ -592,6 +612,7 @@ pub fn run_preflight(
     Ok(PreflightReport {
         schema_version: "1.0.0".into(),
         experiment_id: manifest.experiment_id.clone(),
+        manifest_canonical_sha256,
         requested_track: manifest.inference_track,
         design,
         face_sampling,
@@ -600,6 +621,18 @@ pub fn run_preflight(
         status,
         ledger,
     })
+}
+
+fn canonical_manifest_sha256(manifest: &ExperimentManifest) -> Result<String, EngineError> {
+    use core::fmt::Write as _;
+
+    let bytes = serde_json::to_vec(manifest).map_err(EngineError::ManifestFingerprint)?;
+    let digest = Sha256::digest(bytes);
+    let mut encoded = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        write!(&mut encoded, "{byte:02x}").expect("writing hex into a String cannot fail");
+    }
+    Ok(encoded)
 }
 
 fn record_design_geometry(
@@ -779,6 +812,31 @@ mod tests {
         assert_eq!(report.status, PreflightStatus::Ready);
         assert!(report.product_factorial_eligible);
         assert!(blocking_codes(&report).is_empty());
+    }
+
+    #[test]
+    fn preflight_is_content_bound_to_the_complete_validated_manifest() {
+        let original = manifest([0.25; 4], true);
+        let report = run_preflight(&original, PreflightPolicy::default()).unwrap();
+        let fingerprint = report.manifest_canonical_sha256();
+        assert_eq!(fingerprint.len(), 64);
+        assert!(fingerprint.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        assert_eq!(
+            report
+                .ledger()
+                .provenance_fields()
+                .get("manifest_canonical_sha256")
+                .map(String::as_str),
+            Some(fingerprint)
+        );
+
+        let mut changed = original;
+        changed.seed += 1;
+        let changed_report = run_preflight(&changed, PreflightPolicy::default()).unwrap();
+        assert_ne!(
+            report.manifest_canonical_sha256(),
+            changed_report.manifest_canonical_sha256()
+        );
     }
 
     #[test]

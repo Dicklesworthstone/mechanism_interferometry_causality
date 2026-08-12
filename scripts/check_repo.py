@@ -269,7 +269,7 @@ def validate_schemas_and_manifests() -> None:
                 "square_flatness": "unresolved",
                 "orientation": "unresolved",
             },
-            "preflight": {},
+            "preflight": {"manifest_canonical_sha256": "0" * 64},
             "ingest": {
                 "fingerprint": {
                     "content_sha256": "0" * 64,
@@ -307,6 +307,12 @@ def validate_schemas_and_manifests() -> None:
         stale_version = copy.deepcopy(four_law_report)
         stale_version["schema_version"] = "1.0.0"
         invalid_four_law_reports.append(stale_version)
+        missing_manifest_binding = copy.deepcopy(four_law_report)
+        del missing_manifest_binding["preflight"]["manifest_canonical_sha256"]
+        invalid_four_law_reports.append(missing_manifest_binding)
+        malformed_manifest_binding = copy.deepcopy(four_law_report)
+        malformed_manifest_binding["preflight"]["manifest_canonical_sha256"] = "not-a-sha256"
+        invalid_four_law_reports.append(malformed_manifest_binding)
         for index, report in enumerate(invalid_four_law_reports):
             check(
                 bool(list(four_law_validator.iter_errors(report))),

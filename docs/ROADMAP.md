@@ -35,7 +35,9 @@ also in place. The remaining work is the authority-bearing integration below.
   `duplicate_provenance` finding;
 - bind preflight product-odds and reweighting audits to the manifest, allocation
   artifact, and analyzed data so a syntactically valid audit reference cannot be
-  transplanted to a different projection;
+  transplanted to a different projection. Preflight and tabular reports now
+  carry `manifest_canonical_sha256`, which binds the complete validated manifest
+  value; allocation-origin and analyzed-data resolution remain outstanding;
 - require cluster-aware GCM standard errors and carry the declared randomization
   unit through bounds, orientation, and the final report;
 - replace the report's single retained overlap summary with a serialized

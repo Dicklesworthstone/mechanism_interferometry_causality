@@ -34,7 +34,17 @@
       },
       "description": "The histogram projection is diagnostic and establishes none of the theorem or orientation gates."
     },
-    "preflight": {"type": "object"},
+    "preflight": {
+      "type": "object",
+      "required": ["manifest_canonical_sha256"],
+      "properties": {
+        "manifest_canonical_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 of the validated manifest's canonical Rust serialization, not its source-file bytes."
+        }
+      }
+    },
     "ingest": {
       "type": "object",
       "required": ["fingerprint", "regime_counts", "clusters_spanning_regimes", "missing_regimes"],
