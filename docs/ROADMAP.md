@@ -6,7 +6,7 @@
 - `mic-core` curvature and conservation identities;
 - `mic-design` product-odds and rank audit;
 - `mic-stats` parsimony-frontier localization primitive;
-- `mic-engine` estimator lens-battery agreement gate;
+- `mic-engine` estimator lens-battery sensitivity screen;
 - deterministic CLI simulation output;
 - CI and repository integrity checks.
 

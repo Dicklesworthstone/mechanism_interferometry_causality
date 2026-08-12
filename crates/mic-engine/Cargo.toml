@@ -15,5 +15,8 @@ mic-audit = { path = "../mic-audit" }
 mic-data = { path = "../mic-data" }
 mic-design = { path = "../mic-design" }
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

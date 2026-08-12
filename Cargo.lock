@@ -1360,6 +1360,7 @@ dependencies = [
  "mic-data",
  "mic-design",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 

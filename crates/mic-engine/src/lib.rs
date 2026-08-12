@@ -20,8 +20,8 @@ pub struct PreflightPolicy {
     pub product_odds_tolerance: f64,
     /// Whether a declared selection model is accepted before its diagnostics are attached.
     pub accept_unvalidated_selection_model: bool,
-    /// Maximum studentized pairwise gap tolerated between estimator families in the lens battery.
-    pub lens_disagreement_z: f64,
+    /// Maximum standard-error-scaled pairwise gap tolerated between estimator families.
+    pub lens_gap_tolerance: f64,
 }
 
 impl Default for PreflightPolicy {
@@ -30,7 +30,7 @@ impl Default for PreflightPolicy {
             rank_tolerance: 1e-10,
             product_odds_tolerance: 1e-10,
             accept_unvalidated_selection_model: false,
-            lens_disagreement_z: 3.0,
+            lens_gap_tolerance: 3.0,
         }
     }
 }
@@ -109,33 +109,39 @@ pub struct LensEstimate {
     pub family: String,
     /// Cross-fitted point estimate of the shared estimand.
     pub estimate: f64,
-    /// Estimated standard error of the point estimate.
+    /// Estimated standard error of the point estimate; must be finite and strictly positive.
     pub standard_error: f64,
 }
 
-/// Agreement audit across a battery of deliberately dissimilar estimator families.
+/// Sensitivity audit across a battery of deliberately dissimilar estimator families.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LensBatteryAudit {
     /// The estimates in input order.
     pub estimates: Vec<LensEstimate>,
-    /// Largest studentized pairwise gap observed across the battery.
-    pub max_pairwise_z: f64,
-    /// The pair of family labels achieving the largest studentized gap.
+    /// Largest standard-error-scaled pairwise gap observed across the battery.
+    pub max_scaled_gap: f64,
+    /// The pair of family labels achieving the largest scaled gap.
     pub worst_pair: [String; 2],
-    /// Tolerance applied to the studentized gaps.
+    /// Tolerance applied to the scaled gaps.
     pub tolerance: f64,
-    /// Whether every pairwise gap is within tolerance.
+    /// Whether every scaled gap is within tolerance.
     pub agrees: bool,
 }
 
-/// Audits agreement of one estimand across estimator families and records the verdict.
+/// Audits learner sensitivity of one estimand across estimator families.
 ///
 /// The population curvature functionals are gauge invariant, so materially different
 /// answers from different nuisance families indicate estimator artifacts rather than
-/// evidence about the system.  Disagreement is recorded as a blocking error finding
-/// with code [`code::ESTIMATOR_FAMILY_DISAGREEMENT`]; agreement is recorded as an
-/// informational finding.  The battery is a robustness gate, not a validity
-/// substitute: it cannot repair a violated sampling contract.
+/// evidence about the system.  The scaled gap divides each pairwise difference by the
+/// root sum of squared standard errors; the families normally share data and folds, so
+/// this is a preregistered robustness heuristic, not a calibrated joint test statistic.
+/// Disagreement is recorded as a blocking error finding with code
+/// [`code::ESTIMATOR_FAMILY_DISAGREEMENT`] because a learner-dependent projection must
+/// not certify.  Agreement is recorded as an informational finding only: consensus
+/// among families is not evidence of validity and cannot repair a violated sampling
+/// contract.  Standard errors must be finite and strictly positive; degenerate scales
+/// fail closed as [`EngineError::InvalidLensBattery`] so every reported metric stays
+/// finite and serializable.
 pub fn audit_lens_battery(
     estimates: &[LensEstimate],
     policy: &PreflightPolicy,
@@ -144,13 +150,13 @@ pub fn audit_lens_battery(
 ) -> Result<LensBatteryAudit, EngineError> {
     if estimates.len() < 2 {
         return Err(EngineError::InvalidLensBattery(
-            "at least two estimator families are required for an agreement audit".into(),
+            "at least two estimator families are required for a sensitivity audit".into(),
         ));
     }
-    if !policy.lens_disagreement_z.is_finite() || policy.lens_disagreement_z <= 0.0 {
+    if !policy.lens_gap_tolerance.is_finite() || policy.lens_gap_tolerance <= 0.0 {
         return Err(EngineError::InvalidLensBattery(format!(
-            "lens_disagreement_z must be finite and positive, got {}",
-            policy.lens_disagreement_z
+            "lens_gap_tolerance must be finite and positive, got {}",
+            policy.lens_gap_tolerance
         )));
     }
     let mut labels = BTreeSet::new();
@@ -172,14 +178,14 @@ pub fn audit_lens_battery(
                 lens.family
             )));
         }
-        if !lens.standard_error.is_finite() || lens.standard_error < 0.0 {
+        if !lens.standard_error.is_finite() || lens.standard_error <= 0.0 {
             return Err(EngineError::InvalidLensBattery(format!(
-                "standard error for family {} must be finite and nonnegative",
+                "standard error for family {} must be finite and strictly positive",
                 lens.family
             )));
         }
     }
-    let mut max_pairwise_z = 0.0_f64;
+    let mut max_scaled_gap = 0.0_f64;
     let mut worst_pair = [estimates[0].family.clone(), estimates[1].family.clone()];
     for i in 0..estimates.len() {
         for j in (i + 1)..estimates.len() {
@@ -187,29 +193,23 @@ pub fn audit_lens_battery(
             let scale = estimates[i]
                 .standard_error
                 .hypot(estimates[j].standard_error);
-            let z = if scale > 0.0 {
-                gap / scale
-            } else if gap == 0.0 {
-                0.0
-            } else {
-                f64::INFINITY
-            };
-            if z > max_pairwise_z {
-                max_pairwise_z = z;
+            let scaled_gap = gap / scale;
+            if scaled_gap > max_scaled_gap {
+                max_scaled_gap = scaled_gap;
                 worst_pair = [estimates[i].family.clone(), estimates[j].family.clone()];
             }
         }
     }
-    let agrees = max_pairwise_z <= policy.lens_disagreement_z;
+    let agrees = max_scaled_gap <= policy.lens_gap_tolerance;
     let mut context = BTreeMap::new();
     context.insert(
         "families".into(),
         labels.iter().cloned().collect::<Vec<_>>().join(","),
     );
-    context.insert("max_pairwise_z".into(), format!("{max_pairwise_z:.6}"));
+    context.insert("max_scaled_gap".into(), format!("{max_scaled_gap:.6}"));
     context.insert(
         "tolerance".into(),
-        format!("{:.6}", policy.lens_disagreement_z),
+        format!("{:.6}", policy.lens_gap_tolerance),
     );
     context.insert("worst_pair".into(), worst_pair.join(","));
     if agrees {
@@ -217,7 +217,7 @@ pub fn audit_lens_battery(
             Severity::Info,
             stage,
             "estimator_family_agreement",
-            "all estimator families in the lens battery agree within tolerance",
+            "estimator families agree within the preregistered sensitivity tolerance; agreement is diagnostic, not certifying",
             context,
         ));
     } else {
@@ -231,9 +231,9 @@ pub fn audit_lens_battery(
     }
     Ok(LensBatteryAudit {
         estimates: estimates.to_vec(),
-        max_pairwise_z,
+        max_scaled_gap,
         worst_pair,
-        tolerance: policy.lens_disagreement_z,
+        tolerance: policy.lens_gap_tolerance,
         agrees,
     })
 }
@@ -551,17 +551,31 @@ mod tests {
     }
 
     #[test]
-    fn degenerate_zero_error_disagreement_is_infinite() {
+    fn zero_standard_error_fails_closed() {
         let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
-        let audit = audit_lens_battery(
+        let error = audit_lens_battery(
             &[lens("linear", 0.0, 0.0), lens("kernel", 0.1, 0.0)],
             &PreflightPolicy::default(),
             "curvature",
             &mut ledger,
         )
+        .unwrap_err();
+        assert!(matches!(error, EngineError::InvalidLensBattery(_)));
+        assert!(ledger.findings.is_empty());
+    }
+
+    #[test]
+    fn lens_audit_serializes_to_finite_json() {
+        let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        let audit = audit_lens_battery(
+            &[lens("linear", 0.10, 0.01), lens("kernel", 0.90, 0.01)],
+            &PreflightPolicy::default(),
+            "curvature",
+            &mut ledger,
+        )
         .unwrap();
-        assert!(!audit.agrees);
-        assert!(audit.max_pairwise_z.is_infinite());
+        let encoded = serde_json::to_string(&audit).unwrap();
+        assert!(encoded.contains("max_scaled_gap"));
     }
 
     #[test]
