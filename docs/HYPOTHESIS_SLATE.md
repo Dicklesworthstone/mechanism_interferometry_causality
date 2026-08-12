@@ -94,6 +94,14 @@ guide construct, not `replicate_id`. Do not invent a column. Declare the
 actual randomization unit, or the survey must serialize
 `cluster_unit_basis: row` and stay `proposal_only`.
 
+**Direction is not a bivariate score.** A pile is causally informative when it
+contains a *family* of autonomous environment changes. MIC's distinctive
+object is the algebra of those changes (locality, transport, composability
+κ, repeated tilts). A discovered square's two single-tilt arms are usually
+*different primitives*; unique remaining-contrast below a tolerance is not
+an arrow. Season-as-tilt on a fixed elevation panel is a tautology, not
+identification. See mail 9372 (CRC / S2–S4 worlds).
+
 **Identities-only technical-state projection (bb-ule, 2026-08-12).** On the
 hash-checked CBL/CNN1 square, clustered at construct × `gemgroup`, the
 *fold-specific P0-weighted mean* κ sign-flips across gemgroups (pooled +0.59;
