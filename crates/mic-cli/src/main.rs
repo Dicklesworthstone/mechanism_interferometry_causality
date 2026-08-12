@@ -211,10 +211,7 @@ fn orient(args: &[String]) -> Result<(), String> {
         "simultaneous_confidence",
         format!("{:.6}", input.calibration.confidence),
     );
-    ledger.provenance(
-        "randomization_unit",
-        &input.calibration.randomization_unit,
-    );
+    ledger.provenance("randomization_unit", &input.calibration.randomization_unit);
     ledger.provenance(
         "orientation_source_fingerprint",
         &input.calibration.source_fingerprint,
@@ -236,7 +233,9 @@ fn orient(args: &[String]) -> Result<(), String> {
 
 fn validate_orientation_calibration(calibration: &OrientCalibrationInput) -> Result<(), String> {
     if !calibration.simultaneous {
-        return Err("orientation bounds must be simultaneous over the declared deletion family".into());
+        return Err(
+            "orientation bounds must be simultaneous over the declared deletion family".into(),
+        );
     }
     if !calibration.confidence.is_finite()
         || calibration.confidence <= 0.0
@@ -246,21 +245,28 @@ fn validate_orientation_calibration(calibration: &OrientCalibrationInput) -> Res
     }
     for (name, value) in [
         ("interval_method", calibration.interval_method.as_str()),
-        ("randomization_unit", calibration.randomization_unit.as_str()),
+        (
+            "randomization_unit",
+            calibration.randomization_unit.as_str(),
+        ),
     ] {
         if value.trim().is_empty() {
             return Err(format!("orientation calibration {name} must not be empty"));
         }
     }
     let Some(hex) = calibration.source_fingerprint.strip_prefix("sha256:") else {
-        return Err("orientation source_fingerprint must use the sha256:<lowercase-hex> form".into());
+        return Err(
+            "orientation source_fingerprint must use the sha256:<lowercase-hex> form".into(),
+        );
     };
     if hex.len() != 64
         || !hex
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
     {
-        return Err("orientation source_fingerprint must use the sha256:<lowercase-hex> form".into());
+        return Err(
+            "orientation source_fingerprint must use the sha256:<lowercase-hex> form".into(),
+        );
     }
     Ok(())
 }
