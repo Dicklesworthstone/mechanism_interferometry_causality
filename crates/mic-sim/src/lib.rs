@@ -39,9 +39,13 @@ pub struct ParityExample {
     pub epsilon: f64,
     /// Candidate support labels.
     pub support: Vec<String>,
-    /// Coordinates whose deletion is invariant.
+    /// Exact `P(T=1)` under the baseline mechanism `T = P xor N`.
+    pub baseline_child_marginal: f64,
+    /// Exact `P(T=1)` under the intervened mechanism `T = not(P) xor N`.
+    pub intervened_child_marginal: f64,
+    /// Coordinates whose deletion is invariant, derived from the exact marginals.
     pub invariant_deletions: Vec<String>,
-    /// Number of passing deletions.
+    /// Number of passing deletions, derived from the exact marginals.
     pub pass_count: usize,
 }
 
@@ -114,14 +118,41 @@ pub fn running_example(a: f64, b: f64, sigma: f64) -> RunningExample {
     }
 }
 
-/// Builds the balanced parity failure.
+/// Exact `P(child = 1)` when `child = parent xor noise` with independent Bernoulli noise.
+#[must_use]
+fn xor_marginal(parent_one_probability: f64, noise: f64) -> f64 {
+    parent_one_probability * (1.0 - noise) + (1.0 - parent_one_probability) * noise
+}
+
+/// Builds the balanced parity failure with the pass count derived, not asserted.
+///
+/// Baseline: `T = P xor N` with `P ~ Bernoulli(1/2)`, `N ~ Bernoulli(epsilon)`.
+/// Intervention: `T = not(P) xor N`.  The parent mechanism is untouched, so
+/// deleting `T` always leaves an invariant parent marginal; deleting `P` is
+/// invariant exactly when the child marginal is unchanged, which the balanced
+/// parent forces regardless of `epsilon`.
 #[must_use]
 pub fn parity_example(epsilon: f64) -> ParityExample {
+    let baseline_parent_marginal = 0.5;
+    // The intervention replaces only the child mechanism, so the parent law is reused verbatim.
+    let intervened_parent_marginal = baseline_parent_marginal;
+    let baseline_child_marginal = xor_marginal(baseline_parent_marginal, epsilon);
+    let intervened_child_marginal = xor_marginal(1.0 - intervened_parent_marginal, epsilon);
+    let mut invariant_deletions = Vec::new();
+    if (baseline_child_marginal - intervened_child_marginal).abs() == 0.0 {
+        invariant_deletions.push("P".to_string());
+    }
+    if (baseline_parent_marginal - intervened_parent_marginal).abs() == 0.0 {
+        invariant_deletions.push("T".to_string());
+    }
+    let pass_count = invariant_deletions.len();
     ParityExample {
         epsilon,
         support: vec!["P".into(), "T".into()],
-        invariant_deletions: vec!["P".into(), "T".into()],
-        pass_count: 2,
+        baseline_child_marginal,
+        intervened_child_marginal,
+        invariant_deletions,
+        pass_count,
     }
 }
 
@@ -180,5 +211,19 @@ mod tests {
                 < 1e-14
         );
         assert_eq!(suite.parity_orientation_failure.pass_count, 2);
+    }
+
+    #[test]
+    fn parity_pass_count_is_derived_from_exact_marginals() {
+        for epsilon in [0.0, 0.1, 0.25, 0.49] {
+            let example = parity_example(epsilon);
+            assert_eq!(example.baseline_child_marginal, 0.5);
+            assert_eq!(example.intervened_child_marginal, 0.5);
+            assert_eq!(example.pass_count, 2);
+            assert_eq!(
+                example.invariant_deletions,
+                vec!["P".to_string(), "T".into()]
+            );
+        }
     }
 }
