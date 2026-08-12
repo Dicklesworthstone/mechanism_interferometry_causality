@@ -22,17 +22,18 @@
     <span class="brand-mark" aria-hidden="true">MI</span>
     <span class="brand-text">
       <b>Mechanism Interferometry</b>
-      <span>Causal modularity certificate</span>
+      <span>Modularity certificate</span>
     </span>
   </a>
 
   <nav aria-label="Sections">
-    <a href="#problem">Problem</a>
+    <a href="#intuition">Intuition</a>
     <a href="#certificate">Certificate</a>
     <a href="#interferometer">Interferometer</a>
     <a href="#scenarios">Failures</a>
     <a href="#orientation">Orientation</a>
     <a href="#inference">Inference</a>
+    <a href="#eligible">Use it</a>
     <a href="#evidence">Evidence</a>
     <a href="#software">Software</a>
   </nav>
@@ -92,6 +93,205 @@
           </span>
         </figcaption>
       </figure>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Intuition
+       ================================================================== -->
+  <section id="intuition" class="band band--tint">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">The idea without the notation</p>
+        <h2>What a causal claim is <em class="accent">actually claiming</em></h2>
+        <p class="lede">
+          Most causal claims get read as "A raises B." The claim underneath is stranger and much
+          stronger: that the world is <em>assembled</em>. Behind the tangle of correlations sits a
+          workshop of separate small rules, each responsible for producing one thing out of a few
+          others, and each independently replaceable. You could reach in, swap one out, and the rest
+          would keep running unchanged, not out of loyalty but because they never depended on it to
+          begin with. That is the entire content of the word <em>mechanism</em>. Everything else on
+          this page answers a single question: how could a creature standing outside the machine ever
+          check that picture, and find the seams?
+        </p>
+      </div>
+
+      <div class="essay">
+        <article class="thesis reveal">
+          <p class="thesis-num" aria-hidden="true">01</p>
+          <div class="thesis-body">
+            <h3>Never study a world. Study the difference between two.</h3>
+            <p>
+              A single world is bottomlessly complicated. Two worlds that share almost everything are
+              simple relative to each other.
+            </p>
+            <p>
+              Change one rule and the consequences cascade. Every downstream quantity shifts, and the
+              perturbed world can look globally, dramatically different from the original. Now ask a
+              narrower question, observation by observation: how much more at home is this particular
+              event in the changed world than in the old one? All the shared machinery cancels out of
+              that comparison. What survives is a fingerprint living only at the seam, on the changed
+              rule and its immediate inputs.
+            </p>
+            <p class="pull">Effects are global. The difference in explanation is local.</p>
+            <p>
+              Which is why interferometry is the right word here rather than decoration. An
+              interferometer never observes an arm of the apparatus directly. It observes the fringe
+              pattern where two nearly identical beams fail to match, and everything the beams share
+              cancels. In this setting the two beams are worlds, and the cancellation is the whole
+              method.
+            </p>
+            <p>
+              The contrapositive has teeth. If the fingerprint refuses to localize, if explaining the
+              difference between the worlds keeps requiring appeals to everything at once, then
+              either the seams are not where you drew them or you are not seeing the whole machine.
+              Locality of evidence works as a test here rather than as an assumption, and it is the
+              first condition of <a href="#certificate">the certificate</a>.
+            </p>
+          </div>
+        </article>
+
+        <article class="thesis reveal">
+          <p class="thesis-num" aria-hidden="true">02</p>
+          <div class="thesis-body">
+            <h3>The arrow points where the accounting lives.</h3>
+            <p>
+              A rule is a complete account of the thing it produces. Whatever its inputs hand it, it
+              has to say what happens next, and its possibilities have to exhaust; the bookkeeping is
+              anchored on its output. Its inputs it merely consumes. It owes them nothing, and
+              replacing the rule leaves their statistics untouched, because they were never that
+              rule's responsibility.
+            </p>
+            <p>
+              Inside the small fingerprint region, then, cause and effect come apart by an almost
+              childish procedure. Remove one item at a time and look at what is left. The changed
+              variable is the one whose removal leaves the remainder indistinguishable from the
+              unperturbed world, and it can vanish without a trace precisely because everything else
+              in the region was upstream of the edit.
+            </p>
+            <p class="pull">The arrow points at the coordinate that deletes cleanly.</p>
+            <p>
+              The procedure also fails out loud. When nothing deletes cleanly,
+              the region is contaminated with downstream debris. When several things do, the
+              perturbation was too symmetric to break the tie and a different tilt is needed. Plenty
+              of methods will silently point the arrow backwards; this one mostly declines to answer,
+              which in causal inference is a virtue bordering on luxury. You can watch it decline in
+              <a href="#orientation">the deletion audit</a>.
+            </p>
+          </div>
+        </article>
+
+        <article class="thesis reveal">
+          <p class="thesis-num" aria-hidden="true">03</p>
+          <div class="thesis-body">
+            <h3>Interaction is a fact about your ledger, not about the world.</h3>
+            <p>
+              Turn two knobs wired to genuinely separate parts of a machine. The outcomes can show
+              violent synergy, two dials that each do nothing alone and everything together, because
+              the machine's response is curved. In nature, curved responses are the norm.
+            </p>
+            <p>
+              Plausibility multiplies across independent parts, so its bookkeeping adds. In the one
+              ledger kept over the <em>complete</em> state of the machine, two edits to separate
+              rules compose the way two patches to disjoint files compose: the combined diff is just
+              both diffs. The program's behaviour may change explosively. The patch algebra does not
+              care.
+            </p>
+            <p>
+              So the question that biology, medicine and economics all treat as one question is
+              really three. Is the response curved? That is ubiquitous, and fine. Are the two knobs
+              secretly attached to the same part? Or are you simply not seeing enough of the machine?
+              Ordinary interaction analysis mashes the three into a single number.
+            </p>
+            <p class="pull">
+              Mere nonlinearity produces no signal at all in the mechanism ledger, however
+              spectacular it looks in the outcomes.
+            </p>
+            <p>
+              That last claim is not rhetorical. <a href="#interferometer">The interferometer
+              below</a> is an experiment with maximal outcome synergy whose complete-state curvature
+              is exactly zero at every setting you can dial.
+            </p>
+          </div>
+        </article>
+
+        <article class="thesis reveal">
+          <p class="thesis-num" aria-hidden="true">04</p>
+          <div class="thesis-body">
+            <h3>Your own coin flips are the probe.</h3>
+            <p>
+              Flip two independent coins to decide two independent tweaks. However chaotic the
+              machine, a genuinely complete view of it can never make your own coin flips look
+              correlated, because the fully seen state screens each tweak off from the other. So if,
+              after reading every instrument you own, learning that the first coin came up heads
+              tells you something about the second, your instruments are not the whole story.
+            </p>
+            <p class="pull">Independence in, independence out, or something is hidden.</p>
+            <p>
+              The failure comes with an exact anatomy: the leftover correlation between the two
+              fingerprints that the instruments failed to pull apart. That narrows the culprits to a
+              short list, and every item on it is worth finding. A shared part. An unmeasured piece of state. A filtered
+              dataset. An intervention that changes character once it is combined with the other one.
+            </p>
+            <p>
+              Better still, the books balance. Averaging over a hidden variable cannot create
+              coupling out of nothing. Whatever coupling the hiding conceals pointwise comes back, in
+              perfect balance on average, as an opposite correlation between the visible fingerprints.
+              Coarse-graining relocates dependence; it can neither mint it nor destroy it. That turns
+              incompleteness from a lament into a compass. Propose a new measurement, add it to the
+              view, and ask whether the interference dies. The variables that kill it are the missing
+              state, and <a href="#conservation">the conservation laws</a> are the exact statement
+              of the balance.
+            </p>
+          </div>
+        </article>
+
+        <article class="thesis reveal">
+          <p class="thesis-num" aria-hidden="true">05</p>
+          <div class="thesis-body">
+            <h3>Two quieter points give the thing its shape.</h3>
+            <p>
+              There is no privileged normal world. Like altitude, an individual fingerprint depends
+              on where you put sea level, but the steepness between two towns does not, and
+              everything real here is steepness. The verdict survives your choice of which lab
+              setting to call baseline.
+            </p>
+            <p>
+              And the evidential style is double-entry bookkeeping rather than hypothesis testing.
+              Modularity implies an overdetermined web of identities across every combination of
+              perturbations, so cooking one entry breaks several others. Confidence comes from the
+              coherence of the whole ledger rather than from one significant coefficient, which is a
+              different and considerably older epistemology than most of statistics runs on.
+            </p>
+          </div>
+        </article>
+      </div>
+
+      <div class="reframe reveal">
+        <p class="label">The reframe</p>
+        <h3>Causal variables are whatever makes your actions compose</h3>
+        <p>
+          The certificate never pronounces on the world in itself. It certifies modularity relative
+          to an interface: a repertoire of actions you know how to take, and a resolution at which
+          you can see. Pass the audit and a workshop-of-separate-rules picture of your data provably
+          exists, with replacement rules you can construct explicitly. Fail it and you learn where,
+          and by how much.
+        </p>
+        <p>
+          That inverts the usual ontology. Instead of assuming nature arrives pre-diced into
+          variables and asking which of them cause which, causal variables get defined by what they
+          do to the algebra of your actions. They are the coordinates in which doing two things at
+          once is exactly doing them one at a time; in which effects are global but evidence is
+          local; in which each rule accounts for its output and owes nothing to its inputs; in which
+          your independent choices stay independent under full observation.
+        </p>
+        <p class="reframe-close">
+          Finding causes is finding the interface that makes agency compositional. The arrow of
+          causality is where the accounting lives, the substance of causality is the additivity of
+          independent edits, and the boundary of what you causally understand is drawn, sharply and
+          measurably, exactly where that additivity breaks.
+        </p>
+      </div>
     </div>
   </section>
 
@@ -930,6 +1130,16 @@
               </select>
             </div>
 
+            <div class="field">
+              <span>What was randomized?</span>
+              <select class="field-input" id="unitSelect">
+                <option value="deployment">deployment / host / village</option>
+                <option value="replicate">biological replicate / construct / plate</option>
+                <option value="household">household (not person-period)</option>
+                <option value="measurement">cell / request / time step</option>
+              </select>
+            </div>
+
             <label class="switch"><input type="checkbox" id="strictMode" checked> Strict mode</label>
             <label class="switch mt"><input type="checkbox" id="acceptSelection"> <code>--allow-unvalidated-selection-model</code></label>
             <p class="micro mt">
@@ -956,6 +1166,71 @@
               The report opens with assumptions and abstentions, never with a table of p-values.
             </p>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Eligibility / use it
+       ================================================================== -->
+  <section id="eligible">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">From a public square to a fail-closed report</p>
+        <h2>Can I put <em class="accent">my</em> experiment in here?</h2>
+        <p class="lede">
+          Four-law mode does not need product assignment. The gate is a complete square,
+          a declared randomization unit above the measurement, and known state-independent
+          quotas. The three public designs below already have that shape. None of their
+          microdata are bundled; a missing file is an abstention, not a fake certificate.
+        </p>
+      </div>
+
+      <div class="grid grid-3">
+        <article class="card reveal">
+          <p class="label">GEO GSE133344</p>
+          <h3>Norman 2019 Perturb-seq</h3>
+          <p class="note">
+            Control, singles, and doubles are a square. Same-complex pairs should look
+            epistatic on phenotype and flatten once the complex is observed. Linear
+            pathways should uniquely orient. Cells are measurements;
+            <code>replicate_id</code> is the unit.
+          </p>
+          <p class="micro">Track: <code>four_law</code> until construct assignment is product.</p>
+        </article>
+        <article class="card reveal delay-1">
+          <p class="label">NCI-ALMANAC / DrugComb</p>
+          <h3>Drug combination screens</h3>
+          <p class="note">
+            Vehicle, A, B, and combo, when all four arms exist. Shared-target pairs should
+            curve until target engagement is added. Incomplete squares are dropped, never
+            imputed. Cluster at the plate or replicate, not the well.
+          </p>
+          <p class="micro">Track: <code>four_law</code>. Combo screens are almost never product-factorial.</p>
+        </article>
+        <article class="card reveal delay-2">
+          <p class="label">Graduation / cash × training</p>
+          <h3>Factorial anti-poverty RCTs</h3>
+          <p class="note">
+            Does cash work through training, or are they autonomous mechanisms? That is
+            locality plus deletion, not an interaction coefficient on consumption.
+            Cluster at household or village. Person-period rows are measurements.
+          </p>
+          <p class="micro">Track: <code>four_law</code> unless assignment odds at that unit are product.</p>
+        </article>
+      </div>
+
+      <div class="callout info reveal mt">
+        <span class="callout-mark" aria-hidden="true">&#9670;</span>
+        <div>
+          <p>
+            <b>The histogram four-law path is a diagnostic.</b> It fingerprints the table,
+            refuses clusters that span regimes, reports raw normalizer residuals, and
+            draws a coarse &#954; field. It does not localize a family, does not
+            orient a target, and never serializes <code>certificate_status: passed</code>.
+            Templates and the mapping are in <code>docs/DATASET_ELIGIBILITY.md</code>.
+          </p>
         </div>
       </div>
     </div>
@@ -1167,11 +1442,11 @@
       <div class="crates reveal">
         <div><b>mic-core</b><span>exact algebra, curvature, conservation, compensated summation</span></div>
         <div><b>mic-design</b><span>factorial geometry, face enumeration, rank and null space</span></div>
-        <div><b>mic-data</b><span>manifests, selection contracts, validation gates</span></div>
+        <div><b>mic-data</b><span>manifests, std CSV ingest, cluster fingerprints</span></div>
         <div><b>mic-stats</b><span>GCM, MMD, energy distance, parsimony frontier</span></div>
         <div><b>mic-model</b><span>posterior-odds reconstruction, hierarchical logit</span></div>
         <div><b>mic-audit</b><span>evidence ledger, reason codes, fail-closed policy</span></div>
-        <div><b>mic-engine</b><span>preflight orchestration, estimator lens battery</span></div>
+        <div><b>mic-engine</b><span>preflight, histogram four-law, <code>mic-tabular</code></span></div>
         <div><b>mic-sim</b><span>exact scenarios and closed-form fixtures</span></div>
         <div><b>mic-cli</b><span>simulate, design, validate-manifest, preflight</span></div>
         <div><b>mic-conformance</b><span>cross-crate golden journeys, no runtime API</span></div>
@@ -1187,11 +1462,15 @@ mic simulate all --output artifacts/simulations/rust_exact_results.json
 mic preflight examples/configs/nonproduct_sampling_demo.json
 
 <span class="c"># pooled corner odds on their own</span>
-mic design odds 0.10 0.20 0.30 0.40</code></pre>
+mic design odds 0.10 0.20 0.30 0.40
+
+<span class="c"># cluster-weighted histogram four-law (std CSV; not Packet 1)</span>
+mic-tabular report examples/configs/four_law_discrete.json --base-dir .</code></pre>
           <p class="note micro mt">
-            The shipped surface is five commands: <code>simulate</code>, <code>design</code>,
-            <code>validate-manifest</code>, <code>preflight</code>, <code>version</code>. Everything
-            except <code>validate-manifest</code> prints JSON, and an unknown command exits 2.
+            The <code>mic</code> surface is <code>simulate</code>, <code>design</code>,
+            <code>validate-manifest</code>, <code>preflight</code>, <code>orient</code>,
+            <code>version</code>. Tabular four-law is <code>mic-tabular</code> until that
+            wiring lands on the reserved CLI. Unknown <code>mic</code> commands exit 2.
           </p>
         </div>
         <div class="reveal delay-1">

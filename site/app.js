@@ -1498,6 +1498,7 @@
     var inputs = ["q00", "q10", "q01", "q11"].map($);
     var trackSelect = $("trackSelect");
     var selectionSelect = $("selectionSelect");
+    var unitSelect = $("unitSelect");
     var strictBox = $("strictMode");
     var acceptBox = $("acceptSelection");
     var findingsBox = $("auditFindings");
@@ -1554,6 +1555,15 @@
 
       var findings = [];
       var blocking = 0;
+      var unit = unitSelect ? unitSelect.value : "deployment";
+      if (unit === "measurement") {
+        blocking += 1;
+        findings.push(finding("error", "cluster_unit_below_randomization",
+          "Cells, requests, or time steps are not independent if assignment happened at a higher unit. Put the randomization unit in cluster_column."));
+      } else {
+        findings.push(finding("ok", "cluster_unit_declared",
+          "Inference, folds, and resampling are declared at the randomization unit (" + unit + "), not at the measurement."));
+      }
 
       if (selection === "unknown") {
         blocking += 1;
@@ -1625,6 +1635,7 @@
     inputs.forEach(function (node) { node.addEventListener("input", render); });
     trackSelect.addEventListener("change", render);
     if (selectionSelect) { selectionSelect.addEventListener("change", render); }
+    if (unitSelect) { unitSelect.addEventListener("change", render); }
     if (strictBox) { strictBox.addEventListener("change", render); }
     if (acceptBox) { acceptBox.addEventListener("change", render); }
 
