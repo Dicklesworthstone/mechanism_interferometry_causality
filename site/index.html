@@ -1187,7 +1187,9 @@
             <label class="switch mt"><input type="checkbox" id="acceptSelection"> <code>--allow-unvalidated-selection-model</code></label>
             <p class="micro mt">
               In exploratory mode nothing is ever serialized as a passing certificate. Every affected
-              result is watermarked diagnostic instead.
+              result is watermarked diagnostic instead. The override flag works the same way: it buys
+              a modeled selection contract permission to continue, never permission to certify, so a
+              run that uses it lands on <code>diagnostic_only</code> no matter how strict it is.
             </p>
           </div>
         </div>
