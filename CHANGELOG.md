@@ -7,6 +7,7 @@
 - Added the parsimony-frontier localization primitive (`mic_stats::parsimony_frontier`) with cardinality-first ordering and per-variable descriptive inclusion frequencies.
 - Added the deletion-equivalence machinery: tri-state `classify_deletion`, the five-state pass-count machine `orient_from_deletions`, and the deterministic Rademacher multiplier bootstrap `simultaneous_mean_bounds`.
 - Added `mic_engine::audit_orientation` and `mic_engine::audit_overlap`, activating the reserved `orientation_unresolved` and `overlap_failure` reason codes.
+- Made `mic_stats::gcm_projection` require self-validating serialized product-design evidence, with verified-odds, completed-reweighting, and permanently diagnostic-only grades.
 - Added the `mic orient` CLI subcommand and the `examples/orientation/parity_demo.json` walkthrough, with a schema-enforced simultaneous-calibration contract, randomization-unit/source/seed provenance, derived input hash, and a common-equivalence-tolerance guard.
 - Derived the parity fixture's pass count from exact deletion marginals instead of asserting it.
 - Added the proposal-layer boundary documents and the quarantined active-tilt proposal contract, including `mic propose-tilt`, input/output schemas, a derived candidate-library fingerprint, deterministic tie-policy provenance, and explicit no-eligible-candidate abstention.

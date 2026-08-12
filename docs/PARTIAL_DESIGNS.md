@@ -20,6 +20,8 @@ The program computes:
 6. aliases between main effects and interaction columns;
 7. the generalized word-length pattern for regular fractions when available.
 
+Items 1–4 are implemented by `mic_design::audit_design`. Items 5 and 6 are implemented by `mic_design::audit_interaction_aliasing`: each pairwise interaction column over the observed corners is projected onto the intercept-plus-main-effects column space, and the residual is the pair's testable lack-of-fit component. The classification is three-way — `fully_aliased` (residual vanishes, so a pure interaction field is absorbed and that pair's flatness is untestable on this design), `testable_via_squares` (residual lies in the span of observed square-face contrasts), and `requires_general_contrast` (residual exists but no square battery reaches it). The audit also reports the lack-of-fit dimensions untested by any square contrast, both as a count and as explicit canonicalized contrast vectors completing the square span to the full lack-of-fit basis, which is exactly the content a square-only implementation silently ignores. Item 7 remains future work.
+
 ## Six-corner counterexample
 
 The 3-cube with `000` and `111` removed contains no complete square face. Nevertheless, six observations minus rank four leaves two flatness restrictions. One is

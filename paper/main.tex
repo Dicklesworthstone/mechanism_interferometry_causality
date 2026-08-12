@@ -854,7 +854,7 @@ Therefore \(c(x)\equiv0\) characterizes
 \begin{equation}
 \kappa(x)\equiv-\log\OR(\rho),
 \end{equation}
-not \(\kappa\equiv0\), unless \(\OR(\rho)=1\).  Equal-corner balancing, \(\rho_{ab}=1/4\), is safe because it is product sampling.  Arbitrary per-corner quotas are not.  The implementation must either enforce product sampling, reweight observations to a chosen product design, or use Track I.
+not \(\kappa\equiv0\), unless \(\OR(\rho)=1\).  Equal-corner balancing, \(\rho_{ab}=1/4\), is safe because it is product sampling.  Arbitrary per-corner quotas are not.  The implementation must either enforce product sampling, reweight observations to a chosen product design, or use Track I.  Accordingly, every software GCM projection carries serialized design evidence: directly verified corner odds, a reference to a completed product-design reweighting audit, or an explicit diagnostic-only grade that cannot support certification.
 
 This is the precise correspondence:
 \begin{center}
@@ -1322,7 +1322,7 @@ Every empirical run should emit a machine-readable audit bundle containing:
 \item localization stability paths;
 \item simultaneous deletion-equivalence intervals and pass status;
 \item exploratory proposal artifacts, their candidate-library fingerprints, tie rules, and recommendation-or-abstention status;
-\item moment battery, GCM/wGCM projections, and joint-model diagnostics;
+\item moment battery, GCM/wGCM projections with their serialized product-design evidence, and joint-model diagnostics;
 \item estimator-family agreement results across the declared lens battery;
 \item raw and self-normalized compositional predictions;
 \item state-expansion comparisons;

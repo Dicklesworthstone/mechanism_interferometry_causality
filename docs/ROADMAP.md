@@ -29,6 +29,7 @@
 ## Packet 3: GCM/wGCM
 
 - product-sampling gate and reweighting;
+- self-validating, serializable product-design evidence on every GCM projection (`mic_stats::ProductDesignEvidence`);
 - cross-fitted nuisance regressions;
 - fixed and weighted witness tests;
 - adaptive split witness;
