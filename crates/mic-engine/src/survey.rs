@@ -75,6 +75,8 @@ pub struct InterferometerProposal {
     pub sampling: Option<SamplingOddsAudit>,
     /// Whether a complete 2-factor square is observed.
     pub complete_square: bool,
+    /// Unobserved corners of the implied factorial, as bit strings. Empty if complete.
+    pub missing_corners: Vec<String>,
     /// Whether pooled odds are empirically product (estimated quotas, not known).
     pub empirically_product: bool,
     /// Smallest retained corner count.
@@ -166,11 +168,7 @@ pub fn run_unsupervised_survey(
         .iter()
         .find(|item| item.complete_square)
         .and_then(|item| suggested_four_law_manifest(&table, item, cluster_column.as_deref()));
-    let next_step = if interferometers.iter().any(|item| item.complete_square) {
-        "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Do not treat this atlas as orientation.".into()
-    } else {
-        "No complete square was observed. Add the missing corners or collect a factorial follow-up. The atlas is a design proposal, not a graph.".into()
-    };
+    let next_step = survey_next_step(&interferometers);
     Ok(SurveyReport {
         schema_version: "1.0.0".into(),
         authority: SurveyAuthority::ProposalOnly,
@@ -380,6 +378,7 @@ fn propose(
     };
     let complete_square =
         design.points.len() == 4 && design.points.iter().all(|point| point.dimension() == 2);
+    let missing_corners = missing_factorial_corners(&design);
     let sampling = if complete_square {
         let mut rho = [0.0; 4];
         for (point, proportion) in design.points.iter().zip(&design.proportions) {
@@ -398,20 +397,73 @@ fn propose(
     };
     let empirically_product = sampling.is_some_and(|audit| audit.is_product);
     let min_corner_count = design.counts.iter().copied().min().unwrap_or(0);
+    let near_square = design
+        .points
+        .first()
+        .is_some_and(|point| point.dimension() == 2)
+        && design.points.len() == 3;
     let priority = f64::from(u32::from(complete_square)) * 1_000.0
+        + f64::from(u32::from(near_square)) * 200.0
         + min_corner_count as f64
-        + f64::from(u32::from(empirically_product)) * 50.0;
+        + f64::from(u32::from(empirically_product)) * 50.0
+        - missing_corners.len() as f64;
+    let note = if missing_corners.is_empty() {
+        note.to_string()
+    } else {
+        format!(
+            "{note}; missing corners [{}] — collect those arms, do not impute them",
+            missing_corners.join(",")
+        )
+    };
     Ok(Some(InterferometerProposal {
         interferometer_id,
         context_columns,
         design,
         sampling,
         complete_square,
+        missing_corners,
         empirically_product,
         min_corner_count,
         priority,
-        note: note.to_string(),
+        note,
     }))
+}
+
+fn survey_next_step(interferometers: &[InterferometerProposal]) -> String {
+    if interferometers.iter().any(|item| item.complete_square) {
+        return "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Do not treat this atlas as orientation.".into();
+    }
+    if let Some(item) = interferometers
+        .iter()
+        .find(|item| !item.missing_corners.is_empty())
+    {
+        return format!(
+            "No complete square was observed. Highest-ranked incomplete design `{}` is missing corners [{}]. Collect those arms or run a factorial follow-up. Do not impute them. The atlas is a design proposal, not a graph.",
+            item.interferometer_id,
+            item.missing_corners.join(",")
+        );
+    }
+    "No complete square was observed. Add the missing corners or collect a factorial follow-up. The atlas is a design proposal, not a graph.".into()
+}
+
+fn missing_factorial_corners(design: &ObservedDesign) -> Vec<String> {
+    let Some(first) = design.points.first() else {
+        return Vec::new();
+    };
+    let dimension = first.dimension();
+    if dimension == 0 || dimension > 4 {
+        return Vec::new();
+    }
+    let observed: BTreeSet<String> = design.points.iter().map(DesignPoint::bit_string).collect();
+    let n_corners = 1_usize << dimension;
+    (0..n_corners)
+        .map(|index| {
+            (0..dimension)
+                .map(|bit| if (index >> bit) & 1 == 1 { '1' } else { '0' })
+                .collect()
+        })
+        .filter(|corner| !observed.contains(corner))
+        .collect()
 }
 
 fn cluster_collapsed_bits(
@@ -592,6 +644,12 @@ mod tests {
             .expect("complete square should emit a draft");
         assert_eq!(suggested.selection, mic_data::SelectionContract::Unknown);
         assert_eq!(suggested.inference_track, mic_data::InferenceTrack::FourLaw);
+        assert!(
+            report
+                .interferometers
+                .iter()
+                .any(|item| item.complete_square && item.missing_corners.is_empty())
+        );
     }
 
     #[test]
@@ -655,5 +713,35 @@ mod tests {
                 .iter()
                 .all(|item| !item.context_columns.iter().any(|column| column == "y"))
         );
+    }
+
+    #[test]
+    fn three_corner_table_names_the_missing_arm_and_stays_proposal_only() {
+        let dir = std::env::temp_dir().join("mic-survey-missing-corner");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("three_corners.csv");
+        std::fs::write(
+            &path,
+            "cluster_id,regime,x\n\
+             c00a,00,0\nc00b,00,1\n\
+             c10a,10,0\nc10b,10,1\n\
+             c01a,01,0\nc01b,01,1\n",
+        )
+        .unwrap();
+        let report =
+            run_unsupervised_survey(&path, None, Some("cluster_id"), SurveyPolicy::default())
+                .unwrap();
+        assert_eq!(report.authority, SurveyAuthority::ProposalOnly);
+        assert!(report.suggested_manifest.is_none());
+        let square = report
+            .interferometers
+            .iter()
+            .find(|item| item.context_columns == ["regime"])
+            .expect("bitstring regime should still be proposed as an incomplete design");
+        assert!(!square.complete_square);
+        assert_eq!(square.missing_corners, ["11"]);
+        assert!(square.note.contains("missing corners [11]"));
+        assert!(report.next_step.contains("11"));
+        assert!(report.next_step.contains("Do not impute"));
     }
 }
