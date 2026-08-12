@@ -326,6 +326,170 @@ pub fn null_space_basis(
     Ok(basis)
 }
 
+/// Estimability class of one pairwise interaction field on an observed design.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InteractionEstimability {
+    /// The interaction column lies inside the intercept-plus-main-effects span,
+    /// so a pure interaction field is absorbed and this pair's flatness is untestable.
+    FullyAliased,
+    /// The testable component lies inside the span of observed square-face contrasts.
+    TestableViaSquares,
+    /// The testable component exists but requires a non-square lack-of-fit contrast.
+    RequiresGeneralContrast,
+}
+
+/// Alias classification for one interaction pair.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct InteractionAlias {
+    /// First design coordinate.
+    pub first: usize,
+    /// Second design coordinate.
+    pub second: usize,
+    /// Euclidean norm of the interaction column's lack-of-fit component.
+    pub testable_component_norm: f64,
+    /// Estimability class.
+    pub status: InteractionEstimability,
+}
+
+/// Pairwise interaction aliasing report for an observed design.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AliasAudit {
+    /// One classification per coordinate pair, ordered lexicographically.
+    pub pairs: Vec<InteractionAlias>,
+    /// Number of pairs whose flatness is untestable on this design.
+    pub fully_aliased_pairs: usize,
+    /// Number of pairs testable through observed square faces alone.
+    pub square_testable_pairs: usize,
+    /// Number of pairs requiring non-square lack-of-fit contrasts.
+    pub general_contrast_pairs: usize,
+    /// Lack-of-fit dimensions not spanned by any observed square contrast.
+    pub untested_lack_of_fit_dimension: usize,
+}
+
+/// Classifies every pairwise interaction field by estimability on the observed design.
+///
+/// For each pair, the interaction column over the observed corners is projected
+/// onto the intercept-plus-main-effects column space; the residual is the pair's
+/// testable lack-of-fit component.  A vanishing residual means the pair is fully
+/// aliased: no flatness violation confined to that interaction can be detected
+/// on this design.  A nonvanishing residual is then tested for membership in the
+/// span of observed square-face contrasts, separating pairs testable by the
+/// square battery from pairs that need general lack-of-fit contrasts.  The
+/// residual-norm threshold scales the supplied tolerance by the square root of
+/// the corner count.
+pub fn audit_interaction_aliasing(
+    points: &[DesignPoint],
+    tolerance: f64,
+) -> Result<AliasAudit, DesignError> {
+    validate_tolerance(tolerance)?;
+    validate_points(points)?;
+    let dimension = points[0].dimension();
+    let corner_count = points.len();
+    let main_effect_columns = orthonormal_columns(&main_effects_matrix(points), tolerance);
+    let faces = enumerate_square_faces(points)?;
+    let face_vectors = square_contrast_vectors(points, &faces);
+    let face_rank = matrix_rank(face_vectors.clone(), tolerance)?;
+    let residual_threshold = tolerance * (corner_count as f64).sqrt().max(1.0);
+
+    let mut pairs = Vec::new();
+    let mut fully_aliased_pairs = 0;
+    let mut square_testable_pairs = 0;
+    let mut general_contrast_pairs = 0;
+    for first in 0..dimension {
+        for second in (first + 1)..dimension {
+            let interaction: Vec<f64> = points
+                .iter()
+                .map(|point| {
+                    if point.bits[first] && point.bits[second] {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                })
+                .collect();
+            let residual = orthogonal_residual(&interaction, &main_effect_columns);
+            let testable_component_norm = norm(&residual);
+            let status = if testable_component_norm <= residual_threshold {
+                fully_aliased_pairs += 1;
+                InteractionEstimability::FullyAliased
+            } else {
+                let mut augmented = face_vectors.clone();
+                augmented.push(residual);
+                if matrix_rank(augmented, tolerance)? == face_rank {
+                    square_testable_pairs += 1;
+                    InteractionEstimability::TestableViaSquares
+                } else {
+                    general_contrast_pairs += 1;
+                    InteractionEstimability::RequiresGeneralContrast
+                }
+            };
+            pairs.push(InteractionAlias {
+                first,
+                second,
+                testable_component_norm,
+                status,
+            });
+        }
+    }
+
+    let main_rank = matrix_rank(main_effects_matrix(points), tolerance)?;
+    let lack_of_fit_dimension = corner_count.saturating_sub(main_rank);
+    Ok(AliasAudit {
+        pairs,
+        fully_aliased_pairs,
+        square_testable_pairs,
+        general_contrast_pairs,
+        untested_lack_of_fit_dimension: lack_of_fit_dimension.saturating_sub(face_rank),
+    })
+}
+
+/// Orthonormalizes the columns of a row-major matrix by modified Gram-Schmidt.
+fn orthonormal_columns(rows: &[Vec<f64>], tolerance: f64) -> Vec<Vec<f64>> {
+    if rows.is_empty() {
+        return Vec::new();
+    }
+    let width = rows[0].len();
+    let mut basis: Vec<Vec<f64>> = Vec::with_capacity(width);
+    for column in 0..width {
+        let mut vector: Vec<f64> = rows.iter().map(|row| row[column]).collect();
+        for existing in &basis {
+            let coefficient = dot(&vector, existing);
+            for (value, &basis_value) in vector.iter_mut().zip(existing) {
+                *value -= coefficient * basis_value;
+            }
+        }
+        let magnitude = norm(&vector);
+        if magnitude > tolerance {
+            for value in &mut vector {
+                *value /= magnitude;
+            }
+            basis.push(vector);
+        }
+    }
+    basis
+}
+
+/// Component of `vector` orthogonal to an orthonormal collection.
+fn orthogonal_residual(vector: &[f64], orthonormal: &[Vec<f64>]) -> Vec<f64> {
+    let mut residual = vector.to_vec();
+    for basis_vector in orthonormal {
+        let coefficient = dot(&residual, basis_vector);
+        for (value, &basis_value) in residual.iter_mut().zip(basis_vector) {
+            *value -= coefficient * basis_value;
+        }
+    }
+    residual
+}
+
+fn dot(left: &[f64], right: &[f64]) -> f64 {
+    left.iter().zip(right).map(|(&a, &b)| a * b).sum()
+}
+
+fn norm(vector: &[f64]) -> f64 {
+    dot(vector, vector).sqrt()
+}
+
 fn rref(
     mut matrix: Vec<Vec<f64>>,
     tolerance: f64,
@@ -497,6 +661,63 @@ mod tests {
         assert!(audit.square_faces.is_empty());
         assert_eq!(audit.square_contrast_rank, 0);
         assert!(!audit.squares_span_lack_of_fit);
+    }
+
+    #[test]
+    fn complete_cube_interactions_are_square_testable() {
+        let points: Vec<_> = (0_u8..8)
+            .map(|value| {
+                DesignPoint::new((0..3).map(|bit| value & (1 << bit) != 0).collect()).unwrap()
+            })
+            .collect();
+        let audit = audit_interaction_aliasing(&points, 1e-12).unwrap();
+        assert_eq!(audit.pairs.len(), 3);
+        assert_eq!(audit.square_testable_pairs, 3);
+        assert_eq!(audit.fully_aliased_pairs, 0);
+        assert_eq!(audit.general_contrast_pairs, 0);
+        assert_eq!(audit.untested_lack_of_fit_dimension, 0);
+    }
+
+    #[test]
+    fn six_corner_interactions_need_general_contrasts() {
+        let points: Vec<_> = ["001", "010", "011", "100", "101", "110"]
+            .iter()
+            .map(|label| DesignPoint::parse(label).unwrap())
+            .collect();
+        let audit = audit_interaction_aliasing(&points, 1e-12).unwrap();
+        assert_eq!(audit.pairs.len(), 3);
+        assert_eq!(audit.general_contrast_pairs, 3);
+        assert_eq!(audit.fully_aliased_pairs, 0);
+        assert_eq!(audit.square_testable_pairs, 0);
+        assert_eq!(audit.untested_lack_of_fit_dimension, 2);
+        for pair in &audit.pairs {
+            assert!(pair.testable_component_norm > 0.1);
+        }
+    }
+
+    #[test]
+    fn diagonal_two_corner_design_fully_aliases_the_interaction() {
+        let points = vec![
+            DesignPoint::parse("00").unwrap(),
+            DesignPoint::parse("11").unwrap(),
+        ];
+        let audit = audit_interaction_aliasing(&points, 1e-12).unwrap();
+        assert_eq!(audit.pairs.len(), 1);
+        assert_eq!(audit.fully_aliased_pairs, 1);
+        assert_eq!(audit.pairs[0].status, InteractionEstimability::FullyAliased);
+        assert_eq!(audit.untested_lack_of_fit_dimension, 0);
+    }
+
+    #[test]
+    fn three_corner_ell_design_fully_aliases_the_interaction() {
+        let points = vec![
+            DesignPoint::parse("00").unwrap(),
+            DesignPoint::parse("10").unwrap(),
+            DesignPoint::parse("01").unwrap(),
+        ];
+        let audit = audit_interaction_aliasing(&points, 1e-12).unwrap();
+        assert_eq!(audit.fully_aliased_pairs, 1);
+        assert_eq!(audit.untested_lack_of_fit_dimension, 0);
     }
 
     #[test]
