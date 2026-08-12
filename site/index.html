@@ -1666,7 +1666,9 @@
         <div><b>mic-audit</b><span>evidence ledger, reason codes, fail-closed policy</span></div>
         <div><b>mic-engine</b><span>preflight, histogram four-law, <code>mic-tabular</code></span></div>
         <div><b>mic-sim</b><span>exact scenarios and closed-form fixtures</span></div>
-        <div><b>mic-cli</b><span>simulate, design, validate-manifest, preflight</span></div>
+        <div><b>mic-proposal</b><span>active tilt candidates, ranking, typed rejections</span></div>
+        <div><b>mic-cli</b><span>simulate, design, validate-manifest, preflight, orient, propose-tilt</span></div>
+        <div><b>mic-wasm</b><span>the browser boundary this page runs on</span></div>
         <div><b>mic-conformance</b><span>cross-crate golden journeys, no runtime API</span></div>
       </div>
 
@@ -1735,6 +1737,7 @@ mic-tabular report examples/configs/four_law_discrete.json --base-dir .</code></
             <tr><td><code>cluster_spans_regimes</code></td><td>A randomization unit appears under more than one regime, so the assignment unit is not a regime unit.</td></tr>
             <tr><td><code>missing_regime_data</code></td><td>A declared regime has no included clusters in the ingested table.</td></tr>
             <tr><td><code>empty_common_support</code></td><td>No cell of the projection carries positive mass in all four corners.</td></tr>
+            <tr><td><code>duplicate_provenance</code></td><td>A provenance key was bound twice with different values. The first write is preserved and the rebinding is refused, so a later stage cannot quietly overwrite an earlier seed, unit or fingerprint.</td></tr>
           </tbody>
         </table>
       </div>
