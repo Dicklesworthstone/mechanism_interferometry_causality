@@ -518,8 +518,9 @@ def validate_cargo_and_sources() -> None:
     stats_text = (ROOT / "crates" / "mic-stats" / "src" / "lib.rs").read_text(encoding="utf-8")
     for token in [
         "ProductDesignEvidence",
-        "from_corner_odds",
+        "from_sampling_odds_audit",
         "from_reweighting_audit",
+        "source_fingerprint",
         "DiagnosticOnly",
         "design_evidence: &ProductDesignEvidence",
     ]:

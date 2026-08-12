@@ -854,7 +854,7 @@ Therefore \(c(x)\equiv0\) characterizes
 \begin{equation}
 \kappa(x)\equiv-\log\OR(\rho),
 \end{equation}
-not \(\kappa\equiv0\), unless \(\OR(\rho)=1\).  Equal-corner balancing, \(\rho_{ab}=1/4\), is safe because it is product sampling.  Arbitrary per-corner quotas are not.  The implementation must either enforce product sampling, reweight observations to a chosen product design, or use Track I.  Accordingly, every software GCM projection carries serialized design evidence: directly verified corner odds, a reference to a completed product-design reweighting audit, or an explicit diagnostic-only grade that cannot support certification.
+not \(\kappa\equiv0\), unless \(\OR(\rho)=1\).  Equal-corner balancing, \(\rho_{ab}=1/4\), is safe when it follows from the sampling contract; equal empirical counts alone do not establish product assignment.  Arbitrary per-corner quotas are not safe.  The implementation must either verify product sampling from the declared design, reweight observations to a chosen product design, or use Track I.  Accordingly, every software GCM projection carries serialized design evidence: a completed sampling-odds audit identifier and fingerprint of its declared allocation source, a completed product-design reweighting audit and artifact fingerprint, or an explicit diagnostic-only grade that cannot support certification.
 
 This is the precise correspondence:
 \begin{center}
