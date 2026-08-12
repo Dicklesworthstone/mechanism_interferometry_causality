@@ -11,9 +11,9 @@ use std::fmt::Write as _;
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct NarrativeReport {
     /// Schema version.
-    pub schema_version: String,
+    schema_version: String,
     /// Experiment identifier.
-    pub experiment_id: String,
+    experiment_id: String,
     /// Conservative certificate status.
     status: CertificateStatus,
     /// Complete typed inputs from which `status` was derived.
@@ -21,10 +21,22 @@ pub struct NarrativeReport {
     /// Execution policy.
     mode: ExecutionMode,
     /// Markdown that leads with assumptions and abstentions.
-    pub markdown: String,
+    markdown: String,
 }
 
 impl NarrativeReport {
+    /// Returns the report schema version.
+    #[must_use]
+    pub fn schema_version(&self) -> &str {
+        &self.schema_version
+    }
+
+    /// Returns the experiment identifier.
+    #[must_use]
+    pub fn experiment_id(&self) -> &str {
+        &self.experiment_id
+    }
+
     /// Returns the internally derived certificate status.
     #[must_use]
     pub const fn status(&self) -> CertificateStatus {
@@ -41,6 +53,12 @@ impl NarrativeReport {
     #[must_use]
     pub const fn mode(&self) -> ExecutionMode {
         self.mode
+    }
+
+    /// Returns the rendered Markdown.
+    #[must_use]
+    pub fn markdown(&self) -> &str {
+        &self.markdown
     }
 }
 
@@ -166,17 +184,17 @@ mod tests {
         let gates = CertificateGates::unresolved();
         let report = render_narrative("demo", &gates, &ledger, &[]);
         let first_heading = report
-            .markdown
+            .markdown()
             .lines()
             .find(|line| line.starts_with("## "))
             .unwrap();
         assert_eq!(first_heading, "## Certificate status: `abstained`");
-        assert!(report.markdown.contains("## Abstentions"));
+        assert!(report.markdown().contains("## Abstentions"));
         assert!(
-            report.markdown.find("## Abstentions").unwrap()
-                < report.markdown.find("## Informational findings").unwrap()
+            report.markdown().find("## Abstentions").unwrap()
+                < report.markdown().find("## Informational findings").unwrap()
         );
-        assert!(!report.markdown.to_ascii_lowercase().contains("p-value"));
+        assert!(!report.markdown().to_ascii_lowercase().contains("p-value"));
         assert_eq!(report.gates(), gates);
         assert_eq!(report.status(), ledger.status(&gates));
     }

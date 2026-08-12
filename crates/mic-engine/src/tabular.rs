@@ -900,17 +900,16 @@ mod tests {
         assert!((kappa0 - 1.6_f64.ln()).abs() < 1e-12);
         assert!((kappa1 - 0.4_f64.ln()).abs() < 1e-12);
         assert!(face.max_abs_kappa > 0.8);
+        let narrative = report.narrative();
         assert!(
-            report
-                .narrative()
-                .markdown
+            narrative
+                .markdown()
                 .contains("## Certificate status: `abstained`")
         );
         assert!(
-            report.narrative().markdown.find("## Abstentions").unwrap()
-                < report
-                    .narrative()
-                    .markdown
+            narrative.markdown().find("## Abstentions").unwrap()
+                < narrative
+                    .markdown()
                     .find("## Informational findings")
                     .unwrap()
         );

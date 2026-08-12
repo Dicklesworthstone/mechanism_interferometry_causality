@@ -60,7 +60,7 @@ fn run(args: &[String]) -> Result<(), String> {
                 _ => unreachable!(),
             };
             if command == "report" {
-                println!("{}", report.narrative().markdown);
+                println!("{}", report.narrative().markdown());
             }
             if let Some(output) = option_value(args, "--output") {
                 let pretty =

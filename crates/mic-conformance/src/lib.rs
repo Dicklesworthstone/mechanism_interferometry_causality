@@ -307,7 +307,8 @@ mod tests {
         assert!(!report.preflight.product_factorial_eligible);
         assert_eq!(report.status(), CertificateStatus::Abstained);
         assert!(report.four_law[0].max_abs_kappa > 0.8);
-        let markdown = report.narrative().markdown;
+        let narrative = report.narrative();
+        let markdown = narrative.markdown();
         assert!(markdown.starts_with("# Mechanism Interferometry report"));
         assert!(markdown.contains("## Certificate status: `abstained`"));
         assert!(
