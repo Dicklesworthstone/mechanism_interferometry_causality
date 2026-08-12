@@ -113,7 +113,9 @@ def required_files() -> None:
         "schemas/evidence_finding.schema.json",
         "schemas/audit_report.schema.json",
         "schemas/active_tilt_input.schema.json",
+        "schemas/orientation_input.schema.json",
         "schemas/proposal_batch.schema.json",
+        "examples/orientation/parity_demo.json",
         "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
         "crates/mic-proposal/Cargo.toml",
@@ -147,6 +149,7 @@ def validate_schemas_and_manifests() -> None:
         schemas[path.name] = document
 
     manifest_schema = schemas.get("experiment_manifest.schema.json")
+    orientation_schema = schemas.get("orientation_input.schema.json")
     proposal_input_schema = schemas.get("active_tilt_input.schema.json")
     proposal_schema = schemas.get("proposal_batch.schema.json")
     check(proposal_input_schema is not None, "active-tilt input schema was not loaded")
@@ -168,6 +171,28 @@ def validate_schemas_and_manifests() -> None:
             check(feature_flags == sorted(set(feature_flags)), f"{path.name} input feature flags are not canonicalized")
             candidate_ids = [candidate.get("candidate_id") for candidate in candidates if isinstance(candidate, dict)]
             check(len(candidate_ids) == len(set(candidate_ids)), f"{path.name} input repeats a candidate identifier")
+
+    check(orientation_schema is not None, "orientation input schema was not loaded")
+    if orientation_schema is not None:
+        orientation_validator = Draft202012Validator(orientation_schema)
+        for path in sorted((ROOT / "examples" / "orientation").glob("*.json")):
+            orientation = load_json(path)
+            errors = sorted(orientation_validator.iter_errors(orientation), key=lambda error: list(error.path))
+            for error in errors:
+                location = ".".join(str(part) for part in error.path) or "<root>"
+                fail(f"{path.relative_to(ROOT)} orientation schema violation at {location}: {error.message}")
+            if not isinstance(orientation, dict):
+                continue
+            deletions = orientation.get("deletions", [])
+            variables = [row.get("variable") for row in deletions if isinstance(row, dict)]
+            check(len(variables) == len(set(variables)), f"{path.name} repeats a deletion variable")
+            for row in deletions:
+                if not isinstance(row, dict):
+                    continue
+                lower = float(row.get("lower", math.nan))
+                point = float(row.get("relative_discrepancy", math.nan))
+                upper = float(row.get("upper", math.nan))
+                check(lower <= point <= upper, f"{path.name} has misordered deletion bounds for {row.get('variable')}")
 
     check(proposal_schema is not None, "proposal batch schema was not loaded")
     if proposal_schema is not None:
