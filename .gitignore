@@ -23,3 +23,22 @@ venv/
 /dist/
 
 /_renders/
+
+# === multi-repo ephemeral patterns ===
+# Cloudflare Pages / Wrangler local cache
+.wrangler/
+# br / eidetic-engine frankensqlite VFS sidecars and Beads runtime
+.beads/beads.db-fsqlite-ns-*
+.ee/ee.db-fsqlite-ns-*
+*-fsqlite-ns-gate
+*-fsqlite-ns-use
+.beads/.write.lock.stale-*
+.beads/last-touched
+.beads/.br_history/
+.ee/
+.ntm/
+.bv/
+.claude/
+*.tmp
+*.swp
+*~
