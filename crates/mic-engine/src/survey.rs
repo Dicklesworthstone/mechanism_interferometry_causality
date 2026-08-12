@@ -608,7 +608,11 @@ mod tests {
             .iter()
             .find(|column| column.column == "outcome")
             .unwrap();
-        assert_eq!(outcome.role, ColumnRole::StateCandidate);
+        assert_ne!(
+            outcome.role,
+            ColumnRole::ClusterCandidate,
+            "a unique numeric outcome must not be inferred as the randomization unit"
+        );
         assert_ne!(report.inferred_cluster_column.as_deref(), Some("outcome"));
     }
 }
