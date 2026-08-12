@@ -9,8 +9,19 @@
 # used them are ordinary classes. Setting element.style from script is CSSOM
 # rather than an inline style, so the reading-progress bar is unaffected.
 #
-# connect-src 'none' is the load-bearing line. Nothing on this page should ever
-# open a request, and a violation is a bug worth breaking the page over.
+# connect-src is 'self' rather than 'none' because wasm-bindgen's web target
+# loads the module with fetch(), which connect-src governs; under 'none' the
+# audit module simply cannot instantiate. 'self' still means this page can only
+# ever talk to its own origin, and there is no origin API to talk to, so the
+# claim "nothing leaves this page" is unchanged. The alternative that would keep
+# 'none' is embedding the module as base64 in a script, which costs a third more
+# bytes to buy a distinction without a difference here.
+#
+# 'wasm-unsafe-eval' is the ONE token WebAssembly instantiation requires, and it
+# is exactly that: permission to compile a wasm module, not permission to eval
+# JavaScript. It does not weaken connect-src, so the audit module still cannot
+# reach the network. The alternative, 'unsafe-eval', would be strictly worse and
+# is not needed.
 #
 # Cache-control: index.html, the stylesheet and the script are revalidated every
 # time, because this site has no content-hashed filenames and a stale app.js
@@ -24,7 +35,7 @@
 # several minutes after a deploy. The `/index.html` line below is kept only so
 # that a direct request for it is not cached either. Measured, not theorised.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()
@@ -38,6 +49,8 @@
 /styles.css
   Cache-Control: no-cache
 /app.js
+  Cache-Control: no-cache
+/pkg/*
   Cache-Control: no-cache
 /assets/fonts/*
   Cache-Control: public, max-age=604800, immutable
