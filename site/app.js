@@ -1308,8 +1308,7 @@
     ["family", "estimate", "std. error"].forEach(function (text, position) {
       var cell = doc.createElement("span");
       cell.textContent = text;
-      if (position) { cell.className = "lens-head"; }
-      else { cell.className = "lens-head"; cell.style.textAlign = "left"; }
+      cell.className = position ? "lens-head" : "lens-head lens-head--start";
       headings.appendChild(cell);
     });
     host.appendChild(headings);

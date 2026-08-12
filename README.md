@@ -73,7 +73,7 @@ The software has two inference modes and never silently substitutes one for the 
 1. **Four-law mode** estimates functionals of the normalized regime laws and permits arbitrary known, state-independent corner quotas.
 2. **Product-factorial mode** uses GCM/wGCM residual products and requires product assignment odds or explicit reweighting to a product design.
 
-Within-regime state-dependent selection invalidates both modes unless modeled. Strict mode fails closed on this and on inadequate overlap, unresolved deletion orientation, non-product GCM sampling, unidentifiable design contrasts, or inconsistent randomization units.
+Within-regime state-dependent selection invalidates both modes unless modeled. Strict mode fails closed on this and on inadequate overlap, unresolved deletion orientation, non-product GCM sampling, unidentifiable design contrasts, or inconsistent randomization units. The executable orientation path also rejects pointwise interval collections, mixed equivalence tolerances, or missing interval-method, randomization-unit, source-fingerprint, and seed provenance.
 
 ## Current implementation status
 

@@ -22,7 +22,7 @@
 - MMD and energy U-statistics (reference forms in `mic-stats`);
 - cluster-aware multiplier/bootstrap intervals (mean-type reference: `mic_stats::simultaneous_mean_bounds`; U-statistic corrections outstanding);
 - relative deletion equivalence (`mic_stats::classify_deletion`);
-- pass-count state machine and golden parity fixtures (`mic_stats::orient_from_deletions`, `mic_engine::audit_orientation`, derived parity pass count);
+- pass-count state machine and golden parity fixtures (`mic_stats::orient_from_deletions`, `mic_engine::audit_orientation`, derived parity pass count, common-tolerance guard, and calibrated CLI input schema/provenance);
 - overlap gate on ratio-weight effective sample size (`mic_engine::audit_overlap`);
 - active tilt proposal for multiple-pass disambiguation, with executable CLI, input/output schemas, candidate-library fingerprint, and explicit no-eligible-candidate abstention (quarantined in `mic-proposal`).
 

@@ -117,19 +117,19 @@
           <h3>Response nonlinearity</h3>
           <p class="note">The map from state to outcome manufactures synergy on its own. The generating mechanisms stayed autonomous the whole time.</p>
         </article>
-        <article class="card reveal" style="--reveal-delay:70ms">
+        <article class="card reveal delay-1">
           <span class="card-num" aria-hidden="true">02</span>
           <span class="glyph c" aria-hidden="true">C</span>
           <h3>Mechanism coupling</h3>
           <p class="note">The combined intervention really did change how a primitive mechanism operates. This is genuine density curvature, and the only case that deserves the word interaction.</p>
         </article>
-        <article class="card reveal" style="--reveal-delay:140ms">
+        <article class="card reveal delay-2">
           <span class="card-num" aria-hidden="true">03</span>
           <span class="glyph i" aria-hidden="true">M</span>
           <h3>Missing state</h3>
           <p class="note">Marginalizing a variable away makes exactly flat latent factors conditionally dependent. The curvature belongs to your observation set rather than to the world.</p>
         </article>
-        <article class="card reveal" style="--reveal-delay:210ms">
+        <article class="card reveal delay-3">
           <span class="card-num" aria-hidden="true">04</span>
           <span class="glyph f" aria-hidden="true">I</span>
           <h3>Implementation drift</h3>
@@ -195,7 +195,7 @@
             <var>r</var><sub><var>j</var></sub>(<var>x</var><sub><var>t</var><sub><var>j</var></sub></sub>, <var>x</var><sub>pa(<var>t</var><sub><var>j</var></sub>)</sub>)
           </div>
         </article>
-        <article class="card reveal" style="--reveal-delay:80ms">
+        <article class="card reveal delay-1">
           <span class="glyph ring" aria-hidden="true">N</span>
           <h3>Conditional normalization</h3>
           <p class="note">The ratio integrates to one over the target, conditional on its proposed parents.</p>
@@ -204,7 +204,7 @@
             <span class="op">=</span> 1
           </div>
         </article>
-        <article class="card reveal" style="--reveal-delay:160ms">
+        <article class="card reveal delay-2">
           <span class="glyph ring" aria-hidden="true">F</span>
           <h3>Square flatness</h3>
           <p class="note">Every two-dimensional face of the intervention cube closes. Order two already forces flatness at all higher orders.</p>
@@ -237,7 +237,7 @@
             tests survive as diagnostics under estimation error, never as extra requirements.
           </p>
         </article>
-        <article class="card reveal" style="--reveal-delay:80ms">
+        <article class="card reveal delay-1">
           <h3>Gauge invariance</h3>
           <p class="note">
             Add any field of the form <code>a(x) + sum_j s_j b_j(x)</code> to the log-densities and
@@ -248,7 +248,7 @@
             not a scientific baseline.
           </p>
         </article>
-        <article class="card reveal" style="--reveal-delay:160ms">
+        <article class="card reveal delay-2">
           <h3>Existence, not identification</h3>
           <p class="note">
             The theorem says a proposed graph and target assignment admit a modular causal
@@ -651,7 +651,7 @@
           </div>
           <p class="note">The cheap moment statistic turns out to be a signed, ratio-tilted average of curvature. Its blind spot is quantitative: a sign-varying field can integrate to zero.</p>
         </article>
-        <article class="card reveal law" style="--reveal-delay:80ms">
+        <article class="card reveal law delay-1">
           <p class="label">Law 2 &#183; latent conservation</p>
           <div class="eq eq--sm wrap-any">
             <span class="fn">Cov</span><sub>0</sub>(<var>r</var><sub>A</sub>,<var>r</var><sub>B</sub>)
@@ -659,7 +659,7 @@
           </div>
           <p class="note">Coupling hidden by observation returns with opposite sign as correlation between observable ratio fields. Neither side is directly the other; only the average is exact.</p>
         </article>
-        <article class="card reveal law" style="--reveal-delay:160ms">
+        <article class="card reveal law delay-2">
           <p class="label">Law 3 &#183; nested state expansion</p>
           <div class="eq eq--sm wrap-any">
             <var>C</var><sub><var>X</var></sub> <span class="op">=</span>
@@ -686,7 +686,7 @@
             Brillinger's conditioning formula brings in set-partition sums.
           </p>
         </article>
-        <article class="card reveal" style="--reveal-delay:80ms">
+        <article class="card reveal delay-1">
           <h3>Flatness is never a reward</h3>
           <p class="note">
             Curvature survives any invertible transformation of the state, and any learned
@@ -844,7 +844,7 @@
             surely.
           </p>
         </article>
-        <article class="card reveal track featured" style="--reveal-delay:80ms">
+        <article class="card reveal track featured delay-1">
           <span class="card-num" aria-hidden="true">II</span>
           <h3>Generalized covariance measure</h3>
           <p class="note">For product factorial randomization, or explicit reweighting to it.</p>
@@ -906,7 +906,7 @@
               <div class="quota"><label for="q11">rho_11</label><input id="q11" type="number" min="0.01" max="0.97" step="0.01" value="0.25" inputmode="decimal"></div>
             </div>
 
-            <p class="chips" style="margin-bottom:1.1rem">
+            <p class="chips chips--gap">
               <button class="btn subtle" id="presetBalanced" type="button">Balanced 0.25 each</button>
               <button class="btn subtle" id="presetNonProduct" type="button">Non-product demo</button>
             </p>
@@ -945,7 +945,7 @@
             <span class="verdict flat" id="auditStatus">READY</span>
           </div>
           <div class="panel-body">
-            <div class="readouts" style="margin-top:0;padding-top:0;border-top:0" aria-live="polite">
+            <div class="readouts readouts--flush" aria-live="polite">
               <div class="readout"><span>Pooled design log-odds <code>log OR(rho)</code></span><strong id="logOdds" class="is-flat">0.000000</strong></div>
               <div class="readout"><span>Product sampling</span><strong id="isProduct" class="is-flat">yes</strong></div>
               <div class="readout"><span>Four-law eligible</span><strong id="fourLawOk" class="is-flat">yes</strong></div>
@@ -1004,7 +1004,7 @@
             are reserved for quantities that were actually calibrated, against a stated population.
           </p>
         </article>
-        <article class="card reveal" style="--reveal-delay:80ms">
+        <article class="card reveal delay-1">
           <p class="label">Discovery and confirmation</p>
           <p class="note">
             Strict mode accepts two routes: freeze the proposal before any confirmatory data is
@@ -1013,7 +1013,7 @@
             confirmation sample left, the run is marked <code>diagnostic_only</code>.
           </p>
         </article>
-        <article class="card reveal" style="--reveal-delay:160ms">
+        <article class="card reveal delay-2">
           <p class="label">Parsimony frontier</p>
           <p class="note">
             Candidate supports are ordered by cardinality first and only then by a learner-specific
@@ -1129,11 +1129,11 @@
           <p class="label">Cross-fitting graph</p>
           <p class="note">Outer folds carry the scientific evaluation and keep adaptive witnesses away from their own tests. Inner folds tune nuisances. The cluster bootstrap supplies uncertainty at the assignment unit and never at the row.</p>
         </article>
-        <article class="card reveal" style="--reveal-delay:80ms">
+        <article class="card reveal delay-1">
           <p class="label">Compositional prediction</p>
           <p class="note">Held-out pair distributions are predicted by the product of primitive ratios. The raw normalizer residual is reported alongside the self-normalized estimate, since self-normalization can conceal the very failure under test.</p>
         </article>
-        <article class="card reveal" style="--reveal-delay:160ms">
+        <article class="card reveal delay-2">
           <p class="label">Longitudinal caution</p>
           <p class="note">Ratios are estimated at the transition level. Whole-trajectory ratio products are barred as a primary estimator because their variance grows exponentially in the horizon, and the temporal graph is unrolled rather than pretending a static DAG has no cycles.</p>
         </article>
@@ -1158,10 +1158,10 @@
       </div>
 
       <div class="grid grid-4">
-        <article class="card reveal"><span class="glyph" style="background:#e07a2c" aria-hidden="true">FP</span><h3>FrankenPandas</h3><p class="note">Typed ingestion, Parquet and Arrow interchange, fold tables, grouped summaries, reproducible report frames.</p></article>
-        <article class="card reveal" style="--reveal-delay:70ms"><span class="glyph" style="background:#6b57e8" aria-hidden="true">FN</span><h3>FrankenNumPy</h3><p class="note">Dense arrays, deterministic random streams, broadcasting, Gram matrices, vectorized ratio and kernel evaluation.</p></article>
-        <article class="card reveal" style="--reveal-delay:140ms"><span class="glyph" style="background:#0d9b70" aria-hidden="true">FS</span><h3>FrankenSciPy</h3><p class="note">MMD and energy statistics, optimization, bootstrap and permutation engines, stable special functions.</p></article>
-        <article class="card reveal" style="--reveal-delay:210ms"><span class="glyph" style="background:#2260c6" aria-hidden="true">FT</span><h3>FrankenTorch</h3><p class="note">Joint multinomial models, differentiable density-ratio fields, representation sufficiency audits, CPU and Metal execution.</p></article>
+        <article class="card reveal"><span class="glyph fp" aria-hidden="true">FP</span><h3>FrankenPandas</h3><p class="note">Typed ingestion, Parquet and Arrow interchange, fold tables, grouped summaries, reproducible report frames.</p></article>
+        <article class="card reveal delay-1"><span class="glyph fn" aria-hidden="true">FN</span><h3>FrankenNumPy</h3><p class="note">Dense arrays, deterministic random streams, broadcasting, Gram matrices, vectorized ratio and kernel evaluation.</p></article>
+        <article class="card reveal delay-2"><span class="glyph fs" aria-hidden="true">FS</span><h3>FrankenSciPy</h3><p class="note">MMD and energy statistics, optimization, bootstrap and permutation engines, stable special functions.</p></article>
+        <article class="card reveal delay-3"><span class="glyph ft" aria-hidden="true">FT</span><h3>FrankenTorch</h3><p class="note">Joint multinomial models, differentiable density-ratio fields, representation sufficiency audits, CPU and Metal execution.</p></article>
       </div>
 
       <div class="crates reveal">
@@ -1194,7 +1194,7 @@ mic design odds 0.10 0.20 0.30 0.40</code></pre>
             except <code>validate-manifest</code> prints JSON, and an unknown command exits 2.
           </p>
         </div>
-        <div class="reveal" style="--reveal-delay:80ms">
+        <div class="reveal delay-1">
           <h3>What a run leaves behind</h3>
           <pre class="code"><code>run/
   manifest.resolved.json   provenance.json
@@ -1258,7 +1258,7 @@ mic design odds 0.10 0.20 0.30 0.40</code></pre>
             shared-resource pair whose curvature shrinks once the resource state is added.
           </p>
         </article>
-        <article class="card reveal" style="--reveal-delay:80ms">
+        <article class="card reveal delay-1">
           <p class="label">Second</p>
           <h3>Combinatorial Perturb-seq</h3>
           <p class="note">

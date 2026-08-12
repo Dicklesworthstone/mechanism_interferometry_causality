@@ -888,6 +888,11 @@ input[type="range"] {
 .glyph.i { background: var(--info); }
 .glyph.f { background: var(--flat); }
 
+.glyph.fp { background: #e07a2c; }
+.glyph.fn { background: #6b57e8; }
+.glyph.fs { background: #0d9b70; }
+.glyph.ft { background: #2260c6; }
+
 .glyph.ring {
   border-radius: 50%;
   border: 2px solid var(--flat);
@@ -981,6 +986,12 @@ html.js .reveal {
 }
 
 html.js .reveal.revealed { opacity: 1; transform: none; }
+
+/* Stagger steps, as classes rather than inline style attributes, so the
+   deployed Content-Security-Policy can refuse inline styles outright. */
+.delay-1 { --reveal-delay: 70ms; }
+.delay-2 { --reveal-delay: 140ms; }
+.delay-3 { --reveal-delay: 210ms; }
 
 /* --------------------------------------------------------------------------
    12. Hero
@@ -1148,6 +1159,8 @@ main > section.hero {
 .control > .micro { grid-column: 1 / -1; margin: .15rem 0 0; }
 
 .readouts { margin-top: .3rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+.readouts--flush { margin-top: 0; padding-top: 0; border-top: 0; }
+.chips--gap { margin-bottom: 1.1rem; }
 
 .readout {
   display: flex;
@@ -1459,6 +1472,7 @@ main > section.hero {
 
 .lens-row input:focus-visible { border-color: var(--violet); outline: none; box-shadow: 0 0 0 3px var(--violet-wash); }
 .lens-head { font: 800 .64rem/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-faint); text-align: center; }
+.lens-head--start { text-align: left; }
 
 .fail-list {
   display: grid;
