@@ -1337,6 +1337,69 @@ Every empirical run should emit a machine-readable audit bundle containing:
 \end{enumerate}
 The companion repository defines JSON schemas for these artifacts and a Rust workspace architecture for producing them.
 
+\subsection{Typed refusals}
+
+The contract above is only enforceable if a refusal is a value rather than a
+sentence in a log. The implementation therefore fixes a closed vocabulary of
+reason codes, and every gate in this paper emits one of them:
+\texttt{non\_product\_sampling\_for\_gcm},
+\texttt{state\_dependent\_selection},
+\texttt{selection\_model\_unvalidated},
+\texttt{overlap\_failure},
+\texttt{orientation\_unresolved},
+\texttt{design\_contrast\_aliased},
+\texttt{no\_testable\_flatness},
+\texttt{non\_square\_contrasts\_required},
+\texttt{negative\_control\_curvature},
+\texttt{estimator\_family\_disagreement},
+\texttt{cluster\_spans\_regimes},
+\texttt{missing\_regime\_data},
+\texttt{empty\_common\_support}, and
+\texttt{duplicate\_provenance}.
+
+The last of these enforces an append-only evidence ledger: binding a provenance
+key twice with different values preserves the first write and records the
+rejected one, so a later stochastic stage cannot silently overwrite an earlier
+seed, randomization unit, or source fingerprint. Each preflight report also
+carries the canonical hash of the manifest it validated, which binds a verdict
+to the exact input that produced it.
+
+A run terminates in one of four certificate states, \emph{passed},
+\emph{failed}, \emph{abstained}, or \emph{diagnostic\_only}, and the
+distinction between the last three is the substance rather than the packaging.
+\emph{Failed} asserts that a certificate condition was tested and rejected;
+\emph{abstained} asserts that the run declined to answer; and
+\emph{diagnostic\_only} marks a result that may inform but can never be
+promoted. A projection that tests no certificate condition therefore cannot
+report \emph{failed}, because it has nothing to reject: the shipped
+cluster-weighted histogram implementation of the four-law functionals returns
+\emph{abstained} on every clean run by construction. It is a diagnostic that
+can never certify, and saying so in the type is what prevents an eventual
+reader from treating a quiet run as a passing one.
+
+\subsection{Authority tiers under incomplete contracts}
+
+Three of the four contracts a certificate requires admit partial data-driven
+resolution: regimes can be discovered from context columns, sampling
+proportions estimated from corner counts, and randomization units guessed
+conservatively and audited at the coarsest plausible clustering. The fourth
+does not. State-independent selection within regime cannot be established from
+observed rows at all, because two models with different underlying laws and
+different inclusion mechanisms can induce identical selected data. Any
+procedure claiming to establish it from rows alone is producing a false
+positive rather than a discovery.
+
+Outputs are therefore graded rather than merely flagged. Tier~A is certified
+and requires the declared sampling, selection, and clustering contracts.
+Tier~B is a corroborated diagnostic: every internally checkable audit passed,
+serialized as \emph{diagnostic\_only} together with a typed checklist, with no
+scalar score and no total ordering, so a reader always sees which gates passed
+and which were inapplicable. Tier~C is a proposal, quarantined under the
+proposal-adapter boundary. Tier~B is the operating point
+this architecture adds: stronger than a discovery algorithm's edge weight,
+deliberately weaker than a certificate, and unable to overclaim because
+overclaiming is a type error rather than a matter of restraint.
+
 \printbibliography
 
 \end{document}

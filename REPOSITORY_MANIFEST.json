@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T21:53:41Z",
+  "generated_at_utc": "2026-08-12T21:57:18Z",
   "hash_algorithm": "sha256",
   "file_count": 136,
-  "aggregate_sha256": "f90695c64ebab3c57bdf6fa387d79f588ebe1494aa3a4b94afc5d905c5dd73f7",
+  "aggregate_sha256": "b0c3254df646c10a3e9bdd8dea911db3349581600da8cf1906c8611f93e2f802",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -63,8 +63,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 8087,
-      "sha256": "1c8e130c353a52788ef0c4f6faad10fb17ddda2b3458ac2f27244987eebd04f2"
+      "bytes": 9075,
+      "sha256": "e0e6a28e8ae01a0c63549141cde6305fe3407f80a0d9a4562e7b27951d4d3fd6"
     },
     {
       "path": "artifacts/simulations/exact_results.json",
@@ -108,8 +108,8 @@
     },
     {
       "path": "crates/mic-conformance/src/lib.rs",
-      "bytes": 16366,
-      "sha256": "3a3dad34de79c64daee56ac1916baf27c8b4245d6868476c8e4ceda24052dda2"
+      "bytes": 17598,
+      "sha256": "4e7260f42cd7d748ea9dd1a0502c7e3a97065cc3df990613f3872160f0f09993"
     },
     {
       "path": "crates/mic-core/Cargo.toml",
@@ -168,8 +168,8 @@
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 46059,
-      "sha256": "9cd4b676bdee3a65e62116366c6582656bb8f2b394f513d7ed091301a514edf2"
+      "bytes": 54281,
+      "sha256": "211d0d28ce88dc531b33a092589cca5ad35e3d76a0e75a4fb3f2e379ca6ce250"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
@@ -203,8 +203,8 @@
     },
     {
       "path": "crates/mic-sim/src/lib.rs",
-      "bytes": 11864,
-      "sha256": "ee0ab2f3eee95298f2d3e89a727b8b15804722e295d59b1ff5ebf8d9a01f4e97"
+      "bytes": 13675,
+      "sha256": "c17d5aa5f76d37792566dfa8db1be6fc67d1185cef73c89d2c7b5dbcffa24600"
     },
     {
       "path": "crates/mic-stats/Cargo.toml",
@@ -233,8 +233,8 @@
     },
     {
       "path": "docs/CAUSAL_TOMOGRAPHY.md",
-      "bytes": 17471,
-      "sha256": "5287984c97c2b6fbe3b06d87cb932958c9c819d2cac68e2351d551397c1f14d5"
+      "bytes": 17507,
+      "sha256": "c1c4e2fa232aeba8e66fe1a9cbd73b554bd5bc01b69ad9cb1eb180fdaf82eca5"
     },
     {
       "path": "docs/DATASET_ELIGIBILITY.md",
@@ -263,8 +263,8 @@
     },
     {
       "path": "docs/HYPOTHESIS_SLATE.md",
-      "bytes": 10801,
-      "sha256": "9b4e1ac9ebb4ddfe7f5d503dcbdc0af013b79cc1eb39a1e82b4c5c41ab57a825"
+      "bytes": 11960,
+      "sha256": "00de4ea54f97cf30f9bee3f9ae60e42c6b70338048091e55f5e4e6440c29550f"
     },
     {
       "path": "docs/IMPLEMENTATION_BLUEPRINT.md",
@@ -483,13 +483,13 @@
     },
     {
       "path": "paper/main.pdf",
-      "bytes": 522947,
-      "sha256": "dd2c18710f7126d0a99bd8285fa43c02d27bbf38bfe1b069aee0e9cfaa3de7c9"
+      "bytes": 527295,
+      "sha256": "a87ace60ea82cc22d959b120c4984019f42111eee0cc083c25db813d4f6ae10e"
     },
     {
       "path": "paper/main.tex",
-      "bytes": 81081,
-      "sha256": "8be16aa3c2f7e2dc33ff85dfd000645920b56943a9573b9d529199e44673b3dd"
+      "bytes": 84527,
+      "sha256": "93093a1671a98d4faf890ef28293e19ef985de02857e729cf7aed9344b477743"
     },
     {
       "path": "paper/references.bib",
@@ -564,7 +564,7 @@
     {
       "path": "scripts/check_repo.py",
       "bytes": 37161,
-      "sha256": "5dc1ac4b7b021ba97b73e91ae2f9bb80c00da91273c1a5e4a7640ca2ba3fdf6e"
+      "sha256": "4be825f554326bff420b0b3beb2da1d94f53cfdadce7dd8ee4eca2f1bb1cab81"
     },
     {
       "path": "scripts/generate_example_data.py",
@@ -648,8 +648,8 @@
     },
     {
       "path": "site/mechanism_interferometry.pdf",
-      "bytes": 522947,
-      "sha256": "dd2c18710f7126d0a99bd8285fa43c02d27bbf38bfe1b069aee0e9cfaa3de7c9"
+      "bytes": 527295,
+      "sha256": "a87ace60ea82cc22d959b120c4984019f42111eee0cc083c25db813d4f6ae10e"
     },
     {
       "path": "site/pkg/mic.d.ts",
