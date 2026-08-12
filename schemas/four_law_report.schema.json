@@ -8,6 +8,7 @@
     "schema_version",
     "experiment_id",
     "status",
+    "gates",
     "preflight",
     "ingest",
     "four_law",
@@ -15,11 +16,23 @@
     "ledger"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "2.0.0"},
     "experiment_id": {"type": "string", "minLength": 1},
     "status": {
       "enum": ["abstained", "diagnostic_only"],
       "description": "Histogram four-law never issues passed or failed. A Passed value would launder a projection into a certificate."
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locality", "conditional_normalization", "square_flatness", "orientation"],
+      "properties": {
+        "locality": {"const": "unresolved"},
+        "conditional_normalization": {"const": "unresolved"},
+        "square_flatness": {"const": "unresolved"},
+        "orientation": {"const": "unresolved"}
+      },
+      "description": "The histogram projection is diagnostic and establishes none of the theorem or orientation gates."
     },
     "preflight": {"type": "object"},
     "ingest": {
@@ -51,6 +64,25 @@
     "four_law": {"type": "array"},
     "overlap": {"type": ["object", "null"]},
     "projection": {"type": "object"},
-    "ledger": {"type": "object"}
-  }
+    "ledger": {
+      "type": "object",
+      "required": ["schema_version", "mode", "findings", "provenance"],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "mode": {"enum": ["strict", "exploratory"]},
+        "findings": {"type": "array"},
+        "provenance": {"type": "object"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "diagnostic_only"}}},
+      "then": {"properties": {"ledger": {"properties": {"mode": {"const": "exploratory"}}}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "abstained"}}},
+      "then": {"properties": {"ledger": {"properties": {"mode": {"const": "strict"}}}}}
+    }
+  ]
 }
