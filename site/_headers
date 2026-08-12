@@ -1,0 +1,38 @@
+# Cloudflare Pages headers.
+#
+# This site loads nothing from anywhere. There is no CDN, no analytics, no
+# remote font and no network call at runtime, so the policy below is the
+# enforceable form of that claim rather than a description of it.
+#
+# style-src has no 'unsafe-inline': the page carries no style attributes and no
+# inline <style> block, and the stagger delays and stack-logo colours that once
+# used them are ordinary classes. Setting element.style from script is CSSOM
+# rather than an inline style, so the reading-progress bar is unaffected.
+#
+# connect-src 'none' is the load-bearing line. Nothing on this page should ever
+# open a request, and a violation is a bug worth breaking the page over.
+#
+# Cache-control: index.html, the stylesheet and the script are revalidated every
+# time, because this site has no content-hashed filenames and a stale app.js
+# against a fresh index.html would silently break the figures. The fonts and the
+# paper PDF are immutable in practice and are cached for a week.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+
+/index.html
+  Cache-Control: no-cache
+/styles.css
+  Cache-Control: no-cache
+/app.js
+  Cache-Control: no-cache
+/assets/fonts/*
+  Cache-Control: public, max-age=604800, immutable
+/assets/*
+  Cache-Control: public, max-age=604800
+/mechanism_interferometry.pdf
+  Cache-Control: public, max-age=604800
