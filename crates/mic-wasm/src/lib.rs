@@ -36,6 +36,8 @@ pub struct BoundaryError {
 }
 
 impl BoundaryError {
+    /// Construct a refusal attributed to one stable browser-boundary stage.
+    #[must_use]
     pub fn new(stage: &'static str, message: impl Into<String>) -> Self {
         Self {
             stage,
@@ -43,6 +45,8 @@ impl BoundaryError {
         }
     }
 
+    /// Serialize the refusal for JavaScript without exposing a Rust panic.
+    #[must_use]
     pub fn to_json(&self) -> String {
         serde_json::to_string(self).unwrap_or_else(|_| {
             String::from(r#"{"stage":"boundary","message":"error serialization failed"}"#)
@@ -50,6 +54,7 @@ impl BoundaryError {
     }
 }
 
+/// JSON returned on success or a serialized [`BoundaryError`] on refusal.
 pub type BoundaryResult = Result<String, String>;
 
 fn encode<T: Serialize>(stage: &'static str, value: &T) -> BoundaryResult {
@@ -73,6 +78,7 @@ fn parse_corners(stage: &'static str, corners: &[String]) -> Result<Vec<DesignPo
 }
 
 /// Workspace version, so the page can state which build answered it.
+#[must_use]
 pub fn version_impl() -> String {
     String::from(env!("CARGO_PKG_VERSION"))
 }
@@ -141,10 +147,6 @@ pub fn preflight_impl(manifest_json: &str, policy_json: &str) -> BoundaryResult 
 
 /// Manifest validation on its own, for the page's schema-check affordance.
 pub fn validate_manifest_impl(manifest_json: &str) -> BoundaryResult {
-    let manifest: ExperimentManifest = decode("manifest", manifest_json)?;
-    manifest
-        .validate()
-        .map_err(|error| BoundaryError::new("manifest", error.to_string()).to_json())?;
     #[derive(Serialize)]
     struct Summary<'a> {
         experiment_id: &'a str,
@@ -154,6 +156,11 @@ pub fn validate_manifest_impl(manifest_json: &str) -> BoundaryResult {
         selection: String,
         strict: bool,
     }
+
+    let manifest: ExperimentManifest = decode("manifest", manifest_json)?;
+    manifest
+        .validate()
+        .map_err(|error| BoundaryError::new("manifest", error.to_string()).to_json())?;
     encode(
         "manifest",
         &Summary {
@@ -170,6 +177,13 @@ pub fn validate_manifest_impl(manifest_json: &str) -> BoundaryResult {
 /// The estimator lens battery, with its asymmetric verdict and its fail-closed
 /// rejection of degenerate standard errors.
 pub fn lens_battery_impl(estimates_json: &str, tolerance: f64) -> BoundaryResult {
+    #[derive(Serialize)]
+    struct Combined<'a> {
+        audit: &'a mic_engine::LensBatteryAudit,
+        findings: &'a [mic_audit::Finding],
+        blocking: bool,
+    }
+
     let estimates: Vec<LensEstimate> = decode("lens", estimates_json)?;
     let policy = PreflightPolicy {
         lens_gap_tolerance: tolerance,
@@ -178,13 +192,6 @@ pub fn lens_battery_impl(estimates_json: &str, tolerance: f64) -> BoundaryResult
     let mut ledger = mic_audit::EvidenceLedger::new(mic_audit::ExecutionMode::Strict);
     let audit = audit_lens_battery(&estimates, &policy, "curvature", &mut ledger)
         .map_err(|error| BoundaryError::new("lens", error.to_string()).to_json())?;
-
-    #[derive(Serialize)]
-    struct Combined<'a> {
-        audit: &'a mic_engine::LensBatteryAudit,
-        findings: &'a [mic_audit::Finding],
-        blocking: bool,
-    }
     encode(
         "lens",
         &Combined {
