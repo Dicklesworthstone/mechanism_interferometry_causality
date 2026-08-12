@@ -1519,6 +1519,27 @@ main > section.hero {
    defeats .mt on the same element. Space the group from the readouts here. */
 .readouts + .label { margin-top: 1.4rem; }
 
+/* The manifest editor. Monospace, resizable, deliberately plain: it holds JSON
+   the engine reads verbatim, so it should look like what it is. */
+.code-editor {
+  width: 100%;
+  min-height: 18rem;
+  padding: .8rem .9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--inset);
+  color: var(--fg);
+  font: 400 .8rem/1.55 var(--mono);
+  tab-size: 2;
+  resize: vertical;
+}
+
+.code-editor:focus-visible {
+  outline: none;
+  border-color: var(--violet);
+  box-shadow: 0 0 0 3px var(--violet-wash);
+}
+
 .pair-list { display: grid; gap: .35rem; }
 
 .pair-row {
