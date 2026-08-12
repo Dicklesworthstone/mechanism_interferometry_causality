@@ -6,34 +6,49 @@
   "additionalProperties": false,
   "required": [
     "schema_version",
+    "execution_status",
     "benchmark_id",
     "routing_view_id",
     "receipt_id",
     "source_table_sha256",
     "routing_data_sha256",
+    "transformation_sha256",
+    "discovery_unit_sha256",
+    "confirmation_unit_sha256",
     "status"
   ],
   "properties": {
     "schema_version": {"const": "1.0.0"},
-    "benchmark_id": {"$ref": "#/$defs/identifier"},
-    "routing_view_id": {"$ref": "#/$defs/identifier"},
-    "receipt_id": {"$ref": "#/$defs/identifier"},
+    "execution_status": {"const": "contract_template"},
+    "benchmark_id": {"$ref": "#/$defs/benchmark_id"},
+    "routing_view_id": {"$ref": "#/$defs/routing_view_id"},
+    "receipt_id": {"$ref": "#/$defs/receipt_id"},
     "source_table_sha256": {"$ref": "#/$defs/sha256"},
     "routing_data_sha256": {"$ref": "#/$defs/sha256"},
-    "status": {"enum": ["supplied", "withheld"]},
+    "transformation_sha256": {"$ref": "#/$defs/sha256"},
+    "discovery_unit_sha256": {"$ref": "#/$defs/sha256"},
+    "confirmation_unit_sha256": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["illustrative_supplied", "withheld"]},
     "use_scope": {"enum": ["unrestricted", "research_only", "internal_only"]},
     "assignment": {"$ref": "#/$defs/assignment"},
     "estimand_authorizations": {
       "type": "array",
       "minItems": 1,
+      "uniqueItems": true,
       "items": {"$ref": "#/$defs/estimand_authorization"}
+    },
+    "premise_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/premise_evidence"}
     },
     "withheld_reason": {"const": "design_authority_withheld"}
   },
   "oneOf": [
     {
-      "properties": {"status": {"const": "supplied"}},
-      "required": ["use_scope", "assignment", "estimand_authorizations"],
+      "properties": {"status": {"const": "illustrative_supplied"}},
+      "required": ["use_scope", "assignment", "estimand_authorizations", "premise_evidence"],
       "not": {"required": ["withheld_reason"]}
     },
     {
@@ -43,7 +58,8 @@
         "anyOf": [
           {"required": ["use_scope"]},
           {"required": ["assignment"]},
-          {"required": ["estimand_authorizations"]}
+          {"required": ["estimand_authorizations"]},
+          {"required": ["premise_evidence"]}
         ]
       }
     }
@@ -54,6 +70,10 @@
       "minLength": 1,
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
     },
+    "benchmark_id": {"type": "string", "pattern": "^bench_[0-9]{3}$"},
+    "routing_view_id": {"type": "string", "pattern": "^view_[0-9]{3}$"},
+    "receipt_id": {"type": "string", "pattern": "^receipt_[0-9]{3}$"},
+    "query_id": {"type": "string", "pattern": "^q_[0-9]{3}$"},
     "sha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
@@ -120,16 +140,72 @@
             "proxy_completeness"
           ]
         },
-        "status": {"const": "externally_asserted_not_empirically_proved"},
+        "status": {
+          "enum": [
+            "externally_asserted_not_empirically_proved",
+            "empirically_checked_not_design_authority"
+          ]
+        },
         "evidence_ref": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "premise_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "relative_path", "content_sha256", "evidence_class", "covers_premises"],
+      "properties": {
+        "evidence_id": {"$ref": "#/$defs/identifier"},
+        "relative_path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"
+        },
+        "content_sha256": {"$ref": "#/$defs/sha256"},
+        "evidence_class": {
+          "enum": ["external_design_assertion", "empirical_diagnostic"]
+        },
+        "covers_premises": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "assignment_integrity",
+              "correct_unit",
+              "consistency",
+              "positivity",
+              "relevance",
+              "exclusion",
+              "independence",
+              "monotonicity",
+              "continuity",
+              "no_precise_manipulation",
+              "parallel_counterfactual_trends",
+              "no_anticipation",
+              "no_spillovers",
+              "proxy_exclusion",
+              "proxy_completeness"
+            ]
+          }
+        }
       }
     },
     "estimand_authorization": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["query_id", "estimand", "required_premises"],
+      "required": [
+        "query_id",
+        "strategy",
+        "estimand",
+        "exposure_column",
+        "assignment_reference_column",
+        "required_premises"
+      ],
       "properties": {
-        "query_id": {"$ref": "#/$defs/identifier"},
+        "query_id": {"$ref": "#/$defs/query_id"},
+        "strategy": {
+          "enum": ["recorded_randomization", "instrumental_variable", "regression_discontinuity", "difference_in_differences", "interrupted_time_series", "proximal_bridge"]
+        },
         "estimand": {
           "enum": [
             "offer_itt",
@@ -142,9 +218,12 @@
             "proximal_effect"
           ]
         },
+        "exposure_column": {"$ref": "#/$defs/identifier"},
+        "assignment_reference_column": {"$ref": "#/$defs/identifier"},
         "required_premises": {
           "type": "array",
           "minItems": 1,
+          "uniqueItems": true,
           "items": {"$ref": "#/$defs/premise"}
         }
       }

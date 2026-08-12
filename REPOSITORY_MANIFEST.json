@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T21:57:18Z",
+  "generated_at_utc": "2026-08-12T23:00:00Z",
   "hash_algorithm": "sha256",
-  "file_count": 136,
-  "aggregate_sha256": "b0c3254df646c10a3e9bdd8dea911db3349581600da8cf1906c8611f93e2f802",
+  "file_count": 150,
+  "aggregate_sha256": "eefc2bcd806da09736ed4f8e6233f8b6da6f99863de9d593dce43a4e93ed534d",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -53,8 +53,8 @@
     },
     {
       "path": "LICENSE",
-      "bytes": 0,
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "bytes": 283,
+      "sha256": "73cb9434d7deefa18880688d01d6693dfef325838aed5cbb2829124766cee2de"
     },
     {
       "path": "Makefile",
@@ -98,8 +98,8 @@
     },
     {
       "path": "crates/mic-cli/src/main.rs",
-      "bytes": 13870,
-      "sha256": "16a3206c6c232b087639d2d30967a3cb1f9e22652218ca4de7e257b17054763e"
+      "bytes": 14215,
+      "sha256": "93edcbe0842ce196433bf5284a6f26cd489320ecc81320cb8762065f4af80158"
     },
     {
       "path": "crates/mic-conformance/Cargo.toml",
@@ -108,8 +108,8 @@
     },
     {
       "path": "crates/mic-conformance/src/lib.rs",
-      "bytes": 17598,
-      "sha256": "4e7260f42cd7d748ea9dd1a0502c7e3a97065cc3df990613f3872160f0f09993"
+      "bytes": 19363,
+      "sha256": "a382dfc2d9322b32bad598e2854964e65b21547185b635527f939f7947f714a9"
     },
     {
       "path": "crates/mic-core/Cargo.toml",
@@ -138,8 +138,8 @@
     },
     {
       "path": "crates/mic-data/src/table.rs",
-      "bytes": 28517,
-      "sha256": "596d402b57cf080fa9caa4628e133324b046e448a2a3e0d0df9146171e21d7eb"
+      "bytes": 28545,
+      "sha256": "bc3a2a02ca4100387333251f56407da7213b34fed059d9fe68e178901461006b"
     },
     {
       "path": "crates/mic-design/Cargo.toml",
@@ -168,8 +168,8 @@
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 54281,
-      "sha256": "211d0d28ce88dc531b33a092589cca5ad35e3d76a0e75a4fb3f2e379ca6ce250"
+      "bytes": 46059,
+      "sha256": "9cd4b676bdee3a65e62116366c6582656bb8f2b394f513d7ed091301a514edf2"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
@@ -203,8 +203,8 @@
     },
     {
       "path": "crates/mic-sim/src/lib.rs",
-      "bytes": 13675,
-      "sha256": "c17d5aa5f76d37792566dfa8db1be6fc67d1185cef73c89d2c7b5dbcffa24600"
+      "bytes": 17263,
+      "sha256": "ce6bd5d4787641db2cc340fb08dae418c734fa4f16b7c86094e77b07273e0fa2"
     },
     {
       "path": "crates/mic-stats/Cargo.toml",
@@ -223,8 +223,8 @@
     },
     {
       "path": "crates/mic-wasm/src/lib.rs",
-      "bytes": 12915,
-      "sha256": "1eaef2b121399ce3f0964db6cf3695b0f463e9a03ac1a43bff37cf10fe16397e"
+      "bytes": 13188,
+      "sha256": "ad14ccea319b722858cf6291ebc4439f07633104335ab51855bd7fbd51b6616d"
     },
     {
       "path": "docs/AUTONOMOUS_MODE.md",
@@ -233,8 +233,8 @@
     },
     {
       "path": "docs/CAUSAL_TOMOGRAPHY.md",
-      "bytes": 17507,
-      "sha256": "c1c4e2fa232aeba8e66fe1a9cbd73b554bd5bc01b69ad9cb1eb180fdaf82eca5"
+      "bytes": 23025,
+      "sha256": "1e511e2405de3577494ccb8d06e5c485c0f976f05f8bb3e4d4dfa070045d0893"
     },
     {
       "path": "docs/DATASET_ELIGIBILITY.md",
@@ -243,8 +243,8 @@
     },
     {
       "path": "docs/DATASET_GAUNTLET.md",
-      "bytes": 13563,
-      "sha256": "07f03937cb7207a8dc81fa9378a9ef3346d0b02ae54e29d87767ecf5b9addce3"
+      "bytes": 21660,
+      "sha256": "aa55e7d088ecb4af99ee55f7e118cecefb2e29cac67240d8da738f3b36489757"
     },
     {
       "path": "docs/EXPERIMENTAL_PROTOCOL.md",
@@ -263,8 +263,8 @@
     },
     {
       "path": "docs/HYPOTHESIS_SLATE.md",
-      "bytes": 11960,
-      "sha256": "00de4ea54f97cf30f9bee3f9ae60e42c6b70338048091e55f5e4e6440c29550f"
+      "bytes": 10801,
+      "sha256": "9b4e1ac9ebb4ddfe7f5d503dcbdc0af013b79cc1eb39a1e82b4c5c41ab57a825"
     },
     {
       "path": "docs/IMPLEMENTATION_BLUEPRINT.md",
@@ -300,6 +300,61 @@
       "path": "examples/README.md",
       "bytes": 1605,
       "sha256": "83b73286a607e669da747184c83be78a1a3f6f641a83118b42fb29f1922aee9f"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/README.md",
+      "bytes": 1602,
+      "sha256": "72bddc2c515ba6324e0df1210d7541a95cef4af3986896ab8041b38fc41a1ee4"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/authorized_design_receipt.json",
+      "bytes": 4274,
+      "sha256": "3d955aaf6ecc5d043815cc2178aefd9939b272a14d508ffa3dc92102ae87c352"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/blind_design_receipt.json",
+      "bytes": 718,
+      "sha256": "75f5c228ec60ff58aabdbcb98093a69518297b5194802292d9d45d6a757c3bf2"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/confirmation_units.txt",
+      "bytes": 16,
+      "sha256": "41ebcfaa35d69fb09aae9619c2657a3dd90b1ec18910741afa57af1c6094d15b"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/design_source_excerpt.txt",
+      "bytes": 239,
+      "sha256": "f79495506484f84193cf6bda9d05f6c64e12a0af580556264c2b75f6deb140f0"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/discovery_units.txt",
+      "bytes": 16,
+      "sha256": "002a272be16c65ff8c2934eccca5600a4a8fadd48a2b3ea15f55d511b946ac11"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/oracle.json",
+      "bytes": 1475,
+      "sha256": "46bc73d8a4e990e2ddc67e7bec982257655bb6e6672cf7e30343cb0c546c8a42"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/routing_data.csv",
+      "bytes": 254,
+      "sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/routing_view.json",
+      "bytes": 1883,
+      "sha256": "ffcbd2b9c474081acbb90ad349bef9587d5f003a2ee30073c954499c3d49b9bb"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/semantic_contract.txt",
+      "bytes": 308,
+      "sha256": "878ca6c63bbddd62d7f3e3a643004390b99d28772da8683f8e667ddf4d767c52"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/transformation.json",
+      "bytes": 146,
+      "sha256": "6c9fea494d651d34130d060fba5eff311073a1f1e45af7f98adb45f3fc83da34"
     },
     {
       "path": "examples/configs/feature_flag_pilot.json",
@@ -483,13 +538,13 @@
     },
     {
       "path": "paper/main.pdf",
-      "bytes": 527295,
-      "sha256": "a87ace60ea82cc22d959b120c4984019f42111eee0cc083c25db813d4f6ae10e"
+      "bytes": 537648,
+      "sha256": "c99bf1777c3168617afee5d04a3d975cbe1168a3e0698bfb04d327627d974cba"
     },
     {
       "path": "paper/main.tex",
-      "bytes": 84527,
-      "sha256": "93093a1671a98d4faf890ef28293e19ef985de02857e729cf7aed9344b477743"
+      "bytes": 92029,
+      "sha256": "d4f58d4490149363872228d019715a9c40f45d34a96214c4b9c6bdd016f94d97"
     },
     {
       "path": "paper/references.bib",
@@ -513,8 +568,8 @@
     },
     {
       "path": "schemas/README.md",
-      "bytes": 547,
-      "sha256": "78228450ff18f63bfd17236395474d5880d4af59f231e1a6775b6e9d3a190268"
+      "bytes": 1433,
+      "sha256": "9f6102a97a6b753a6be9beaaf2c0c3f293e0aa1908ba8ccee72c4325b57aa019"
     },
     {
       "path": "schemas/active_tilt_input.schema.json",
@@ -525,6 +580,21 @@
       "path": "schemas/audit_report.schema.json",
       "bytes": 5938,
       "sha256": "a3a9183f5896e37e89c957a7d166b5d26bb8ecb7c436d6055ba5373e66826c60"
+    },
+    {
+      "path": "schemas/benchmark_oracle.schema.json",
+      "bytes": 3032,
+      "sha256": "602314a80c0c2052a1acf8f5ae8cb996cea6e285e85f0348f6ef01048774941d"
+    },
+    {
+      "path": "schemas/benchmark_routing_view.schema.json",
+      "bytes": 3875,
+      "sha256": "91f5fc7cb2d9d67c4e1d2bf339e8de8d3df9a84489116986d63f516c2af818fc"
+    },
+    {
+      "path": "schemas/design_authority_receipt.schema.json",
+      "bytes": 7364,
+      "sha256": "9a93124c231fba6a06df26d47a912b6d4441615c49a86ae4de2c241cebe49d6c"
     },
     {
       "path": "schemas/evidence_finding.schema.json",
@@ -563,8 +633,8 @@
     },
     {
       "path": "scripts/check_repo.py",
-      "bytes": 37161,
-      "sha256": "4be825f554326bff420b0b3beb2da1d94f53cfdadce7dd8ee4eca2f1bb1cab81"
+      "bytes": 70071,
+      "sha256": "2c7f0d44c3eb8e9e2861965582c87d3bf4dba421bc4159aad5fa0b0327307582"
     },
     {
       "path": "scripts/generate_example_data.py",
@@ -573,8 +643,8 @@
     },
     {
       "path": "scripts/generate_repository_manifest.py",
-      "bytes": 4547,
-      "sha256": "3609302574cdb1a15479b2a4312cecb692b3e8ba9787eb40dd18f7e0b8285cc8"
+      "bytes": 5351,
+      "sha256": "824624ca7f05b6ba5bcd2b8bda0516b95700056ed221ce54c8b80358a5a219b7"
     },
     {
       "path": "scripts/generate_simulations.py",
@@ -648,8 +718,8 @@
     },
     {
       "path": "site/mechanism_interferometry.pdf",
-      "bytes": 527295,
-      "sha256": "a87ace60ea82cc22d959b120c4984019f42111eee0cc083c25db813d4f6ae10e"
+      "bytes": 537648,
+      "sha256": "c99bf1777c3168617afee5d04a3d975cbe1168a3e0698bfb04d327627d974cba"
     },
     {
       "path": "site/pkg/mic.d.ts",

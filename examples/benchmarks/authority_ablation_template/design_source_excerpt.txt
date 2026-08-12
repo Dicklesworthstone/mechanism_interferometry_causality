@@ -1,0 +1,3 @@
+Synthetic design statement for schema conformance only: x_001 was generated at
+the u_001 unit before x_002 and y_001. The generator probability may vary with
+w_001. This statement is illustrative metadata, not evidence about a real study.

@@ -41,6 +41,10 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
 def generated_at() -> str:
     epoch = os.environ.get("SOURCE_DATE_EPOCH")
     if epoch is not None:
@@ -98,11 +102,28 @@ def manifest_paths() -> list[Path]:
     return sorted({path for path in candidates if included(path)})
 
 
-def build_manifest() -> dict[str, object]:
+def git_index_bytes(path: Path) -> bytes:
+    relative = path.relative_to(ROOT).as_posix()
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), "show", f":{relative}"],
+        capture_output=True,
+        check=True,
+    )
+    return result.stdout
+
+
+def build_manifest(*, from_index: bool = False) -> dict[str, object]:
     files = []
     for path in manifest_paths():
         relative = path.relative_to(ROOT).as_posix()
-        files.append({"path": relative, "bytes": path.stat().st_size, "sha256": sha256(path)})
+        if from_index:
+            data = git_index_bytes(path)
+            byte_count = len(data)
+            digest = sha256_bytes(data)
+        else:
+            byte_count = path.stat().st_size
+            digest = sha256(path)
+        files.append({"path": relative, "bytes": byte_count, "sha256": digest})
     aggregate = hashlib.sha256()
     for item in files:
         aggregate.update(str(item["path"]).encode())
@@ -123,10 +144,18 @@ def build_manifest() -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate the repository content manifest.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--from-index",
+        action="store_true",
+        help="hash staged Git blobs instead of possibly dirty working-tree bytes",
+    )
     args = parser.parse_args()
     output = args.output if args.output.is_absolute() else ROOT / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(build_manifest(), indent=2) + "\n", encoding="utf-8")
+    output.write_text(
+        json.dumps(build_manifest(from_index=args.from_index), indent=2) + "\n",
+        encoding="utf-8",
+    )
     print(output)
     return 0
 

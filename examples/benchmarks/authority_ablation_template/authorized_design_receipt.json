@@ -1,0 +1,120 @@
+{
+  "schema_version": "1.0.0",
+  "execution_status": "contract_template",
+  "benchmark_id": "bench_002",
+  "routing_view_id": "view_001",
+  "receipt_id": "receipt_001",
+  "source_table_sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d",
+  "routing_data_sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d",
+  "transformation_sha256": "6c9fea494d651d34130d060fba5eff311073a1f1e45af7f98adb45f3fc83da34",
+  "discovery_unit_sha256": "002a272be16c65ff8c2934eccca5600a4a8fadd48a2b3ea15f55d511b946ac11",
+  "confirmation_unit_sha256": "41ebcfaa35d69fb09aae9619c2657a3dd90b1ec18910741afa57af1c6094d15b",
+  "status": "illustrative_supplied",
+  "use_scope": "unrestricted",
+  "assignment": {
+    "kind": "randomized_encouragement",
+    "assignment_column": "x_001",
+    "assignment_unit_column": "u_001",
+    "probability_contract": "externally_documented_by_stratum",
+    "timing_contract": "pre_exposure_and_outcome",
+    "authority_source_sha256": "f79495506484f84193cf6bda9d05f6c64e12a0af580556264c2b75f6deb140f0"
+  },
+  "premise_evidence": [
+    {
+      "evidence_id": "ev_design",
+      "relative_path": "design_source_excerpt.txt",
+      "content_sha256": "f79495506484f84193cf6bda9d05f6c64e12a0af580556264c2b75f6deb140f0",
+      "evidence_class": "external_design_assertion",
+      "covers_premises": ["assignment_integrity", "correct_unit", "independence"]
+    },
+    {
+      "evidence_id": "ev_semantics",
+      "relative_path": "semantic_contract.txt",
+      "content_sha256": "878ca6c63bbddd62d7f3e3a643004390b99d28772da8683f8e667ddf4d767c52",
+      "evidence_class": "external_design_assertion",
+      "covers_premises": ["consistency", "exclusion", "monotonicity"]
+    },
+    {
+      "evidence_id": "ev_relevance",
+      "relative_path": "routing_data.csv",
+      "content_sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d",
+      "evidence_class": "empirical_diagnostic",
+      "covers_premises": ["positivity", "relevance"]
+    }
+  ],
+  "estimand_authorizations": [
+    {
+      "query_id": "q_001",
+      "strategy": "recorded_randomization",
+      "estimand": "offer_itt",
+      "exposure_column": "x_001",
+      "assignment_reference_column": "x_001",
+      "required_premises": [
+        {
+          "name": "assignment_integrity",
+          "status": "externally_asserted_not_empirically_proved",
+          "evidence_ref": "ev_design"
+        },
+        {
+          "name": "correct_unit",
+          "status": "externally_asserted_not_empirically_proved",
+          "evidence_ref": "ev_design"
+        },
+        {
+          "name": "consistency",
+          "status": "externally_asserted_not_empirically_proved",
+          "evidence_ref": "ev_semantics"
+        },
+        {
+          "name": "positivity",
+          "status": "empirically_checked_not_design_authority",
+          "evidence_ref": "ev_relevance"
+        }
+      ]
+    },
+    {
+      "query_id": "q_002",
+      "strategy": "instrumental_variable",
+      "estimand": "complier_late",
+      "exposure_column": "x_002",
+      "assignment_reference_column": "x_001",
+      "required_premises": [
+        {
+          "name": "relevance",
+          "status": "empirically_checked_not_design_authority",
+          "evidence_ref": "ev_relevance"
+        },
+        {
+          "name": "exclusion",
+          "status": "externally_asserted_not_empirically_proved",
+          "evidence_ref": "ev_semantics"
+        },
+        {
+          "name": "independence",
+          "status": "externally_asserted_not_empirically_proved",
+          "evidence_ref": "ev_design"
+        },
+        {
+          "name": "monotonicity",
+          "status": "externally_asserted_not_empirically_proved",
+          "evidence_ref": "ev_semantics"
+        },
+        {
+          "name": "correct_unit",
+          "status": "externally_asserted_not_empirically_proved",
+          "evidence_ref": "ev_design"
+        },
+        {
+          "name": "consistency",
+          "status": "externally_asserted_not_empirically_proved",
+          "evidence_ref": "ev_semantics"
+        },
+        {
+          "name": "positivity",
+          "status": "empirically_checked_not_design_authority",
+          "evidence_ref": "ev_relevance"
+        }
+      ]
+    }
+  ]
+}

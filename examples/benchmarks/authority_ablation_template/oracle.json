@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0.0",
+  "execution_status": "contract_template",
+  "benchmark_id": "bench_002",
+  "routing_view_id": "view_001",
+  "source_table_sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d",
+  "routing_data_sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d",
+  "transformation_sha256": "6c9fea494d651d34130d060fba5eff311073a1f1e45af7f98adb45f3fc83da34",
+  "discovery_unit_sha256": "002a272be16c65ff8c2934eccca5600a4a8fadd48a2b3ea15f55d511b946ac11",
+  "confirmation_unit_sha256": "41ebcfaa35d69fb09aae9619c2657a3dd90b1ec18910741afa57af1c6094d15b",
+  "access": "declared_sealed_not_executed",
+  "study_title": "Synthetic encouragement authority-ablation template",
+  "source_url": "https://example.invalid/authority-ablation-template",
+  "source_document_sha256": "f79495506484f84193cf6bda9d05f6c64e12a0af580556264c2b75f6deb140f0",
+  "use_scope": "unrestricted",
+  "expected_routes": [
+    {
+      "query_id": "q_001",
+      "authorized_strategy": "recorded_randomization",
+      "authorized_estimand": "offer_itt",
+      "blind_strategy": "undetermined",
+      "blind_estimand": "none",
+      "blind_reason": "design_authority_withheld"
+    },
+    {
+      "query_id": "q_002",
+      "authorized_strategy": "instrumental_variable",
+      "authorized_estimand": "complier_late",
+      "blind_strategy": "undetermined",
+      "blind_estimand": "none",
+      "blind_reason": "design_authority_withheld"
+    }
+  ]
+}

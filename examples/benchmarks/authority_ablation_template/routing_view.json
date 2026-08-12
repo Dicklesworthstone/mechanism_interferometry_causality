@@ -1,12 +1,13 @@
 {
   "schema_version": "1.0.0",
-  "benchmark_id": "oregon_authority_ablation",
-  "routing_view_id": "oregon_neutral_v1",
-  "source_table_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "routing_data_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "transformation_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-  "discovery_unit_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-  "confirmation_unit_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "execution_status": "contract_template",
+  "benchmark_id": "bench_002",
+  "routing_view_id": "view_001",
+  "source_table_sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d",
+  "routing_data_sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d",
+  "transformation_sha256": "6c9fea494d651d34130d060fba5eff311073a1f1e45af7f98adb45f3fc83da34",
+  "discovery_unit_sha256": "002a272be16c65ff8c2934eccca5600a4a8fadd48a2b3ea15f55d511b946ac11",
+  "confirmation_unit_sha256": "41ebcfaa35d69fb09aae9619c2657a3dd90b1ec18910741afa57af1c6094d15b",
   "authority": "proposal_only",
   "neutral_columns": [
     {
@@ -17,33 +18,33 @@
     {
       "column_id": "x_001",
       "storage_type": "boolean",
-      "candidate_roles": ["action", "instrument"]
+      "candidate_roles": ["measured_variable"]
     },
     {
       "column_id": "x_002",
       "storage_type": "boolean",
-      "candidate_roles": ["action"]
+      "candidate_roles": ["measured_variable"]
     },
     {
       "column_id": "w_001",
       "storage_type": "integer",
-      "candidate_roles": ["covariate"]
+      "candidate_roles": ["measured_variable"]
     },
     {
       "column_id": "y_001",
       "storage_type": "number",
-      "candidate_roles": ["outcome"]
+      "candidate_roles": ["measured_variable"]
     }
   ],
   "queries": [
     {
-      "query_id": "q_offer",
+      "query_id": "q_001",
       "exposure_column": "x_001",
       "outcome_column": "y_001",
       "effect_scale": "mean_difference"
     },
     {
-      "query_id": "q_coverage",
+      "query_id": "q_002",
       "exposure_column": "x_002",
       "outcome_column": "y_001",
       "effect_scale": "mean_difference"

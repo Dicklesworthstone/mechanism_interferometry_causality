@@ -1,0 +1,4 @@
+Synthetic semantic contract for schema conformance only: q_001 concerns the
+assigned offer represented by x_001. q_002 concerns receipt represented by
+x_002. The consistency, exclusion, and monotonicity clauses are declarations in
+the illustrative world; they are not empirically proved by routing_data.csv.

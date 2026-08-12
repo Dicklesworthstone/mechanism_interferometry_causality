@@ -56,6 +56,273 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def unique_field(items: list[dict], field: str) -> bool:
+    values = [item.get(field) for item in items]
+    return len(values) == len(set(values))
+
+
+def query_columns_resolve(query: dict, column_ids: set[object]) -> bool:
+    exposure = query.get("exposure_column")
+    outcome = query.get("outcome_column")
+    return exposure in column_ids and outcome in column_ids and exposure != outcome
+
+
+def route_is_allowed(
+    assignment_kind: object,
+    authorization: dict,
+    allowed_routes: dict[tuple[object, object, object], set[str]],
+) -> bool:
+    route = (
+        assignment_kind,
+        authorization.get("strategy"),
+        authorization.get("estimand"),
+    )
+    premise_names = {
+        premise.get("name")
+        for premise in authorization.get("required_premises", [])
+        if isinstance(premise, dict)
+    }
+    return route in allowed_routes and premise_names == allowed_routes[route]
+
+
+def authorization_matches_oracle(authorization: dict, oracle_route: dict) -> bool:
+    return (
+        authorization.get("strategy") == oracle_route.get("authorized_strategy")
+        and authorization.get("estimand") == oracle_route.get("authorized_estimand")
+    )
+
+
+def authorization_evidence_resolves(authorization: dict, evidence_ids: set[object]) -> bool:
+    return all(
+        premise.get("evidence_ref") in evidence_ids
+        for premise in authorization.get("required_premises", [])
+        if isinstance(premise, dict)
+    )
+
+
+def authority_template_semantic_errors(
+    routing_view: dict,
+    authorized: dict,
+    blind: dict,
+    oracle: dict,
+    benchmark_dir: Path,
+) -> list[str]:
+    """Validate cross-document authority semantics that JSON Schema cannot express."""
+    errors: list[str] = []
+
+    def require(condition: bool, message: str) -> None:
+        if not condition:
+            errors.append(message)
+
+    routing_data_path = benchmark_dir / "routing_data.csv"
+    transformation_path = benchmark_dir / "transformation.json"
+    discovery_path = benchmark_dir / "discovery_units.txt"
+    confirmation_path = benchmark_dir / "confirmation_units.txt"
+    required_paths = [
+        routing_data_path,
+        transformation_path,
+        discovery_path,
+        confirmation_path,
+    ]
+    if not all(path.is_file() for path in required_paths):
+        return ["authority-template content files are missing"]
+
+    documents = [routing_view, authorized, blind, oracle]
+    expected_hashes = {
+        "source_table_sha256": sha256(routing_data_path),
+        "routing_data_sha256": sha256(routing_data_path),
+        "transformation_sha256": sha256(transformation_path),
+        "discovery_unit_sha256": sha256(discovery_path),
+        "confirmation_unit_sha256": sha256(confirmation_path),
+    }
+    for field in ["execution_status", "benchmark_id", "routing_view_id", *expected_hashes]:
+        require(len({document.get(field) for document in documents}) == 1, f"binding drift: {field}")
+    for document in documents:
+        for field, expected in expected_hashes.items():
+            require(document.get(field) == expected, f"stale content binding: {field}")
+
+    neutral_columns = [
+        item for item in routing_view.get("neutral_columns", []) if isinstance(item, dict)
+    ]
+    column_ids = [item.get("column_id") for item in neutral_columns]
+    column_id_set = set(column_ids)
+    require(unique_field(neutral_columns, "column_id"), "duplicate neutral column ID")
+    with routing_data_path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        table_columns = reader.fieldnames or []
+    require(column_ids == table_columns, "routing column order mismatch")
+    transformation = load_json(transformation_path)
+    transformation_columns = (
+        transformation.get("ordered_columns", []) if isinstance(transformation, dict) else []
+    )
+    require(transformation_columns == table_columns, "transformation column order mismatch")
+
+    queries = [item for item in routing_view.get("queries", []) if isinstance(item, dict)]
+    require(unique_field(queries, "query_id"), "duplicate routing query ID")
+    for query in queries:
+        require(query_columns_resolve(query, column_id_set), "invalid query column reference")
+    queries_by_id = {item.get("query_id"): item for item in queries}
+
+    authorization_items = [
+        item
+        for item in authorized.get("estimand_authorizations", [])
+        if isinstance(item, dict)
+    ]
+    oracle_items = [
+        item for item in oracle.get("expected_routes", []) if isinstance(item, dict)
+    ]
+    require(unique_field(authorization_items, "query_id"), "duplicate authorization query ID")
+    require(unique_field(oracle_items, "query_id"), "duplicate oracle query ID")
+    authorizations = {item.get("query_id"): item for item in authorization_items}
+    oracle_routes = {item.get("query_id"): item for item in oracle_items}
+    require(
+        set(queries_by_id) == set(authorizations) == set(oracle_routes),
+        "query sets disagree",
+    )
+
+    assignment = authorized.get("assignment", {})
+    if not isinstance(assignment, dict):
+        assignment = {}
+    assignment_column = assignment.get("assignment_column")
+    assignment_unit = assignment.get("assignment_unit_column")
+    require(assignment_column in column_id_set, "unknown assignment column")
+    require(assignment_unit in column_id_set, "unknown assignment unit")
+    unit_columns = {
+        item.get("column_id")
+        for item in neutral_columns
+        if "unit" in item.get("candidate_roles", [])
+    }
+    require(assignment_unit in unit_columns, "assignment unit lacks unit role")
+    if assignment.get("kind") == "randomized_encouragement":
+        require(
+            assignment.get("probability_contract")
+            in {"externally_documented_constant", "externally_documented_by_stratum"},
+            "randomized encouragement lacks a probability contract",
+        )
+        require(
+            assignment.get("timing_contract") == "pre_exposure_and_outcome",
+            "randomized encouragement has an invalid timing contract",
+        )
+
+    discovery_units = {
+        line.strip()
+        for line in discovery_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    }
+    confirmation_units = {
+        line.strip()
+        for line in confirmation_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    }
+    data_units = {row.get(str(assignment_unit)) for row in rows}
+    require(not (discovery_units & confirmation_units), "unit partitions overlap")
+    require(discovery_units | confirmation_units == data_units, "unit partitions do not cover data")
+
+    evidence_items = [
+        item for item in authorized.get("premise_evidence", []) if isinstance(item, dict)
+    ]
+    require(unique_field(evidence_items, "evidence_id"), "duplicate evidence ID")
+    evidence_by_id = {item.get("evidence_id"): item for item in evidence_items}
+    benchmark_root = benchmark_dir.resolve()
+    for evidence in evidence_items:
+        evidence_path = (benchmark_dir / str(evidence.get("relative_path"))).resolve()
+        try:
+            evidence_path.relative_to(benchmark_root)
+            inside = True
+        except ValueError:
+            inside = False
+        require(inside, "evidence path escapes fixture")
+        require(evidence_path.is_file(), "evidence path is missing")
+        if evidence_path.is_file():
+            require(evidence.get("content_sha256") == sha256(evidence_path), "stale evidence hash")
+
+    route_contracts: dict[tuple[object, object, object], dict[str, str]] = {
+        ("randomized_encouragement", "recorded_randomization", "offer_itt"): {
+            "assignment_integrity": "externally_asserted_not_empirically_proved",
+            "correct_unit": "externally_asserted_not_empirically_proved",
+            "consistency": "externally_asserted_not_empirically_proved",
+            "positivity": "empirically_checked_not_design_authority",
+        },
+        ("randomized_encouragement", "instrumental_variable", "complier_late"): {
+            "relevance": "empirically_checked_not_design_authority",
+            "exclusion": "externally_asserted_not_empirically_proved",
+            "independence": "externally_asserted_not_empirically_proved",
+            "monotonicity": "externally_asserted_not_empirically_proved",
+            "correct_unit": "externally_asserted_not_empirically_proved",
+            "consistency": "externally_asserted_not_empirically_proved",
+            "positivity": "empirically_checked_not_design_authority",
+        },
+    }
+    for query_id, authorization in authorizations.items():
+        premises = [
+            item
+            for item in authorization.get("required_premises", [])
+            if isinstance(item, dict)
+        ]
+        require(unique_field(premises, "name"), "duplicate premise name")
+        route_key = (
+            assignment.get("kind"),
+            authorization.get("strategy"),
+            authorization.get("estimand"),
+        )
+        contract = route_contracts.get(route_key)
+        require(contract is not None, "invalid assignment/strategy/estimand route")
+        premise_statuses = {item.get("name"): item.get("status") for item in premises}
+        if contract is not None:
+            require(premise_statuses == contract, "premise names or authority statuses disagree")
+        require(
+            authorization_evidence_resolves(authorization, set(evidence_by_id)),
+            "unresolved premise evidence",
+        )
+        for premise in premises:
+            evidence = evidence_by_id.get(premise.get("evidence_ref"), {})
+            expected_class = (
+                "empirical_diagnostic"
+                if premise.get("status") == "empirically_checked_not_design_authority"
+                else "external_design_assertion"
+            )
+            require(evidence.get("evidence_class") == expected_class, "wrong evidence class")
+            require(
+                premise.get("name") in evidence.get("covers_premises", []),
+                "evidence does not cover referenced premise",
+            )
+        query = queries_by_id.get(query_id, {})
+        exposure = authorization.get("exposure_column")
+        assignment_reference = authorization.get("assignment_reference_column")
+        require(exposure == query.get("exposure_column"), "authorization exposure disagrees with query")
+        require(assignment_reference == assignment_column, "authorization loses assignment reference")
+        if authorization.get("strategy") == "recorded_randomization":
+            require(exposure == assignment_column, "ITT exposure is not the randomized assignment")
+        if authorization.get("strategy") == "instrumental_variable":
+            require(exposure != assignment_column, "IV exposure incorrectly equals its instrument")
+        require(
+            authorization_matches_oracle(authorization, oracle_routes.get(query_id, {})),
+            "authorization disagrees with oracle",
+        )
+
+    authority_hash = assignment.get("authority_source_sha256")
+    assignment_evidence = [
+        item
+        for item in evidence_items
+        if "assignment_integrity" in item.get("covers_premises", [])
+    ]
+    require(
+        len(assignment_evidence) == 1
+        and assignment_evidence[0].get("content_sha256") == authority_hash,
+        "assignment authority source is not the assignment-integrity evidence",
+    )
+    require(authority_hash == oracle.get("source_document_sha256"), "oracle source disagrees")
+    require(authorized.get("use_scope") == oracle.get("use_scope"), "use scope disagrees")
+    require(authorized.get("status") == "illustrative_supplied", "authorized status is wrong")
+    require(blind.get("status") == "withheld", "blind status is wrong")
+    require(
+        not {"assignment", "estimand_authorizations", "premise_evidence", "use_scope"}.intersection(blind),
+        "blind receipt leaks authority fields",
+    )
+    return errors
+
+
 def active_tilt_candidate_fingerprint(candidates: list[object]) -> str:
     """Mirror mic-proposal's exact, order-sensitive candidate-library framing."""
     digest = hashlib.sha256()
@@ -129,10 +396,17 @@ def required_files() -> None:
         "examples/orientation/parity_demo.json",
         "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
-        "examples/benchmarks/oregon_authority_ablation/routing_view.json",
-        "examples/benchmarks/oregon_authority_ablation/authorized_design_receipt.json",
-        "examples/benchmarks/oregon_authority_ablation/blind_design_receipt.json",
-        "examples/benchmarks/oregon_authority_ablation/oracle.json",
+        "examples/benchmarks/authority_ablation_template/README.md",
+        "examples/benchmarks/authority_ablation_template/routing_data.csv",
+        "examples/benchmarks/authority_ablation_template/transformation.json",
+        "examples/benchmarks/authority_ablation_template/discovery_units.txt",
+        "examples/benchmarks/authority_ablation_template/confirmation_units.txt",
+        "examples/benchmarks/authority_ablation_template/design_source_excerpt.txt",
+        "examples/benchmarks/authority_ablation_template/semantic_contract.txt",
+        "examples/benchmarks/authority_ablation_template/routing_view.json",
+        "examples/benchmarks/authority_ablation_template/authorized_design_receipt.json",
+        "examples/benchmarks/authority_ablation_template/blind_design_receipt.json",
+        "examples/benchmarks/authority_ablation_template/oracle.json",
         "crates/mic-proposal/Cargo.toml",
         "crates/mic-proposal/src/lib.rs",
         "scripts/generate_simulations.py",
@@ -275,7 +549,7 @@ def validate_schemas_and_manifests() -> None:
         and design_receipt_schema is not None
         and benchmark_oracle_schema is not None
     ):
-        benchmark_dir = ROOT / "examples" / "benchmarks" / "oregon_authority_ablation"
+        benchmark_dir = ROOT / "examples" / "benchmarks" / "authority_ablation_template"
         routing_view = load_json(benchmark_dir / "routing_view.json")
         authorized = load_json(benchmark_dir / "authorized_design_receipt.json")
         blind = load_json(benchmark_dir / "blind_design_receipt.json")
@@ -291,18 +565,44 @@ def validate_schemas_and_manifests() -> None:
                 document_validator.iter_errors(document), key=lambda item: list(item.path)
             ):
                 location = ".".join(str(part) for part in error.path) or "<root>"
-                fail(f"Oregon {label} schema violation at {location}: {error.message}")
+                fail(f"authority-template {label} schema violation at {location}: {error.message}")
 
         if all(isinstance(document, dict) for document in [routing_view, authorized, blind, oracle]):
+            for error in authority_template_semantic_errors(
+                routing_view, authorized, blind, oracle, benchmark_dir
+            ):
+                fail(f"authority-template semantic violation: {error}")
+            routing_data_path = benchmark_dir / "routing_data.csv"
+            transformation_path = benchmark_dir / "transformation.json"
+            discovery_path = benchmark_dir / "discovery_units.txt"
+            confirmation_path = benchmark_dir / "confirmation_units.txt"
+            transformation = load_json(transformation_path)
+            expected_hashes = {
+                "source_table_sha256": sha256(routing_data_path),
+                "routing_data_sha256": sha256(routing_data_path),
+                "transformation_sha256": sha256(transformation_path),
+                "discovery_unit_sha256": sha256(discovery_path),
+                "confirmation_unit_sha256": sha256(confirmation_path),
+            }
             binding_fields = [
+                "execution_status",
                 "benchmark_id",
                 "routing_view_id",
                 "source_table_sha256",
                 "routing_data_sha256",
+                "transformation_sha256",
+                "discovery_unit_sha256",
+                "confirmation_unit_sha256",
             ]
             for field in binding_fields:
                 values = {document.get(field) for document in [routing_view, authorized, blind, oracle]}
-                check(len(values) == 1, f"Oregon authority-ablation binding drift in {field}")
+                check(len(values) == 1, f"authority-template binding drift in {field}")
+            for document, _, label in benchmark_documents:
+                for field, expected_hash in expected_hashes.items():
+                    check(
+                        document.get(field) == expected_hash,
+                        f"authority-template {label} does not bind actual {field}",
+                    )
 
             check(routing_view.get("authority") == "proposal_only", "routing view grants causal authority")
             sealed_context = routing_view.get("sealed_context", {})
@@ -311,52 +611,223 @@ def validate_schemas_and_manifests() -> None:
                     sealed_context and not any(sealed_context.values()),
                     "routing view exposes sealed benchmark context",
                 )
-            query_ids = {
-                query.get("query_id")
-                for query in routing_view.get("queries", [])
-                if isinstance(query, dict)
-            }
-            authorization_ids = {
-                item.get("query_id")
+
+            neutral_columns = [
+                item
+                for item in routing_view.get("neutral_columns", [])
+                if isinstance(item, dict)
+            ]
+            column_ids = [item.get("column_id") for item in neutral_columns]
+            check(unique_field(neutral_columns, "column_id"), "routing view has duplicate column IDs")
+            with routing_data_path.open(newline="", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
+                table_columns = list(handle.seek(0) or next(csv.reader(handle)))
+            check(
+                column_ids == table_columns,
+                "routing view neutral-column order does not match routing table",
+            )
+            transformation_columns = (
+                transformation.get("ordered_columns", [])
+                if isinstance(transformation, dict)
+                else []
+            )
+            check(
+                transformation_columns == table_columns,
+                "transformation does not bind the routing-table column order",
+            )
+
+            queries = [
+                item for item in routing_view.get("queries", []) if isinstance(item, dict)
+            ]
+            query_id_list = [item.get("query_id") for item in queries]
+            check(unique_field(queries, "query_id"), "routing view has duplicate query IDs")
+            query_ids = set(query_id_list)
+            for query in queries:
+                check(
+                    query_columns_resolve(query, set(column_ids)),
+                    f"query {query.get('query_id')} has invalid column references",
+                )
+
+            authorization_items = [
+                item
                 for item in authorized.get("estimand_authorizations", [])
                 if isinstance(item, dict)
-            }
-            oracle_ids = {
-                item.get("query_id")
-                for item in oracle.get("expected_routes", [])
-                if isinstance(item, dict)
-            }
+            ]
+            authorization_id_list = [item.get("query_id") for item in authorization_items]
+            check(
+                unique_field(authorization_items, "query_id"),
+                "authorized receipt has duplicate query IDs",
+            )
+            authorization_ids = set(authorization_id_list)
+            oracle_items = [
+                item for item in oracle.get("expected_routes", []) if isinstance(item, dict)
+            ]
+            oracle_id_list = [item.get("query_id") for item in oracle_items]
+            check(
+                unique_field(oracle_items, "query_id"),
+                "benchmark oracle has duplicate query IDs",
+            )
+            oracle_ids = set(oracle_id_list)
             check(
                 query_ids == authorization_ids == oracle_ids,
-                "Oregon authority ablation does not bind every frozen query",
+                "authority template does not bind every frozen query",
             )
-            check(authorized.get("status") == "supplied", "authorized receipt is not supplied")
+            check(
+                authorized.get("status") == "illustrative_supplied",
+                "authorized template receipt is not illustrative",
+            )
             check(blind.get("status") == "withheld", "blind receipt does not withhold authority")
             check(
-                not {"assignment", "estimand_authorizations", "use_scope"}.intersection(blind),
+                not {
+                    "assignment",
+                    "estimand_authorizations",
+                    "premise_evidence",
+                    "use_scope",
+                }.intersection(blind),
                 "blind receipt leaks design authority",
             )
 
-            authorizations = {
-                item.get("query_id"): item
-                for item in authorized.get("estimand_authorizations", [])
-                if isinstance(item, dict)
-            }
-            coverage = authorizations.get("q_coverage", {})
-            coverage_premises = {
-                item.get("name")
-                for item in coverage.get("required_premises", [])
-                if isinstance(item, dict)
+            assignment = authorized.get("assignment", {})
+            if not isinstance(assignment, dict):
+                assignment = {}
+            assignment_column = assignment.get("assignment_column")
+            assignment_unit = assignment.get("assignment_unit_column")
+            check(assignment_column in column_ids, "assignment references an unknown column")
+            check(assignment_unit in column_ids, "assignment unit references an unknown column")
+            unit_role_columns = {
+                item.get("column_id")
+                for item in neutral_columns
+                if "unit" in item.get("candidate_roles", [])
             }
             check(
-                coverage.get("estimand") == "complier_late",
-                "coverage query is not estimand-specific IV/LATE",
+                assignment_unit in unit_role_columns,
+                "assignment unit is not declared as a neutral unit column",
+            )
+
+            discovery_units = {
+                line.strip()
+                for line in discovery_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            }
+            confirmation_units = {
+                line.strip()
+                for line in confirmation_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            }
+            data_units = {row.get(str(assignment_unit)) for row in rows}
+            check(not (discovery_units & confirmation_units), "unit partitions overlap")
+            check(
+                discovery_units | confirmation_units == data_units,
+                "unit partitions do not exactly cover the routing table",
+            )
+
+            evidence_items = [
+                item for item in authorized.get("premise_evidence", []) if isinstance(item, dict)
+            ]
+            evidence_id_list = [item.get("evidence_id") for item in evidence_items]
+            check(
+                unique_field(evidence_items, "evidence_id"),
+                "authorized receipt has duplicate evidence IDs",
+            )
+            evidence_by_id = {item.get("evidence_id"): item for item in evidence_items}
+            benchmark_root = benchmark_dir.resolve()
+            for evidence in evidence_items:
+                relative_path = evidence.get("relative_path")
+                evidence_path = (benchmark_dir / str(relative_path)).resolve()
+                try:
+                    evidence_path.relative_to(benchmark_root)
+                    inside_benchmark = True
+                except ValueError:
+                    inside_benchmark = False
+                check(inside_benchmark, f"evidence {evidence.get('evidence_id')} escapes fixture")
+                check(evidence_path.is_file(), f"evidence {evidence.get('evidence_id')} is missing")
+                if evidence_path.is_file():
+                    check(
+                        evidence.get("content_sha256") == sha256(evidence_path),
+                        f"evidence {evidence.get('evidence_id')} has a stale digest",
+                    )
+
+            authorizations = {item.get("query_id"): item for item in authorization_items}
+            oracle_routes = {item.get("query_id"): item for item in oracle_items}
+            expected_routes = {
+                ("randomized_encouragement", "recorded_randomization", "offer_itt"): {
+                    "assignment_integrity",
+                    "correct_unit",
+                    "consistency",
+                    "positivity",
+                },
+                ("randomized_encouragement", "instrumental_variable", "complier_late"): {
+                    "relevance",
+                    "exclusion",
+                    "independence",
+                    "monotonicity",
+                    "correct_unit",
+                    "consistency",
+                    "positivity",
+                },
+            }
+            for query_id, authorization in authorizations.items():
+                premise_items = [
+                    item
+                    for item in authorization.get("required_premises", [])
+                    if isinstance(item, dict)
+                ]
+                premise_names = [item.get("name") for item in premise_items]
+                check(
+                    unique_field(premise_items, "name"),
+                    f"authorization {query_id} has duplicate premise names",
+                )
+                check(
+                    route_is_allowed(assignment.get("kind"), authorization, expected_routes),
+                    f"authorization {query_id} has an invalid route or premise set",
+                )
+                check(
+                    authorization_evidence_resolves(authorization, set(evidence_by_id)),
+                    f"authorization {query_id} has unresolved premise evidence",
+                )
+                for premise in premise_items:
+                    evidence_ref = premise.get("evidence_ref")
+                    check(
+                        evidence_ref in evidence_by_id,
+                        f"authorization {query_id} has unresolved evidence {evidence_ref}",
+                    )
+                    evidence = evidence_by_id.get(evidence_ref, {})
+                    expected_class = (
+                        "empirical_diagnostic"
+                        if premise.get("status") == "empirically_checked_not_design_authority"
+                        else "external_design_assertion"
+                    )
+                    check(
+                        evidence.get("evidence_class") == expected_class,
+                        f"authorization {query_id} misclassifies evidence {evidence_ref}",
+                    )
+                oracle_route = oracle_routes.get(query_id, {})
+                check(
+                    authorization_matches_oracle(authorization, oracle_route),
+                    f"authorization {query_id} disagrees with the oracle",
+                )
+
+            authority_source_hash = assignment.get("authority_source_sha256")
+            check(
+                authority_source_hash == oracle.get("source_document_sha256"),
+                "assignment authority source disagrees with the oracle source",
             )
             check(
-                {"relevance", "exclusion", "independence", "monotonicity"}
-                <= coverage_premises,
-                "coverage LATE omits a load-bearing IV premise",
+                any(
+                    item.get("content_sha256") == authority_source_hash
+                    and item.get("evidence_class") == "external_design_assertion"
+                    for item in evidence_items
+                ),
+                "assignment authority source has no content-bound evidence",
             )
+            check(
+                authorized.get("use_scope") == oracle.get("use_scope"),
+                "authorized use scope disagrees with the oracle",
+            )
+
+            blind_text = json.dumps([routing_view, blind], sort_keys=True).lower()
+            for leaked_term in ["oregon", "medicaid", "lottery", "instrument", "coverage"]:
+                check(leaked_term not in blind_text, f"blind routing artifacts leak {leaked_term}")
 
             invalid_blind = copy.deepcopy(blind)
             invalid_blind["estimand_authorizations"] = authorized.get(
@@ -371,6 +842,102 @@ def validate_schemas_and_manifests() -> None:
                     )
                 ),
                 "withheld design receipt can smuggle estimand authority",
+            )
+
+            routing_validator = Draft202012Validator(routing_view_schema)
+            receipt_validator = Draft202012Validator(design_receipt_schema)
+            oracle_validator = Draft202012Validator(benchmark_oracle_schema)
+
+            def template_rejected(
+                candidate_routing: dict,
+                candidate_authorized: dict,
+                candidate_blind: dict,
+                candidate_oracle: dict,
+            ) -> bool:
+                schema_errors = [
+                    *routing_validator.iter_errors(candidate_routing),
+                    *receipt_validator.iter_errors(candidate_authorized),
+                    *receipt_validator.iter_errors(candidate_blind),
+                    *oracle_validator.iter_errors(candidate_oracle),
+                ]
+                semantic_errors = authority_template_semantic_errors(
+                    candidate_routing,
+                    candidate_authorized,
+                    candidate_blind,
+                    candidate_oracle,
+                    benchmark_dir,
+                )
+                return bool(schema_errors or semantic_errors)
+
+            duplicate_query = copy.deepcopy(routing_view)
+            duplicate_query["queries"].append(copy.deepcopy(duplicate_query["queries"][0]))
+            check(
+                template_rejected(duplicate_query, authorized, blind, oracle),
+                "duplicate-query adversary passed the real template validator",
+            )
+            nonexistent_assignment = copy.deepcopy(authorized)
+            nonexistent_assignment["assignment"]["assignment_column"] = "x_999"
+            check(
+                template_rejected(routing_view, nonexistent_assignment, blind, oracle),
+                "unknown-assignment adversary passed the real template validator",
+            )
+            wrong_design = copy.deepcopy(authorized)
+            wrong_design["assignment"]["kind"] = "regression_discontinuity"
+            check(
+                template_rejected(routing_view, wrong_design, blind, oracle),
+                "strategy-kind adversary passed the real template validator",
+            )
+            wrong_oracle = copy.deepcopy(oracle)
+            wrong_oracle["expected_routes"][0]["authorized_estimand"] = "treatment_ate"
+            check(
+                template_rejected(routing_view, authorized, blind, wrong_oracle),
+                "oracle-estimand adversary passed the real template validator",
+            )
+            unresolved_evidence = copy.deepcopy(authorized)
+            unresolved_evidence["estimand_authorizations"][0]["required_premises"][0][
+                "evidence_ref"
+            ] = "ev_missing"
+            check(
+                template_rejected(routing_view, unresolved_evidence, blind, oracle),
+                "missing-evidence adversary passed the real template validator",
+            )
+            downgraded_exclusion = copy.deepcopy(authorized)
+            exclusion = downgraded_exclusion["estimand_authorizations"][1][
+                "required_premises"
+            ][1]
+            exclusion["status"] = "empirically_checked_not_design_authority"
+            exclusion["evidence_ref"] = "ev_relevance"
+            check(
+                template_rejected(routing_view, downgraded_exclusion, blind, oracle),
+                "empirical-exclusion adversary passed the real template validator",
+            )
+            swapped_exposures = copy.deepcopy(routing_view)
+            swapped_exposures["queries"][0]["exposure_column"] = "x_002"
+            swapped_exposures["queries"][1]["exposure_column"] = "x_001"
+            check(
+                template_rejected(swapped_exposures, authorized, blind, oracle),
+                "swapped-exposure adversary passed the real template validator",
+            )
+            decorative_contract = copy.deepcopy(authorized)
+            decorative_contract["assignment"]["probability_contract"] = "not_applicable"
+            decorative_contract["assignment"]["timing_contract"] = "cutoff_precedes_outcome"
+            check(
+                template_rejected(routing_view, decorative_contract, blind, oracle),
+                "invalid-randomization-contract adversary passed the real validator",
+            )
+            wrong_evidence_subject = copy.deepcopy(authorized)
+            wrong_evidence_subject["estimand_authorizations"][0]["required_premises"][0][
+                "evidence_ref"
+            ] = "ev_semantics"
+            check(
+                template_rejected(routing_view, wrong_evidence_subject, blind, oracle),
+                "wrong-evidence-subject adversary passed the real validator",
+            )
+            leaky_identifier = copy.deepcopy(routing_view)
+            leaky_identifier["benchmark_id"] = "randomized_encouragement_late"
+            check(
+                template_rejected(leaky_identifier, authorized, blind, oracle),
+                "semantic-identifier leakage adversary passed the real validator",
             )
 
     if four_law_report_schema is not None:

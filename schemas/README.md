@@ -10,7 +10,10 @@
 
 JSON Schema cannot enforce that corner sampling proportions sum to one or that all design points share one dimension. Both constraints are checked by `scripts/check_repo.py` and `mic-data`.
 
-The benchmark schemas deliberately use three files. Combining them would let a
+The benchmark schemas deliberately use three views. Combining them would let a
 router recover the study, strategy, or published result from the same artifact
-that it is supposed to analyze blindly. `scripts/check_repo.py` checks their
-content bindings and the identical-byte authorized/blind ablation.
+that it is supposed to analyze blindly. `scripts/check_repo.py` checks the
+synthetic contract template's content bindings, referential integrity, premise
+evidence, strategy/estimand truth table, and authorized/blind byte identity. It
+does not enforce runtime isolation; an eventual runner must produce a separate
+execution receipt before any fixture can be called a blind benchmark.

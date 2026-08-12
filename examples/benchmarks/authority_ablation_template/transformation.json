@@ -1,0 +1,5 @@
+{
+  "schema_version": "1.0.0",
+  "operation": "identity_on_neutral_columns",
+  "ordered_columns": ["u_001", "x_001", "x_002", "w_001", "y_001"]
+}
