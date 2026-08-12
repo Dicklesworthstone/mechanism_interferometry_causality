@@ -15,6 +15,7 @@ franken = ["dep:frankenpandas"]
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 mic-design = { path = "../mic-design" }
 frankenpandas = { workspace = true, optional = true }

@@ -7,6 +7,12 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+mod table;
+pub use table::{
+    ClusterFold, IngestReport, Observation, RegimeCount, TableError, TableFingerprint,
+    fold_for_cluster, load_csv_table, resolve_data_path,
+};
+
 /// Requested inferential track.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
