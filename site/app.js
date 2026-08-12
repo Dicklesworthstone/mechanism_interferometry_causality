@@ -1555,6 +1555,12 @@
       var wantsGcm = track === "product_factorial" || track === "both";
       var gcmOk = isProduct && fourLawOk;
 
+      /* One complete square face is observed in this two-factor design, so the
+         geometry half of four-law eligibility is satisfied here by construction.
+         The cube above is where that half can actually fail. */
+      var requestedEligible = track === "four_law" ? fourLawOk
+        : (track === "product_factorial" ? gcmOk : (fourLawOk && gcmOk));
+
       var strict = strictBox ? strictBox.checked : true;
 
       $("logOdds").textContent = signed(logOdds, 6);
@@ -1614,11 +1620,17 @@
       findings.push(finding("ok", "square_contrast_rank",
         "One complete square face over two factors. Main-effects rank three against four corners leaves exactly one testable flatness contrast."));
 
+      /* Status, in the order run_preflight evaluates it. The override is checked
+         first and on purpose: accepting an unvalidated selection model by policy
+         buys the run permission to continue, never permission to certify, so it
+         can only ever produce DiagnosticOnly however strict the run is. */
+      var overridden = selection === "modeled" && acceptModel;
+
       var status;
       var statusKind;
-      if (strict && blocking > 0) { status = "BLOCKED"; statusKind = "block"; }
+      if (overridden) { status = "DIAGNOSTIC_ONLY"; statusKind = "curve"; }
       else if (!strict) { status = "DIAGNOSTIC_ONLY"; statusKind = "curve"; }
-      else if (blocking > 0) { status = "DIAGNOSTIC_ONLY"; statusKind = "curve"; }
+      else if (blocking > 0 || !requestedEligible) { status = "BLOCKED"; statusKind = "block"; }
       else { status = "READY"; statusKind = "flat"; }
 
       setVerdict($("auditStatus"), statusKind, status);
