@@ -265,10 +265,10 @@ pub fn run_tabular_audit(
     for face in &preflight_report.design.square_faces {
         let corners = face.corners();
         let audit = audit_face(manifest, &ingest, &labeled, &corners, four_law)?;
-        if overlap.is_none() {
-            if let Some(weights) = baseline_ratio_weights(&labeled, &ingest, &audit, &corners[0]) {
-                overlap = Some(audit_overlap(&weights, &preflight, "overlap", &mut ledger)?);
-            }
+        if overlap.is_none()
+            && let Some(weights) = baseline_ratio_weights(&labeled, &ingest, &audit, &corners[0])
+        {
+            overlap = Some(audit_overlap(&weights, &preflight, "overlap", &mut ledger)?);
         }
         record_face(&audit, &mut ledger);
         faces.push(audit);
@@ -386,11 +386,14 @@ fn record_ingest(
     let _ = manifest;
 }
 
+/// One observation paired with its per-column bin indices under the recorded projection.
+type BinnedObservation = (ObservationLabel, Vec<usize>);
+
 fn project_state(
     manifest: &ExperimentManifest,
     ingest: &IngestReport,
     policy: FourLawPolicy,
-) -> Result<(ProjectionSpec, Vec<(ObservationLabel, Vec<usize>)>), EngineError> {
+) -> Result<(ProjectionSpec, Vec<BinnedObservation>), EngineError> {
     let dim = manifest.state_columns.len();
     let mut values: Vec<Vec<f64>> = vec![Vec::new(); dim];
     for row in &ingest.rows {
