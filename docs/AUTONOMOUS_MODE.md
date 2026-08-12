@@ -50,7 +50,7 @@ For each usable interferometer, run the full audit battery:
 
 - localization of each context bit's regime family by parsimony-frontier ensembles;
 - deletion-equivalence orientation with multiplier bounds at the inferred cluster level, yielding the five-state pass count;
-- curvature: four-law moment batteries with witness families, and GCM projections where empirical product odds hold, both under the estimator lens battery;
+- curvature: four-law moment batteries with witness families under the estimator lens battery; residual-product diagnostics run only where empirical corner counts are product-consistent and are always labeled diagnostic, per Stage 1 — no autonomous run performs a GCM curvature test;
 - conservation cross-checks: the three-way law `Cov(r_A, r_B) = −E[r_A r_B(e^κ − 1)]` relates quantities the survey estimates anyway, so every pair carries a consistency check; the two sides must be estimated through separate held-out routes (distinct folds or distinct estimator families) for the check to constitute estimation quality evidence — when both sides derive algebraically from the same fitted ratios the check can pass by construction and is recorded as algebra-consistency only, not estimator validation;
 - negative controls whenever the data contains context pairs known or scored to be inert.
 
@@ -82,6 +82,6 @@ Every non-terminal state emits a machine-readable proposal: ambiguous orientatio
 - Stage 2: implemented primitives (`parsimony_frontier`, `classify_deletion`, `orient_from_deletions`, `simultaneous_mean_bounds`, `four_law_moment`, `gcm_projection`, `audit_lens_battery`, `audit_overlap`) plus the four-law estimation path over real tables.
 - Stage 3: `mic_design::peel_families` implements the paper's peeling reconstruction with simultaneous rounds (repeated tilts of one node resolve together) and a conservative stuck state instead of forced orientation.
 - Stage 4: the state-expansion loop (Packet 7) over candidate blocks.
-- Stage 5: `mic-proposal` extended with design-extension and contract-request proposal kinds.
+- Stage 5: `mic-proposal` currently implements active-tilt ranking only; the design-extension and contract-request proposal kinds are roadmap items, not shipped code.
 
 The mode ships when Stages 0 through 3 run end to end on one public dataset and the resulting atlas leads with its abstentions.
