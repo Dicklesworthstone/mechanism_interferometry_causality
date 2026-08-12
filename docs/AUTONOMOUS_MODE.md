@@ -80,7 +80,7 @@ Every non-terminal state emits a machine-readable proposal: ambiguous orientatio
 - Stage 0 and ingestion: the tabular slice (Packet 1) plus a context-scoring pass.
 - Stage 1: implemented primitives (`audit_design`, `audit_interaction_aliasing`, `audit_sampling_odds`, `observed_design_from_rows`) composed over discovered columns.
 - Stage 2: implemented primitives (`parsimony_frontier`, `classify_deletion`, `orient_from_deletions`, `simultaneous_mean_bounds`, `four_law_moment`, `gcm_projection`, `audit_lens_battery`, `audit_overlap`) plus the four-law estimation path over real tables.
-- Stage 3: `mic_design::peel_families` implements the paper's peeling reconstruction with simultaneous rounds (repeated tilts of one node resolve together) and a conservative stuck state instead of forced orientation.
+- Stage 3: `mic_design::peel_families` implements the paper's peeling reconstruction with simultaneous rounds and a conservative stuck state instead of forced orientation. Its uniqueness guarantee requires one sufficiently rich family per node: from unlabeled sets, an undercovered repeated tilt is indistinguishable from a source family and strands its richer sibling rather than being merged. Same-target tilt knowledge is external metadata; when the caller has it, `peel_family_groups` unions declared groups before peeling and fails closed on inconsistent declarations.
 - Stage 4: the state-expansion loop (Packet 7) over candidate blocks.
 - Stage 5: `mic-proposal` currently implements active-tilt ranking only; the design-extension and contract-request proposal kinds are roadmap items, not shipped code.
 

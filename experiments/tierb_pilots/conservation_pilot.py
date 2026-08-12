@@ -51,7 +51,12 @@ ra = [ra0[0] * 1.10, ra0[1] * (ra0[0] * ra0[1] * 0.10 / (ra0[1] ** 2) * -1 + 1)]
 cov, rhs, res = residual(ra, rb0, rab0)
 print(f"  crafted     cov={cov:+.6f} rhs={rhs:+.6f} residual={res:.4f}  rel={res/abs(cov) if cov else float('inf'):6.1%}")
 
-print("\nmode D: witness battery closes the kernel on this fixture")
+print("=" * 72)
+print("RETRACTED: mode D below tests a form later REFUTED over valid populations")
+print("(fixture-coincidence on the two-point space; see witness_identity_check2.py).")
+print("Modes A-C remain informative; mode D output is preserved as history only.")
+print("=" * 72)
+print("\nmode D (RETRACTED FORM, historical output only):")
 def weighted_residual(ra, rb, rab, w):
     n = len(ra)
     mean = lambda v: sum(v) / n
@@ -70,3 +75,10 @@ for name, w in witnesses.items():
     res_honest = weighted_residual(ra0, rb0, rab0, w)
     res_crafted = weighted_residual(ra_crafted, rb0, rab0, w)
     print(f"  witness {name:9s}: honest residual={res_honest:.2e}  crafted-corruption residual={res_crafted:.4f}")
+
+print()
+print("=" * 72)
+print("REMINDER: the mode-D 'weighted conservation identity' is RETRACTED/INVALID.")
+print("Authoritative replacement: master-marginal cross-route battery")
+print("(witness_identity_check2.py). Do not cite mode D as a working check.")
+print("=" * 72)
