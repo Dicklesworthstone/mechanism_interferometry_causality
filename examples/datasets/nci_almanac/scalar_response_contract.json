@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0.0",
+  "contract_kind": "scalar_factorial_response",
+  "authority": "proposal_only",
+  "certificate_eligible": false,
+  "source_url": "https://dtp.cancer.gov/ncialmanac/initializePage.do",
+  "input_semantics": "reported_percent_growth_or_derived_combo_summary",
+  "required_grouping": [
+    "screen_or_experiment",
+    "cell_line",
+    "drug_a",
+    "drug_b",
+    "physical_dose_a",
+    "physical_dose_b",
+    "control_normalization_convention"
+  ],
+  "required_unit_receipt": "true_plate_or_experiment_randomization_block",
+  "allowed_outputs": [
+    "named_additive_response_interaction",
+    "named_modified_bliss_summary",
+    "held_out_percent_growth_prediction",
+    "missing_dose_cell_proposal"
+  ],
+  "forbidden_outputs": [
+    "density_curvature",
+    "conditional_normalization",
+    "causal_family_orientation",
+    "mic_raw_compositional_normalizer",
+    "certificate_status"
+  ],
+  "holdout_unit": "whole_drug_pair_by_cell_line_surface_or_whole_experiment",
+  "missing_cell_policy": "report_never_impute",
+  "note": "Scalar interaction is response-scale and null dependent; ComboScore is a derived summary, not mechanism ground truth."
+}

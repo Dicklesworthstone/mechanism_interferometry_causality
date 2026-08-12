@@ -505,6 +505,7 @@ def required_files() -> None:
         "schemas/design_authority_receipt.schema.json",
         "schemas/benchmark_oracle.schema.json",
         "schemas/design_diagnostic_receipt.schema.json",
+        "schemas/scalar_response_contract.schema.json",
         "examples/orientation/parity_demo.json",
         "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
@@ -522,6 +523,8 @@ def required_files() -> None:
         "examples/benchmarks/authority_ablation_template/authorized_design_receipt.json",
         "examples/benchmarks/authority_ablation_template/blind_design_receipt.json",
         "examples/benchmarks/authority_ablation_template/oracle.json",
+        "examples/datasets/nci_almanac/README.md",
+        "examples/datasets/nci_almanac/scalar_response_contract.json",
         "crates/mic-proposal/Cargo.toml",
         "crates/mic-proposal/src/lib.rs",
         "scripts/generate_simulations.py",
@@ -563,6 +566,26 @@ def validate_schemas_and_manifests() -> None:
     design_receipt_schema = schemas.get("design_authority_receipt.schema.json")
     benchmark_oracle_schema = schemas.get("benchmark_oracle.schema.json")
     design_diagnostic_schema = schemas.get("design_diagnostic_receipt.schema.json")
+    scalar_response_schema = schemas.get("scalar_response_contract.schema.json")
+
+    check(scalar_response_schema is not None, "scalar-response contract schema was not loaded")
+    if scalar_response_schema is not None:
+        scalar_contract = load_json(
+            ROOT / "examples" / "datasets" / "nci_almanac" / "scalar_response_contract.json"
+        )
+        scalar_errors = sorted(
+            Draft202012Validator(scalar_response_schema).iter_errors(scalar_contract),
+            key=lambda item: list(item.path),
+        )
+        for error in scalar_errors:
+            location = ".".join(str(part) for part in error.path) or "<root>"
+            fail(f"scalar-response contract schema violation at {location}: {error.message}")
+        if isinstance(scalar_contract, dict):
+            check(
+                scalar_contract.get("authority") == "proposal_only"
+                and scalar_contract.get("certificate_eligible") is False,
+                "scalar-response contract gained causal certificate authority",
+            )
 
     check(audit_report_schema is not None, "audit report schema was not loaded")
     check(four_law_report_schema is not None, "four-law report schema was not loaded")

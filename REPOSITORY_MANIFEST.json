@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T23:43:28Z",
+  "generated_at_utc": "2026-08-12T23:54:58Z",
   "hash_algorithm": "sha256",
-  "file_count": 157,
-  "aggregate_sha256": "9b6364b404a1ebdd1e357e3bf8fc3a0cac3ba444f4a957d7c38f35aab089e8ce",
+  "file_count": 158,
+  "aggregate_sha256": "d65f61401ee0f526cd14961d4d0e24208a90d62ff815d59d1f9ad743fbcc89f7",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -238,8 +238,8 @@
     },
     {
       "path": "docs/DATASET_ELIGIBILITY.md",
-      "bytes": 7488,
-      "sha256": "9f8545ce211bf879ebcc1a810bb791f234425fa1ba0776f975f562413ffa72e6"
+      "bytes": 8230,
+      "sha256": "17982e92976b8dee92c4ef9a3534ad850c0d98b1a1a5ce325b6131bd80f0ddd8"
     },
     {
       "path": "docs/DATASET_GAUNTLET.md",
@@ -468,13 +468,13 @@
     },
     {
       "path": "examples/datasets/nci_almanac/README.md",
-      "bytes": 364,
-      "sha256": "df2f8013d77d8a650604c692aff5dbfe597569b6aa0b2ef35a6f9cd9647f0052"
+      "bytes": 1233,
+      "sha256": "cc1d2df3a10c44f6c465de4fd2b4e381b68ce9c80c6c448f36287d2cbc0c972c"
     },
     {
-      "path": "examples/datasets/nci_almanac/manifest.json",
-      "bytes": 1076,
-      "sha256": "2e9d3337469fcd6cbb17a80f84498f1a10c1f57e33b0bb651ea479fc93d46cc4"
+      "path": "examples/datasets/nci_almanac/scalar_response_contract.json",
+      "bytes": 1177,
+      "sha256": "c492fa5108a373583d8488911e82b36b571d30bc57295be2feea908bed0f2f90"
     },
     {
       "path": "examples/datasets/norman2019/README.md",
@@ -657,6 +657,11 @@
       "sha256": "e99f4dbbda99899968aa9ce5f8be99a8c8edc99995cf3e2251e83163f9a29f20"
     },
     {
+      "path": "schemas/scalar_response_contract.schema.json",
+      "bytes": 2344,
+      "sha256": "b07b5e2bd6d8913bac1aad36f2c7d7511c1706b212df8fb36a6888b23a3d21ae"
+    },
+    {
       "path": "scripts/build_all.sh",
       "bytes": 839,
       "sha256": "6684d4248b00079227fffa140472bf266b5529fc1f15507f9496635bbd8fd67b"
@@ -668,8 +673,8 @@
     },
     {
       "path": "scripts/check_repo.py",
-      "bytes": 78200,
-      "sha256": "5654f9bffe77351b1efab0031f4efade426a0d7715ec324dd3ecb3dedcd13c64"
+      "bytes": 79423,
+      "sha256": "83b95f8436b189cfb9a70cee371ef2a0fd8cbc2c332655264ef73a7f92cef88a"
     },
     {
       "path": "scripts/generate_example_data.py",

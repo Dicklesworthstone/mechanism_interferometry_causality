@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/mechanism-interferometry/scalar-response-contract.schema.json",
+  "title": "Proposal-only scalar factorial response contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_kind",
+    "authority",
+    "certificate_eligible",
+    "source_url",
+    "input_semantics",
+    "required_grouping",
+    "required_unit_receipt",
+    "allowed_outputs",
+    "forbidden_outputs",
+    "holdout_unit",
+    "missing_cell_policy",
+    "note"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "contract_kind": {"const": "scalar_factorial_response"},
+    "authority": {"const": "proposal_only"},
+    "certificate_eligible": {"const": false},
+    "source_url": {"type": "string", "format": "uri", "minLength": 1},
+    "input_semantics": {"const": "reported_percent_growth_or_derived_combo_summary"},
+    "required_grouping": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "screen_or_experiment",
+          "cell_line",
+          "drug_a",
+          "drug_b",
+          "physical_dose_a",
+          "physical_dose_b",
+          "control_normalization_convention"
+        ]
+      }
+    },
+    "required_unit_receipt": {"const": "true_plate_or_experiment_randomization_block"},
+    "allowed_outputs": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "named_additive_response_interaction",
+          "named_modified_bliss_summary",
+          "held_out_percent_growth_prediction",
+          "missing_dose_cell_proposal"
+        ]
+      }
+    },
+    "forbidden_outputs": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "density_curvature",
+          "conditional_normalization",
+          "causal_family_orientation",
+          "mic_raw_compositional_normalizer",
+          "certificate_status"
+        ]
+      }
+    },
+    "holdout_unit": {"const": "whole_drug_pair_by_cell_line_surface_or_whole_experiment"},
+    "missing_cell_policy": {"const": "report_never_impute"},
+    "note": {"type": "string", "minLength": 1}
+  }
+}

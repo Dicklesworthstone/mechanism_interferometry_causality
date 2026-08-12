@@ -1,9 +1,10 @@
 # Public-dataset eligibility matrix
 
-This document maps three public factorial designs onto
-`schemas/experiment_manifest.schema.json`. It is a **design-review artifact**,
-not a certificate. None of the source tables are bundled. A missing file is a
-fail-closed ingest error, not a synthetic stand-in.
+This document reviews two public factorial designs for
+`schemas/experiment_manifest.schema.json` and records one tempting scalar screen
+that is explicitly **not** eligible for the density-law audit. It is a
+**design-review artifact**, not a certificate. None of the source tables are
+bundled. A missing file is a fail-closed ingest error, not a synthetic stand-in.
 
 The only datasets considered here already have, or can be reduced to, a
 four-corner square: control, A, B, and AB. Observational DAGs, GWAS, and
@@ -69,26 +70,30 @@ Packet 1 FrankenPandas ingest. Packet 1 should attach to the same
   The four-corner `+1.020` is post-selection row-count odds, not assignment
   odds. Raw `Z=1.160`.
 
-## 2. NCI-ALMANAC / DrugComb combination screens
+## 2. NCI-ALMANAC / DrugComb scalar combination screens: not MIC-law eligible
 
 - Sources: NCI-ALMANAC; DrugComb / DrugCombDB for pair lookup.
-- Template: [`examples/datasets/nci_almanac/manifest.json`](../examples/datasets/nci_almanac/manifest.json).
-- Why it is a square: vehicle, drug A, drug B, and the combination, when those
-  four arms exist for a cell line.
-- A priori questions:
-  - shared-target pair: \(\kappa\) should shrink after adding target-engagement;
-  - independent-pathway pair: large viability synergy with \(\kappa\approx 0\)
-    on a design-sufficient PK/PD state;
-  - direction: is A inhibiting B's metabolism, or do they hit one node?
-    Orient on PK/PD state, not on viability alone.
-- **Unit:** `plate_id` or biological replicate, never the well if the plate
-  was the randomized block.
-- Recommended track: `four_law`. Published combo screens are almost never
-  product-factorial at the analysis unit.
-- Candidate blocks: `target_engagement`; `metabolic_activity`.
-- Honest status today: **conditionally eligible**. Many published rows are
-  incomplete squares. The adapter must drop pairs that lack all four corners
-  rather than impute them.
+- Proposal contract:
+  [`examples/datasets/nci_almanac/scalar_response_contract.json`](../examples/datasets/nci_almanac/scalar_response_contract.json).
+- Vehicle, drug A, drug B, and AB may form a factorial square on a declared
+  percent-growth response scale. They do **not** supply four joint state laws.
+- Exact nonidentifiability witness: for state `Z in {0,1,2}`, four identical
+  uniform laws have scalar mean one and zero density curvature. Replacing only
+  the AB law by `(1/4,1/2,1/4)` preserves the same scalar mean one but yields
+  nonzero curvature. The released scalar corners cannot distinguish the worlds.
+- Allowed work: reproduce an explicitly named additive or modified-Bliss
+  response summary; predict held-out combination percent growth; inventory
+  missing dose cells; test sensitivity to response scale and null definition.
+- Forbidden work: density curvature, conditional normalization, target-family
+  orientation, or a raw compositional normalizer. Adding jitter or treating a
+  scalar as a degenerate distribution only invents a state law and violates
+  common-support semantics.
+- **Unit:** the true screen/plate/experiment block if released and externally
+  documented. Dose cells and NCI-60 cell lines are not automatic replicates.
+- Honest status today: **proposal-only scalar benchmark**. The former strict
+  MIC manifest was removed because it declared state-independent selection and
+  equal regime proportions without evidence and mislabeled scalar viability as
+  the complete state.
 
 ## 3. Graduation / bundled anti-poverty factorial RCT
 
@@ -127,6 +132,7 @@ Once a CSV exists at the declared path:
 | Observational DAG learner output | No intervention square; scores are proposals only |
 | GWAS / eQTL | No factorial soft-intervention family |
 | Single-arm A/B | No second primitive, so no \(\kappa_{AB}\) |
+| NCI-ALMANAC scalar response corners | Factorial scalar endpoints do not identify joint state laws or density curvature |
 | Perturb-seq treated as iid cells | Randomization unit is construct/replicate |
 | Hard knockouts with empty common support | Soft-intervention calculus does not apply |
 
