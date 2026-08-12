@@ -3,16 +3,20 @@
 
 #[cfg(test)]
 mod tests {
-    use mic_audit::{EvidenceLedger, ExecutionMode, code};
+    use mic_audit::{CertificateStatus, EvidenceLedger, ExecutionMode, code};
     use mic_core::{RatioSquare, covariance, four_law_moment};
     use mic_data::{DataSource, ExperimentManifest, InferenceTrack, RegimeSpec, SelectionContract};
     use mic_design::{DesignPoint, audit_design, audit_sampling_odds};
     use mic_engine::{
-        LensEstimate, PreflightPolicy, PreflightStatus, audit_lens_battery, run_preflight,
+        LensEstimate, PreflightPolicy, PreflightStatus, audit_lens_battery, audit_orientation,
+        run_preflight,
     };
     use mic_model::PosteriorSquare;
     use mic_sim::exact_suite;
-    use mic_stats::{CandidateSupport, parsimony_frontier};
+    use mic_stats::{
+        CandidateSupport, OrientationOutcome, classify_deletion, parsimony_frontier,
+        simultaneous_mean_bounds,
+    };
     use std::path::PathBuf;
 
     #[test]
@@ -188,5 +192,84 @@ mod tests {
         .unwrap();
         assert!(audit.agrees);
         assert_eq!(agreeing.status(true), mic_audit::CertificateStatus::Passed);
+    }
+
+    #[test]
+    fn parity_fixture_flows_to_multiple_passes_abstention() {
+        let parity = exact_suite().parity_orientation_failure;
+        assert_eq!(parity.pass_count, 2);
+        let epsilon = 0.05;
+        let deletions: Vec<_> = parity
+            .invariant_deletions
+            .iter()
+            .map(|variable| classify_deletion(variable.clone(), 0.0, 0.0, 0.01, epsilon).unwrap())
+            .collect();
+        let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        let audit = audit_orientation(&deletions, 1.0, 0.1, "orientation", &mut ledger).unwrap();
+        assert_eq!(
+            audit.outcome,
+            OrientationOutcome::MultiplePasses {
+                passes: parity.invariant_deletions.clone()
+            }
+        );
+        assert_eq!(ledger.status(true), CertificateStatus::Abstained);
+        assert!(
+            ledger
+                .findings
+                .iter()
+                .any(|finding| finding.code == code::ORIENTATION_UNRESOLVED)
+        );
+    }
+
+    #[test]
+    fn simultaneous_bounds_certify_a_unique_target_end_to_end() {
+        // Deletion discrepancy contributions per cluster: the target column sits
+        // near zero, the parent column sits far above the tolerance.
+        let contributions: Vec<Vec<f64>> = (0..24)
+            .map(|index| {
+                let jitter = 0.001 * f64::from(index % 5);
+                vec![0.005 + jitter, 0.60 + jitter]
+            })
+            .collect();
+        let bounds = simultaneous_mean_bounds(&contributions, 400, 0.95, 20_260_812).unwrap();
+        let epsilon = 0.05;
+        let deletions = vec![
+            classify_deletion(
+                "t",
+                bounds.means[0],
+                bounds.lower[0],
+                bounds.upper[0],
+                epsilon,
+            )
+            .unwrap(),
+            classify_deletion(
+                "p",
+                bounds.means[1],
+                bounds.lower[1],
+                bounds.upper[1],
+                epsilon,
+            )
+            .unwrap(),
+        ];
+        let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        let audit = audit_orientation(&deletions, 0.8, 0.1, "orientation", &mut ledger).unwrap();
+        assert_eq!(
+            audit.outcome,
+            OrientationOutcome::UniqueTarget { target: "t".into() }
+        );
+        assert!(!ledger.has_blocking_error());
+        assert_eq!(ledger.status(true), CertificateStatus::Passed);
+    }
+
+    #[test]
+    fn weak_interventions_abstain_rather_than_orient() {
+        let deletions = vec![
+            classify_deletion("t", 0.01, 0.0, 0.02, 0.05).unwrap(),
+            classify_deletion("p", 0.9, 0.6, 1.2, 0.05).unwrap(),
+        ];
+        let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        let audit = audit_orientation(&deletions, 0.02, 0.1, "orientation", &mut ledger).unwrap();
+        assert_eq!(audit.outcome, OrientationOutcome::Underpowered);
+        assert_eq!(ledger.status(true), CertificateStatus::Abstained);
     }
 }
