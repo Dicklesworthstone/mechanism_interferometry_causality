@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T23:00:00Z",
+  "generated_at_utc": "2026-08-12T23:35:43Z",
   "hash_algorithm": "sha256",
   "file_count": 154,
-  "aggregate_sha256": "3990fac3a843b4c2cb530ab6a2a13033fc4076821c85cd68dfeb71349daca264",
+  "aggregate_sha256": "75023aa6b21a8a62c576db1dbd49060d5df896cc3faface30b1932bb0b449a6f",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -233,8 +233,8 @@
     },
     {
       "path": "docs/CAUSAL_TOMOGRAPHY.md",
-      "bytes": 26259,
-      "sha256": "aa8bd12eeee3007d0a7cd78bd386ee9775cc4731c92573f58b96f65c207c7bb7"
+      "bytes": 27748,
+      "sha256": "9a32a2466e69b595db8e4721efbfe673ebd918aef05eed6d8f87345d916dbaff"
     },
     {
       "path": "docs/DATASET_ELIGIBILITY.md",
@@ -243,8 +243,8 @@
     },
     {
       "path": "docs/DATASET_GAUNTLET.md",
-      "bytes": 24764,
-      "sha256": "21249c33962674032a599730e6906cd617746d30ea0c6cd8d7a66c1183ef1b12"
+      "bytes": 25569,
+      "sha256": "8eb3122157ef6c27ef9fa9058f6b5d2ddaf54dba263ef65c8dfe8ef511c0ed31"
     },
     {
       "path": "docs/EXPERIMENTAL_PROTOCOL.md",
@@ -553,18 +553,18 @@
     },
     {
       "path": "paper/main.pdf",
-      "bytes": 539748,
-      "sha256": "0219dbd0fadb7ecd42f00722a7c50e0ae6727f5bb75145ff4167a8851e8dae6b"
+      "bytes": 540640,
+      "sha256": "614e1a9d507a9618679f62f00ce4d5c1b927cb7f301feb1a823850cce82e09c1"
     },
     {
       "path": "paper/main.tex",
-      "bytes": 93100,
-      "sha256": "808b8c7c94b40f6cdfae5b4b5f3e69f5b93c4eae55b5edc1ed1cba0b69a40c57"
+      "bytes": 93555,
+      "sha256": "4196fc1d408b05fc1808e7b712885e407b042e112e4eb157198fa4a500970c6f"
     },
     {
       "path": "paper/references.bib",
-      "bytes": 12744,
-      "sha256": "5730eecdc03558dfd4df8d8db32867fc183c3d2851c0ee9ec96684822570d344"
+      "bytes": 13225,
+      "sha256": "41eb2f3763086d61e1b7205b490ef98ed89974cd4a8f3e5dfbb3966fdf035f25"
     },
     {
       "path": "pyproject.toml",
@@ -738,8 +738,8 @@
     },
     {
       "path": "site/mechanism_interferometry.pdf",
-      "bytes": 539748,
-      "sha256": "0219dbd0fadb7ecd42f00722a7c50e0ae6727f5bb75145ff4167a8851e8dae6b"
+      "bytes": 540640,
+      "sha256": "614e1a9d507a9618679f62f00ce4d5c1b927cb7f301feb1a823850cce82e09c1"
     },
     {
       "path": "site/pkg/mic.d.ts",

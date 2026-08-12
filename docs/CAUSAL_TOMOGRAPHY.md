@@ -83,6 +83,7 @@ model classes:
 | Source | Observable leverage | What supplies direction | No-claim boundary |
 |---|---|---|---|
 | Delivered action or natural experiment | randomized offers, cutoffs, outages, controller commands, policy timing | externally bound assignment or boundary-condition semantics | rows may discover the opportunity but cannot manufacture the assignment contract |
+| Observational CI geometry | separating sets, unshielded colliders, and compelled orientations | Markov, faithfulness, acyclicity, and either causal sufficiency/no selection or an explicit latent-variable model | return a CPDAG or PAG; never force reversible or undetermined edges into a DAG |
 | Recurrent environment shifts | sparse changes repeated across backgrounds, invariant conditionals, flat combinations | stability of autonomous mechanisms plus sufficiently diverse shifts | arbitrary low rank or environment predictability is not a causal factorization |
 | Temporal/spatial propagation | known source time and location, response fronts, impulse recurrence | an exogenous source and verified forward paths with calibrated sensor latency | lag prediction alone gives neither direction nor adjacency |
 | Local mechanism algebra | conditional normalization, deletion equivalence, common support, curvature closure | existence of a localized normalized replacement and, separately, target semantics | one deletion pass cannot establish that only one mechanism changed |
@@ -96,6 +97,25 @@ of changed conditionals; and BackShift identifies a linear cyclic system from
 covariance changes under a particular unknown-shift model. Each can be a scout
 adapter. None is silently promoted into the complete-cube MIC theorem, and a
 restricted-model result carries its model class in the answer type.
+
+Observational conditional-independence geometry is a distinct route rather than
+a special case of a functional/noise asymmetry. With a perfect CI oracle,
+acyclic DAG semantics, the causal Markov and faithfulness assumptions, causal
+sufficiency, and no selection, it identifies a Markov equivalence class: the
+skeleton, unshielded colliders, and orientations compelled by acyclicity. The
+honest output is a CPDAG, not a completed DAG. With latent confounding or
+selection, an explicitly chosen FCI-family model instead targets PAG-level
+ancestral information.
+
+Faithfulness is load-bearing. Let independent standard Gaussian noises generate
+`A = eps_A`, `B = A + eps_B`, and `C = B - A + eps_C`. The true graph contains
+`A -> B`, `B -> C`, and `A -> C`, yet the coefficients cancel so that `A` and
+`C` are exactly independent. A CI procedure that treats that independence as a
+missing edge sees the path `A - B - C` and can orient the false collider
+`A -> B <- C`, deleting one true edge and reversing another. Near-cancellation,
+uncertain CI decisions, hidden variables, and selection therefore remain typed
+abstention or partial-orientation conditions rather than small confidence
+penalties.
 
 This yields a practical definition of “self-driving”: inspect a pile for all
 available sources above, freeze a library of candidate questions on discovery

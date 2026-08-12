@@ -34,8 +34,8 @@ interpretation.
 | P2 | [OpenNeuro auditory oddball EEG](https://openneuro.org/datasets/ds003061/versions/1.1.1) | Randomized/jittered auditory events, repeated sessions, multichannel EEG, participant units | Exogenous impulse response, latency-aware ancestry, representation sufficiency | Stimulus timing and type are controlled; brain-network edges are not ground truth | Future-stimulus and pre-stimulus placebos must be null; participant, not sample, is the uncertainty unit |
 | P2 | [NOAA SURFRAD](https://gml.noaa.gov/grad/surfrad/) | Continuous one-minute radiation and meteorology from seven long-running stations, with quality flags and documented recalibrations | Natural forcing, distributed lag response, sensor redundancy, measurement-version transport, and cross-station replication | Solar geometry supplies timing and radiation precedes surface response, but clouds, advection, and the diurnal cycle are common causes rather than randomized assignments | Nighttime and negative-lag placebos, cloud/humidity adjustment, station-held-out transfer, and known calibration-error windows must block a simplistic radiation-to-temperature arrow |
 | P2 | [NASA OMNIWeb plus SYM-H](https://omniweb.gsfc.nasa.gov/form/omni_min.html) | Near-Earth solar-wind and geomagnetic measurements at one- and five-minute resolution, with documented bow-shock time shifts | Exogenous-front propagation, ancestry under delay, event recurrence, and timestamp-uncertainty sensitivity | The Sun-to-magnetosphere ordering is physically grounded; the archive's own time shifting and mixed spacecraft sources are preprocessing, not randomized treatment | Reverse-time, negative-lead, spacecraft-source and time-shift-uncertainty tests must pass before reporting ancestor evidence; never promote a direct edge from lag prediction |
-| P2 | [EarthScope PH5 active-source seismology](https://service.earthscope.org/ph5ws/dataselect/1/) | Open shot and receiver gathers with source/receiver geometry and waveform time series | Known-source propagation, travel-time ancestry, missing paths, array-scale ingestion, and clock sensitivity | Source actuation time/location and receiver metadata are experimental authority; subsurface adjacency is not directly observed | Withhold shot metadata, perturb station clocks, and insert a faster bypass path; the system must lose direction or report source-to-receiver ancestry rather than a direct material edge |
-| P2 | [NASA/UCI Airfoil Self-Noise](https://archive.ics.uci.edu/dataset/291/airfoil%2Bself%2B) | 1,503 anechoic wind-tunnel runs varying frequency, angle, chord, velocity, and boundary-layer thickness under CC BY 4.0 | Small exact ingestion target, multidimensional controlled inputs, response-surface transport, and constitutive-direction abstention | Wind-tunnel settings are upstream experimental conditions; the six-variable table is not a full aerodynamic SCM | Hide input/output metadata and mirror boundary conditions: a passive equation must not recreate actuation authority; held-out blade/velocity blocks test transport rather than row interpolation |
+| P2 | [EarthScope PH5 active-source seismology](https://service.earthscope.org/ph5ws/dataselect/1/) | Open shot and receiver gathers with source/receiver geometry and waveform time series | Known-source propagation, travel-time response, missing paths, array-scale ingestion, and clock sensitivity | A verified delivered source action can be an ancestor of a nonzero receiver response; experiment-specific timing/QC authority is still required, and receiver order or subsurface adjacency is not identified | Withhold shot metadata, perturb station clocks, and insert trigger cross-talk or a faster bypass path; the system must lose direction or report source-action-to-trace ancestry rather than receiver order or a direct material edge |
+| P2 | [NASA/UCI Airfoil Self-Noise](https://archive.ics.uci.edu/dataset/291/airfoil%2Bself%2B) | 1,503 instances from a series of anechoic wind-tunnel tests, with five regression inputs, under CC BY 4.0 | Small exact ingestion target, predictive block transport, role ablation, and constitutive-direction abstention | The released schema does not document 1,503 independent runs or expose a run/blade unit; angle, chord, and velocity need an external setup receipt before receiving actuator authority, while frequency and displacement thickness are not automatically actuators | Hide input/output metadata and mirror boundary conditions: a passive equation must not recreate actuation authority; absent a run-unit receipt, held-out chord/velocity configurations test prediction, not calibrated causal inference |
 | P2 | [CauseMe](https://causeme.uv.es/) | Synthetic and real multivariate time-series challenges with provided high-confidence structures | Cross-method time-series benchmark, nonlinear dynamics, hidden confounding and feedback stress | Varies by challenge and must be recorded per dataset | Never aggregate scores across truth-authority classes without stratification |
 | P2 | [JUMP Cell Painting](https://registry.opendata.aws/cellpainting-gallery/) | CC0 image, feature, and perturbation metadata on anonymous public S3; the pilot alone is 12.3 TB | Very-large-table and image-state ingestion, morphology-based mechanism localization, batch transport, and active subset design | Perturbation labels are controlled; morphology-to-mechanism direction and target annotations are incomplete | Start with a frozen bounded subset; hold out plates and perturbations, preserve image/plate units, and forbid mechanism labels from entering the representation learner |
 | P2 | [MIT Angrist replication archive](https://economics.mit.edu/people/faculty/josh-angrist/angrist-data-archive) | Public-use randomized trials, voucher lotteries, encouragements, discontinuities, and policy studies with code and documentation | Identification-strategy routing: randomized effects, noncompliance, IV/LATE, regression discontinuity, and sensitivity analysis | Authority comes from each study's documented assignment rule, not from reproducing its published coefficient | Freeze several qualitatively different studies; withhold assignment metadata and require the router to lose authority rather than infer the original design from outcome leakage |
@@ -66,8 +66,8 @@ abstains under feedback, shared forcing, or uncertain latency.
 
 ### Composition and interference
 
-Norman double perturbations, DREAM4 dual knockouts, gas mixtures, factorial
-Causal Chamber experiments, and dose/context combinations in LINCS are where
+Norman double perturbations, DREAM4 dual knockouts, gas mixtures, newly
+collected factorial Causal Chamber experiments, and dose/context combinations in LINCS are where
 mechanism interferometry should be most distinctive. The primary prediction is
 a held-out law, not a scalar interaction score. Every compositional result must
 include raw normalization and common-support diagnostics.
@@ -174,24 +174,31 @@ licensed rather than three versions of the same prediction problem:
    download checksum and CC BY 4.0 receipt; use repeated intervention strengths
    as discovery environments; hide targets for proposal scoring; then restore
    actuator metadata for the authority condition. Score target-family recovery,
-   held-out intervention-law prediction, conditional normalization, and whether
-   independently observed combinations close. This is the primary mechanism-
-   tomography adapter.
+   universal-deletion stability, held-out single-intervention-law prediction,
+   and conditional normalization. The release contains single-target regimes,
+   not independently observed joint-shift corners, so it cannot test curvature
+   or composition. Those missing corners must be reported and may motivate a
+   separately collected Remote Lab joint intervention. This is the primary
+   mechanism-tomography adapter.
 2. **Oregon Health Insurance Experiment.** Build one neutral table and two
    query contracts: lottery-selection ITT and Medicaid-coverage IV/LATE. Run the
    exact same discovery bytes with an authorized receipt and a withheld receipt.
    This is the primary strategy-router and authority-ablation adapter; it is not
    a graph-discovery benchmark.
 3. **EarthScope active-source waveform gather.** Select a bounded event with
-   documented shots and receiver clocks, freeze station/event geometry, and ask
-   for source-to-receiver ancestry and arrival order. Add clock-offset,
-   common-driver, bypass, and metadata-withheld twins. This is the primary
-   propagation and time-authority adapter.
+   documented delivered shots plus experiment-specific clock/QC provenance,
+   freeze station/event geometry, and ask whether the source action precedes and
+   affects a receiver trace. Add clock-offset, trigger-cross-talk, bypass, and
+   metadata-withheld twins. Arrival order may test geometry and travel time; it
+   does not orient receivers or establish subsurface adjacency. This is the
+   primary propagation and time-authority adapter.
 
 The UCI airfoil table is the continuous-integration “small physics” adapter:
 tiny, permissively licensed, and quick enough to run on every change. It should
-prove ingestion, role ablation, held-out block transport, and honest refusal on
-passive constitutive direction before the much larger waveform and omics jobs.
+prove ingestion, role ablation, held-out chord/velocity-configuration transport,
+and honest refusal on passive constitutive direction. Without an external map
+from rows to physical runs and setup semantics, it provides no calibrated
+causal-inference benchmark.
 
 This ordering gives every new algorithm a cheap exact refuter, a controlled-real
 test, a scalable synthetic test, and a messy field test. Passing only one layer

@@ -1130,15 +1130,21 @@ arrow score.  Directional information can enter through several typed routes:
 an externally documented action or natural experiment; recurrence and
 invariance of sparse mechanism changes across contexts; a known source time and
 location with calibrated propagation; the local normalization and deletion
-algebra above; or a deliberately restricted structural model with its own
-falsifiers.  Joint Causal Inference makes context variables explicit,
-invariant prediction identifies response predictors whose conditional law
-survives environments, and BackShift identifies linear cyclic systems from
+algebra above; observational conditional-independence geometry; or a deliberately
+restricted structural model with its own falsifiers.  Under Markov,
+faithfulness, acyclicity, causal sufficiency, and no selection, observational
+conditional independences identify only a Markov equivalence class: a CPDAG,
+not a forced DAG citep{spirtes2000causation,meek1995causal}.  Joint Causal
+Inference is a framework that makes context variables explicit; invariant
+prediction controls false parent selections under its environment assumptions,
+while full parent recovery additionally needs sufficiently informative
+interventions; and BackShift identifies linear cyclic systems from
 covariance changes under a specific unknown-shift model
 \citep{mooij2020jci,peters2016icp,rothenhausler2015backshift}.  These are
 complementary proposal or identification routes, not interchangeable votes.
 Every returned direction must retain which route licensed it and which
-assumptions would revoke it; disagreement narrows the surviving model class
+assumptions would revoke it; disagreement either narrows the surviving model
+class or falsifies the conjunction of route premises and forces abstention,
 rather than being averaged into confidence.
 
 Many large tables also contain a different product: a query-specific
