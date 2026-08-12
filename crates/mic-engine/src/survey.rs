@@ -431,7 +431,7 @@ fn looks_like_bitstring(values: &BTreeSet<String>) -> bool {
     if values.is_empty() {
         return false;
     }
-    let width = values.iter().next().map(String::len).unwrap_or(0);
+    let width = values.iter().next().map_or(0, String::len);
     width >= 2
         && values
             .iter()
