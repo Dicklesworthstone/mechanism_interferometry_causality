@@ -260,7 +260,7 @@ pub fn run_tabular_audit(
         ));
     }
 
-    let (projection, labeled) = project_state(manifest, &ingest, four_law)?;
+    let (projection, labeled) = project_state(manifest, &ingest, four_law);
     let mut faces = Vec::new();
     let mut overlap = None;
     for face in &preflight_report.design.square_faces {
@@ -394,7 +394,7 @@ fn project_state(
     manifest: &ExperimentManifest,
     ingest: &IngestReport,
     policy: FourLawPolicy,
-) -> Result<(ProjectionSpec, Vec<BinnedObservation>), EngineError> {
+) -> (ProjectionSpec, Vec<BinnedObservation>) {
     let dim = manifest.state_columns.len();
     let mut values: Vec<Vec<f64>> = vec![Vec::new(); dim];
     for row in &ingest.rows {
@@ -409,7 +409,7 @@ fn project_state(
     let mut assigners: Vec<Box<dyn Fn(f64) -> usize>> = Vec::new();
     for (index, column) in manifest.state_columns.iter().enumerate() {
         let mut unique = values[index].clone();
-        unique.sort_by(cmp_f64);
+        unique.sort_by(|left, right| cmp_f64(*left, *right));
         unique.dedup_by(|left, right| (*left - *right).abs() <= 0.0);
         if unique.len() <= policy.discrete_unique_limit {
             let knots = unique.clone();
@@ -454,7 +454,7 @@ fn project_state(
             bins,
         ));
     }
-    Ok((ProjectionSpec { columns, policy }, labeled))
+    (ProjectionSpec { columns, policy }, labeled)
 }
 
 #[derive(Clone)]
@@ -463,6 +463,7 @@ struct ObservationLabel {
     regime_id: String,
 }
 
+#[allow(clippy::too_many_lines)]
 fn audit_face(
     manifest: &ExperimentManifest,
     ingest: &IngestReport,
@@ -556,7 +557,7 @@ fn audit_face(
     cells.sort_by(|left, right| left.cell.cmp(&right.cell));
     if cells.is_empty() {
         return Ok(FourLawFaceAudit {
-            corners: corners.each_ref().map(|point| point.bit_string()),
+            corners: corners.each_ref().map(DesignPoint::bit_string),
             regime_ids,
             cells,
             incomplete_cells,
@@ -587,8 +588,8 @@ fn audit_face(
     let normalizer_a = weighted_mean(&ra, &p0);
     let normalizer_b = weighted_mean(&rb, &p0);
     let normalizer_ab = weighted_mean(&rab, &p0);
-    let scalar_moment = weighted_moment(&ones, &ra, &rb, &rab, &p0)?;
-    let signed_moment = weighted_moment(&signed, &ra, &rb, &rab, &p0)?;
+    let scalar_moment = weighted_moment(&ones, &ra, &rb, &rab, &p0);
+    let signed_moment = weighted_moment(&signed, &ra, &rb, &rab, &p0);
     let max_abs_kappa = cells
         .iter()
         .map(|cell| cell.kappa.abs())
@@ -602,7 +603,7 @@ fn audit_face(
     );
     let _ = ingest;
     Ok(FourLawFaceAudit {
-        corners: corners.each_ref().map(|point| point.bit_string()),
+        corners: corners.each_ref().map(DesignPoint::bit_string),
         regime_ids,
         cells,
         incomplete_cells,
@@ -616,13 +617,7 @@ fn audit_face(
     })
 }
 
-fn weighted_moment(
-    witness: &[f64],
-    ra: &[f64],
-    rb: &[f64],
-    rab: &[f64],
-    p0: &[f64],
-) -> Result<f64, EngineError> {
+fn weighted_moment(witness: &[f64], ra: &[f64], rb: &[f64], rab: &[f64], p0: &[f64]) -> f64 {
     let terms: Vec<f64> = witness
         .iter()
         .zip(ra)
@@ -630,7 +625,7 @@ fn weighted_moment(
         .zip(rab)
         .map(|(((&w, &a), &b), &ab)| w * (ab - a * b))
         .collect();
-    Ok(weighted_mean(&terms, p0))
+    weighted_mean(&terms, p0)
 }
 
 fn weighted_mean(values: &[f64], weights: &[f64]) -> f64 {
@@ -744,14 +739,14 @@ fn corner_regime_ids(
             .iter()
             .find(|regime| regime.design == *corner)
             .ok_or_else(|| EngineError::MissingCorner(corner.bit_string()))?;
-        ids[index] = regime.id.clone();
+        ids[index].clone_from(&regime.id);
     }
     Ok(ids)
 }
 
 fn quantile_edges(values: &[f64], bins: usize) -> Vec<f64> {
     let mut sorted = values.to_vec();
-    sorted.sort_by(cmp_f64);
+    sorted.sort_by(|left, right| cmp_f64(*left, *right));
     let n = sorted.len();
     let mut edges = Vec::with_capacity(bins + 1);
     for bin in 0..=bins {
@@ -780,8 +775,9 @@ fn format_cell(bins: &[usize]) -> String {
         .join("|")
 }
 
-fn cmp_f64(left: &f64, right: &f64) -> std::cmp::Ordering {
-    left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal)
+fn cmp_f64(left: f64, right: f64) -> std::cmp::Ordering {
+    left.partial_cmp(&right)
+        .unwrap_or(std::cmp::Ordering::Equal)
 }
 
 #[cfg(test)]
