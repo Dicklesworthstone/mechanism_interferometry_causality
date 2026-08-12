@@ -287,6 +287,32 @@ impl ProductDesignEvidence {
     }
 }
 
+fn validate_audit_id(value: String, name: &'static str) -> Result<String, StatsError> {
+    let value = value.trim().to_owned();
+    if value.is_empty() {
+        return Err(StatsError::InvalidEvidenceReference { name });
+    }
+    Ok(value)
+}
+
+fn validate_sha256_fingerprint(
+    value: String,
+    name: &'static str,
+) -> Result<String, StatsError> {
+    let value = value.trim().to_owned();
+    let Some(hex) = value.strip_prefix("sha256:") else {
+        return Err(StatsError::InvalidEvidenceReference { name });
+    };
+    if hex.len() != 64
+        || !hex
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(StatsError::InvalidEvidenceReference { name });
+    }
+    Ok(value)
+}
+
 /// Studentized projected generalized covariance estimate.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GcmEstimate {
@@ -304,10 +330,11 @@ pub struct GcmEstimate {
 
 /// Computes a cross-fitted weighted residual-product projection with explicit design evidence.
 ///
-/// Product-odds evidence is recomputed by [`ProductDesignEvidence::from_corner_odds`].
-/// Reweighted evidence must reference a completed audit, not a future plan. A
-/// diagnostic-only projection remains useful for debugging but is serializably
-/// ineligible for certificate use.
+/// Product-odds evidence is recomputed by
+/// [`ProductDesignEvidence::from_sampling_odds_audit`] and bound to the completed
+/// audit plus its source artifact. Reweighted evidence has the same provenance
+/// requirement. A diagnostic-only projection remains useful for debugging but
+/// is serializably ineligible for certificate use.
 pub fn gcm_projection(
     design_evidence: &ProductDesignEvidence,
     a: &[f64],
