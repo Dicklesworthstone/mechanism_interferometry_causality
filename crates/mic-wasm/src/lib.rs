@@ -30,24 +30,24 @@ use wasm_bindgen::prelude::*;
 /// Serialized failure carrying the stage that refused, so the page can say what
 /// broke rather than reporting a bare exception.
 #[derive(Debug, Serialize)]
-struct BoundaryError {
+pub struct BoundaryError {
     stage: &'static str,
     message: String,
 }
 
 impl BoundaryError {
-    fn new(stage: &'static str, message: impl Into<String>) -> Self {
+    pub fn new(stage: &'static str, message: impl Into<String>) -> Self {
         Self { stage, message: message.into() }
     }
 
-    fn to_json(&self) -> String {
+    pub fn to_json(&self) -> String {
         serde_json::to_string(self).unwrap_or_else(|_| {
             String::from(r#"{"stage":"boundary","message":"error serialization failed"}"#)
         })
     }
 }
 
-type BoundaryResult = Result<String, String>;
+pub type BoundaryResult = Result<String, String>;
 
 fn encode<T: Serialize>(stage: &'static str, value: &T) -> BoundaryResult {
     serde_json::to_string(value)
@@ -70,19 +70,19 @@ fn parse_corners(stage: &'static str, corners: &[String]) -> Result<Vec<DesignPo
 }
 
 /// Workspace version, so the page can state which build answered it.
-fn version_impl() -> String {
+pub fn version_impl() -> String {
     String::from(env!("CARGO_PKG_VERSION"))
 }
 
 /// The exact-population fixtures, identical to `mic simulate all`.
-fn simulate_all_impl() -> BoundaryResult {
+pub fn simulate_all_impl() -> BoundaryResult {
     encode("simulate", &exact_suite())
 }
 
 /// Factorial geometry over the observed corners: main-effects rank, lack-of-fit
 /// dimension and basis, fully observed square faces, and whether those squares
 /// span the whole testable space.
-fn audit_design_impl(corners: &[String], tolerance: f64) -> BoundaryResult {
+pub fn audit_design_impl(corners: &[String], tolerance: f64) -> BoundaryResult {
     let points = parse_corners("design", corners)?;
     let audit = audit_design(&points, tolerance)
         .map_err(|error| BoundaryError::new("design", error.to_string()).to_json())?;
@@ -92,7 +92,7 @@ fn audit_design_impl(corners: &[String], tolerance: f64) -> BoundaryResult {
 /// Per-pair estimability: `fully_aliased`, `testable_via_squares`, or
 /// `requires_general_contrast`, plus the lack-of-fit directions no observed
 /// square reaches.
-fn audit_aliasing_impl(corners: &[String], tolerance: f64) -> BoundaryResult {
+pub fn audit_aliasing_impl(corners: &[String], tolerance: f64) -> BoundaryResult {
     let points = parse_corners("aliasing", corners)?;
     let audit = audit_interaction_aliasing(&points, tolerance)
         .map_err(|error| BoundaryError::new("aliasing", error.to_string()).to_json())?;
@@ -100,7 +100,7 @@ fn audit_aliasing_impl(corners: &[String], tolerance: f64) -> BoundaryResult {
 }
 
 /// Pooled corner odds for one square face.
-fn audit_sampling_odds_impl(probabilities: &[f64], tolerance: f64) -> BoundaryResult {
+pub fn audit_sampling_odds_impl(probabilities: &[f64], tolerance: f64) -> BoundaryResult {
     if probabilities.len() != 4 {
         return Err(BoundaryError::new(
             "sampling",
@@ -116,7 +116,7 @@ fn audit_sampling_odds_impl(probabilities: &[f64], tolerance: f64) -> BoundaryRe
 
 /// The full preflight report for a manifest supplied as JSON text, including the
 /// evidence ledger and every finding the engine raises.
-fn preflight_impl(manifest_json: &str, policy_json: &str) -> BoundaryResult {
+pub fn preflight_impl(manifest_json: &str, policy_json: &str) -> BoundaryResult {
     let manifest: ExperimentManifest = decode("manifest", manifest_json)?;
     let policy: PreflightPolicy = if policy_json.trim().is_empty() {
         PreflightPolicy::default()
@@ -129,7 +129,7 @@ fn preflight_impl(manifest_json: &str, policy_json: &str) -> BoundaryResult {
 }
 
 /// Manifest validation on its own, for the page's schema-check affordance.
-fn validate_manifest_impl(manifest_json: &str) -> BoundaryResult {
+pub fn validate_manifest_impl(manifest_json: &str) -> BoundaryResult {
     let manifest: ExperimentManifest = decode("manifest", manifest_json)?;
     manifest
         .validate()
@@ -158,7 +158,7 @@ fn validate_manifest_impl(manifest_json: &str) -> BoundaryResult {
 
 /// The estimator lens battery, with its asymmetric verdict and its fail-closed
 /// rejection of degenerate standard errors.
-fn lens_battery_impl(estimates_json: &str, tolerance: f64) -> BoundaryResult {
+pub fn lens_battery_impl(estimates_json: &str, tolerance: f64) -> BoundaryResult {
     let estimates: Vec<LensEstimate> = decode("lens", estimates_json)?;
     let policy = PreflightPolicy { lens_gap_tolerance: tolerance, ..PreflightPolicy::default() };
     let mut ledger = mic_audit::EvidenceLedger::new(mic_audit::ExecutionMode::Strict);
@@ -175,14 +175,14 @@ fn lens_battery_impl(estimates_json: &str, tolerance: f64) -> BoundaryResult {
         "lens",
         &Combined {
             audit: &audit,
-            findings: &ledger.findings,
+            findings: ledger.findings(),
             blocking: ledger.has_blocking_error(),
         },
     )
 }
 
 /// Every fully observed square face of the design, as corner bit-strings.
-fn square_faces_impl(corners: &[String]) -> BoundaryResult {
+pub fn square_faces_impl(corners: &[String]) -> BoundaryResult {
     let points = parse_corners("faces", corners)?;
     let faces = mic_design::enumerate_square_faces(&points)
         .map_err(|error| BoundaryError::new("faces", error.to_string()).to_json())?;
