@@ -462,7 +462,7 @@
 
       var lo = Math.log(1 - Math.abs(ab));
       var hi = Math.log(1 + Math.abs(ab));
-      $("rangeOut").textContent = "[" + fmt(lo, 3) + ", " + fmt(hi, 3) + "]";
+      $("rangeOut").textContent = "[" + fmt(lo, 4) + ", " + fmt(hi, 4) + "]";
 
       var flatMarginal = Math.abs(ab) < 1e-12;
       setClassState($("rangeOut"), flatMarginal ? "flat" : "curve");
@@ -873,7 +873,6 @@
 
     var scenarios = {
       unique: {
-        note: "Exactly one coordinate is certified invariant. The family is oriented.",
         rows: [
           { name: "delete T", point: 0.06, half: 0.05 },
           { name: "delete P₁", point: 0.82, half: 0.10 },
@@ -881,7 +880,6 @@
         ]
       },
       none: {
-        note: "No coordinate survives deletion. Suspect descendant contamination, a multi-target primitive, selection, or an implementation mismatch.",
         rows: [
           { name: "delete T", point: 0.44, half: 0.08 },
           { name: "delete P₁", point: 0.79, half: 0.10 },
@@ -889,7 +887,6 @@
         ]
       },
       multiple: {
-        note: "Balanced parity: two coordinates pass. No target may be inferred, and forcing one would be a fabrication.",
         rows: [
           { name: "delete P", point: 0.03, half: 0.03 },
           { name: "delete T", point: 0.04, half: 0.03 },
@@ -897,7 +894,6 @@
         ]
       },
       under: {
-        note: "Every interval is wider than the tolerance. The sample cannot answer the question; report the abstention, not a point estimate.",
         rows: [
           { name: "delete T", point: 0.10, half: 0.45 },
           { name: "delete P₁", point: 0.55, half: 0.50 },
@@ -905,7 +901,6 @@
         ]
       },
       mixed: {
-        note: "One coordinate is certified invariant, but another straddles the tolerance. The orientation is undetermined until that interval is tightened.",
         rows: [
           { name: "delete T", point: 0.05, half: 0.04 },
           { name: "delete P₁", point: 0.22, half: 0.14 },
@@ -939,12 +934,30 @@
       return { passes: passes, straddle: straddle, state: state };
     }
 
+    /* The caption has to follow the computed state, not the scenario. Moving the
+       tolerance changes the verdict, and a caption pinned to the scenario would
+       cheerfully contradict the state machine sitting next to it. */
     var stateStyle = {
-      UNIQUE_TARGET: { kind: "flat", verdict: "oriented" },
-      NO_PASS: { kind: "curve", verdict: "no target" },
-      MULTIPLE_PASSES: { kind: "block", verdict: "ambiguous" },
-      UNDERPOWERED: { kind: "muted", verdict: "underpowered" },
-      UNDETERMINED: { kind: "curve", verdict: "undetermined" }
+      UNIQUE_TARGET: {
+        kind: "flat", verdict: "oriented",
+        note: "Exactly one coordinate is certified invariant and every competitor is certified changed. The family is oriented."
+      },
+      NO_PASS: {
+        kind: "curve", verdict: "no target",
+        note: "No coordinate survives deletion. Suspect descendant contamination, a multi-target primitive, selection, or an implementation mismatch."
+      },
+      MULTIPLE_PASSES: {
+        kind: "block", verdict: "ambiguous",
+        note: "More than one coordinate passes. No target may be inferred, and forcing one would be a fabrication. Propose an asymmetric tilt instead."
+      },
+      UNDERPOWERED: {
+        kind: "muted", verdict: "underpowered",
+        note: "The intervals are wide relative to the tolerance. The sample cannot answer the question, so the honest output is the abstention rather than a point estimate."
+      },
+      UNDETERMINED: {
+        kind: "curve", verdict: "undetermined",
+        note: "At least one interval straddles the tolerance, so its deletion is neither certified invariant nor certified changed. Tighten the interval or widen the tolerance deliberately, and record which you did."
+      }
     };
 
     function render() {
@@ -958,7 +971,7 @@
       $("passState").textContent = result.state;
       setClassState($("passState"), style.kind === "muted" ? null : style.kind);
       setVerdict($("orientVerdict"), style.kind, style.verdict);
-      $("orientNote").textContent = scenario.note;
+      $("orientNote").textContent = style.note;
 
       clear(svg);
 
@@ -1429,7 +1442,7 @@
         setVerdict($("lensStatus"), "block", "REJECTED");
         $("lensGap").textContent = "--";
         setClassState($("lensGap"), "block");
-        $("lensPair").textContent = invalid.map(function (value) { return value.name; }).join(", ");
+        $("lensPair").textContent = "\u2014";
         box.appendChild(finding("error", "InvalidLensBattery",
           "Every standard error must be finite and strictly positive. The battery is rejected before any comparison is attempted, and nothing is written to the evidence ledger."));
         draw(values, tolerance, null);

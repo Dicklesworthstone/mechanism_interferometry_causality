@@ -574,7 +574,7 @@
               </div>
               <div class="readout readout--stack">
                 <span>Marginal &#954; range</span>
-                <strong id="rangeOut" class="is-curve">[-0.357, 0.262]</strong>
+                <strong id="rangeOut" class="is-curve">[-0.3567, 0.2624]</strong>
               </div>
               <div class="readout">
                 <span>Moment battery</span>
@@ -980,7 +980,7 @@
           </div>
           <div class="panel-body">
             <div class="viz-wide"><svg id="vizOrient" viewBox="0 0 560 300" role="img" aria-label="Equivalence intervals for each candidate deletion against the tolerance"></svg></div>
-            <p class="caption" id="orientNote">Exactly one coordinate is certified invariant. The family is oriented.</p>
+            <p class="caption" id="orientNote">Exactly one coordinate is certified invariant and every competitor is certified changed. The family is oriented.</p>
           </div>
         </div>
       </div>
@@ -1073,13 +1073,56 @@
         </div>
         <p class="note">
           Curvature is excess conditional design log-odds once the known pooled-design odds have been
-          subtracted. Equal-corner balancing is product sampling, and it is safe. Arbitrary per-corner
-          quotas are not: under pooled odds <code>rho</code>, zero conditional covariance
-          characterizes <code>kappa = -log OR(rho)</code> rather than <code>kappa = 0</code>. A
-          free-intercept multinomial fit can bury the offending term completely if the analyst
-          reports a centered interaction instead of reconstructing the full posterior odds and
-          subtracting.
+          subtracted. Equal-corner balancing is safe when it follows from the sampling contract, and
+          equal empirical counts on their own establish nothing: counts that happen to look balanced
+          are not an assignment mechanism. Arbitrary per-corner quotas are not safe at all. Under
+          pooled odds <code>rho</code>, zero conditional covariance characterizes
+          <code>kappa = -log OR(rho)</code> rather than <code>kappa = 0</code>, and a free-intercept
+          multinomial fit can bury the offending term completely if the analyst reports a centered
+          interaction instead of reconstructing the full posterior odds and subtracting.
         </p>
+      </div>
+
+      <div class="grid grid-3 reveal mt">
+        <article class="card">
+          <p class="label">Grade 1 &#183; verified</p>
+          <h3><code>product_odds_verified</code></h3>
+          <p class="note">
+            A completed sampling-odds audit, carrying its audit identifier and a
+            <code>sha256:</code> fingerprint of the declared allocation source. The constructor
+            recomputes the pooled log-odds and refuses the object outright if it is not product.
+          </p>
+        </article>
+        <article class="card delay-1">
+          <p class="label">Grade 2 &#183; reweighted</p>
+          <h3><code>reweighted_to_product</code></h3>
+          <p class="note">
+            A completed reweighting audit with its own artifact fingerprint. The distinction that
+            matters is tense: this records a reweighting that happened, never one that is planned.
+          </p>
+        </article>
+        <article class="card delay-2">
+          <p class="label">Grade 3 &#183; neither</p>
+          <h3><code>diagnostic_only</code></h3>
+          <p class="note">
+            Everything else, carrying the reason it could not be graded higher. A projection built
+            on this grade can inform, and it can never certify.
+          </p>
+        </article>
+      </div>
+
+      <div class="callout info reveal">
+        <span class="callout-mark" aria-hidden="true">&#9670;</span>
+        <div>
+          <p>
+            <b>The evidence travels with the estimate.</b> Every GCM projection takes a design-evidence
+            object as an argument and serializes it alongside the result, so a residual-product number
+            can never circulate without the grounds that made it admissible. Deserialization re-runs
+            the constructors and bit-compares the recomputed probability sum and log-odds ratio, which
+            means a hand-edited <code>product_odds_verified</code> object cannot acquire authority by
+            skipping the constructor.
+          </p>
+        </div>
       </div>
 
       <div class="section-head reveal mt">
@@ -1300,6 +1343,83 @@
       </div>
 
       <div class="section-head reveal mt">
+        <h3>Three authority tiers, and one wall that does not move</h3>
+        <p class="note">
+          Point the system at a pile of tabular data with no manifest, no declared design and no
+          prior graph, and it will recover what it honestly can. Autonomous mode is a crawler over
+          the certificate machinery rather than a new inference principle, and it weakens nothing.
+          Three of the four missing contracts have partial data-driven resolutions: regimes can be
+          discovered from context columns, sampling proportions can be estimated from corner counts,
+          and randomization units can be guessed conservatively and audited at the coarsest plausible
+          clustering. The fourth does not move.
+        </p>
+      </div>
+
+      <p class="pullquote reveal">State-independent selection cannot be established from the data alone.</p>
+
+      <p class="note reveal">
+        No pattern in observed rows proves that inclusion did not depend on state within regime. That
+        is the permanent wall between surveying and certification, and every artifact a survey emits
+        carries the sentence saying so.
+      </p>
+
+      <div class="table-scroll reveal mt">
+        <table class="spec-table">
+          <caption>Authority tiers, from <code>docs/AUTONOMOUS_MODE.md</code></caption>
+          <thead>
+            <tr><th scope="col">Tier</th><th scope="col">Requires</th><th scope="col">Serialized as</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>A</b> &#183; certified</td>
+              <td class="yes">Declared sampling, selection and clustering contracts, supplied by a human or an upstream system</td>
+              <td><code>certificate_status</code> from the strict ledger</td>
+            </tr>
+            <tr>
+              <td><b>B</b> &#183; corroborated diagnostic</td>
+              <td>Every internally checkable audit passes: design estimability, four-law form, overlap, lens battery, conservation cross-checks, and negative controls where they exist</td>
+              <td><code>diagnostic_only</code> plus a typed checklist</td>
+            </tr>
+            <tr>
+              <td><b>C</b> &#183; proposal</td>
+              <td class="no">Passive-learner output, quarantined behind the boundary above</td>
+              <td><code>proposal_only</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid grid-3 mt">
+        <article class="card reveal">
+          <p class="label">Why tier B is the interesting one</p>
+          <p class="note">
+            Far stronger than a discovery algorithm's edge weight, and deliberately weaker than a
+            certificate. It carries no scalar score and no total ordering, so a reader always sees
+            which gates passed and which were inapplicable. The crawler can be unleashed without
+            supervision because overclaiming is a type error rather than a matter of restraint.
+          </p>
+        </article>
+        <article class="card reveal delay-1">
+          <p class="label">The testability atlas</p>
+          <p class="note">
+            Before any estimation, design discovery reports which context pairs form usable
+            interferometers on this data, which are aliased, and which need more corners. Graph
+            assembly then proceeds under abstention, where the holes are the product rather than a
+            defect, and curvature drives the search for what to measure next.
+          </p>
+        </article>
+        <article class="card reveal delay-2">
+          <p class="label">The data audits itself</p>
+          <p class="note">
+            The algebra is overdetermined, so conservation acts as an internal consistency check on
+            estimates the survey computes anyway. It only counts as estimator evidence when the two
+            sides come through separate held-out routes; derived from the same fitted ratios it can
+            pass by construction, and is recorded as algebra-consistency only.
+          </p>
+        </article>
+      </div>
+
+      <div class="section-head reveal mt">
         <h3>The estimator lens battery</h3>
         <p class="note">
           Run the same projection through several estimator families and compare them. The gate is
@@ -1469,8 +1589,11 @@ mic-tabular report examples/configs/four_law_discrete.json --base-dir .</code></
           <p class="note micro mt">
             The <code>mic</code> surface is <code>simulate</code>, <code>design</code>,
             <code>validate-manifest</code>, <code>preflight</code>, <code>orient</code>,
-            <code>version</code>. Tabular four-law is <code>mic-tabular</code> until that
-            wiring lands on the reserved CLI. Unknown <code>mic</code> commands exit 2.
+            <code>propose-tilt</code>, <code>version</code>. The std-CSV path lives in a second
+            binary, <code>mic-tabular</code>, with <code>ingest</code>, <code>four-law</code>,
+            <code>report</code> and <code>survey</code>, until that wiring lands on the reserved
+            CLI. Unknown <code>mic</code> commands exit 2, while an abstention does not: refusing to
+            answer is the honest outcome, not a process failure.
           </p>
         </div>
         <div class="reveal delay-1">
@@ -1505,6 +1628,9 @@ mic-tabular report examples/configs/four_law_discrete.json --base-dir .</code></
             <tr><td><code>non_square_contrasts_required</code></td><td>Observed square contrasts do not span the testable lack-of-fit space.</td></tr>
             <tr><td><code>negative_control_curvature</code></td><td>A negative control shows implementation curvature above the floor.</td></tr>
             <tr><td><code>estimator_family_disagreement</code></td><td>Estimator families differ beyond the preregistered gap tolerance.</td></tr>
+            <tr><td><code>cluster_spans_regimes</code></td><td>A randomization unit appears under more than one regime, so the assignment unit is not a regime unit.</td></tr>
+            <tr><td><code>missing_regime_data</code></td><td>A declared regime has no included clusters in the ingested table.</td></tr>
+            <tr><td><code>empty_common_support</code></td><td>No cell of the projection carries positive mass in all four corners.</td></tr>
           </tbody>
         </table>
       </div>

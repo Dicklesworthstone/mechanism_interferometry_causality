@@ -54,11 +54,16 @@
   --surface-3: #efedf9;
   --inset: #f4f3fa;
 
-  /* Five-step ink ramp. Every one of these clears AA on --surface. */
+  /* Five-step ink ramp. Every step clears WCAG AA for normal text (4.5:1)
+     against the worst surface it is used on, which is --surface-2, not the
+     lighter --surface. Measured against every surface the token can legitimately sit on, including
+     --surface-3 and --bg-deep, not just the lightest one: --fg-faint is the
+     tight step at 4.51, and it is the colour of .micro at roughly 13.5px and of
+     .footer-bottom on --bg-deep. */
   --fg: #131a2c;
   --fg-mid: #333f59;
   --fg-dim: #59617a;
-  --fg-faint: #767e93;
+  --fg-faint: #666c81;
 
   --violet: #5b46e0;
   --violet-2: #8467f4;
@@ -122,7 +127,7 @@
   --fg: #eef1f8;
   --fg-mid: #cbd4e6;
   --fg-dim: #9aa5bd;
-  --fg-faint: #7d879f;
+  --fg-faint: #8790a6;
 
   --violet: #9d88ff;
   --violet-2: #b8a5ff;
@@ -172,7 +177,7 @@
     --fg: #eef1f8;
     --fg-mid: #cbd4e6;
     --fg-dim: #9aa5bd;
-    --fg-faint: #7d879f;
+    --fg-faint: #8790a6;
 
     --violet: #9d88ff;
     --violet-2: #b8a5ff;
@@ -358,7 +363,7 @@ main > section + section:not(.band)::before {
   --fg: #eef1f8;
   --fg-mid: #cbd4e6;
   --fg-dim: #a7b2c9;
-  --fg-faint: #8590aa;
+  --fg-faint: #8d98b0;
 
   --line: rgba(255, 255, 255, .11);
   --line-strong: rgba(255, 255, 255, .2);
