@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T20:19:55Z",
+  "generated_at_utc": "2026-08-12T20:20:48Z",
   "hash_algorithm": "sha256",
   "file_count": 125,
-  "aggregate_sha256": "3157484c730f029df92ae14e02ce522f128f80782ea06117bc503f55b482a295",
+  "aggregate_sha256": "8f20c8b20727b88bb81d9224d319aebf21c3a6b7e1506b0615b8d5c573b82e59",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -168,8 +168,8 @@
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
-      "bytes": 36562,
-      "sha256": "e08f6d71f4d2873c512d188d006d41ad57ab43418f8dfa60be1947b531ac4811"
+      "bytes": 40457,
+      "sha256": "a22579a739f3d7a93ff017a8fb486b8eab9ebe679be18da36c2f9d7b2af4e322"
     },
     {
       "path": "crates/mic-model/Cargo.toml",
@@ -213,8 +213,8 @@
     },
     {
       "path": "docs/AUTONOMOUS_MODE.md",
-      "bytes": 11208,
-      "sha256": "443fec8c0639faf93daa128d15b806b885344014650a00ffd91eda21026d5941"
+      "bytes": 11306,
+      "sha256": "6d3a3f7b77e41260cb4b68ac6b27526fcf281bff8ffd6e5e64acc1184a8b001f"
     },
     {
       "path": "docs/DATASET_ELIGIBILITY.md",
@@ -238,8 +238,8 @@
     },
     {
       "path": "docs/HYPOTHESIS_SLATE.md",
-      "bytes": 9413,
-      "sha256": "e269deee4fed022682712a7c1d275999d326303448ea20500e123318210ca8a3"
+      "bytes": 9513,
+      "sha256": "fb12fa5dbe5fdbfea24ab3c54b7bf8b82ff327e528eb27cf1fd71fab16a42f38"
     },
     {
       "path": "docs/IMPLEMENTATION_BLUEPRINT.md",
@@ -578,8 +578,8 @@
     },
     {
       "path": "site/app.js",
-      "bytes": 71253,
-      "sha256": "70f67dda709f91250dfb72bf034f07491dc14a3cf73cefa5b0db29a39f020b8f"
+      "bytes": 73859,
+      "sha256": "099483e714fa2f8a657d3c030588133a5c180f3a96b704447500e1807dab9d72"
     },
     {
       "path": "site/assets/favicon.svg",
@@ -613,8 +613,8 @@
     },
     {
       "path": "site/index.html",
-      "bytes": 97595,
-      "sha256": "f4d8adb1a84ce8ff3d749f898e29b44f2e3fcb0251791afc533f13730d357fd3"
+      "bytes": 97867,
+      "sha256": "96d9440c556570eba72903c286d4aa52016dc0ddd6c8705ff29f9c9998e937a5"
     },
     {
       "path": "site/mechanism_interferometry.pdf",
@@ -623,8 +623,8 @@
     },
     {
       "path": "site/styles.css",
-      "bytes": 54400,
-      "sha256": "07af047c75aa0408f5c1d65681cfe8de638e2ac7f242f5046157faf16f04c15c"
+      "bytes": 54770,
+      "sha256": "f7aa1f0fc98bf97e2e40524d7c6b9c50ea76410334a2ab40f53d839dba378886"
     },
     {
       "path": "uv.lock",
