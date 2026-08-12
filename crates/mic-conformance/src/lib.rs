@@ -15,7 +15,9 @@ mod tests {
         run_unsupervised_survey,
     };
     use mic_model::PosteriorSquare;
-    use mic_sim::{causal_tomography_chain, exact_suite};
+    use mic_sim::{
+        causal_tomography_chain, exact_suite, flat_noncausal_cube, identification_twins,
+    };
     use mic_stats::{
         CandidateSupport, OrientationOutcome, classify_deletion, parsimony_frontier,
         simultaneous_mean_bounds,
@@ -127,6 +129,71 @@ mod tests {
         }
     }
 
+    #[test]
+    fn flat_low_rank_cube_still_fails_causal_conditional_normalization() {
+        let cube = flat_noncausal_cube();
+        let independent_minor =
+            cube.r1[0].ln() * cube.r2[1].ln() - cube.r1[1].ln() * cube.r2[0].ln();
+        assert!(independent_minor.abs() > 1e-3);
+        for state in 0..4 {
+            let curvature = DensitySquare {
+                p0: cube.p0[state],
+                pa: cube.p10[state],
+                pb: cube.p01[state],
+                pab: cube.p11[state],
+            }
+            .curvature()
+            .unwrap();
+            assert!(curvature.abs() < 1e-14);
+        }
+        assert_eq!(conditional_ratio_means(cube.r1, 0), [1.25, 0.75]);
+        assert_eq!(conditional_ratio_means(cube.r1, 1), [1.25, 0.75]);
+        assert_eq!(conditional_ratio_means(cube.r2, 0), [1.25, 0.75]);
+        assert_eq!(conditional_ratio_means(cube.r2, 1), [0.75, 1.25]);
+    }
+
+    #[test]
+    fn natural_experiment_rows_do_not_identify_the_effect_sign() {
+        let twins = identification_twins();
+        for twin in [
+            twins.regression_discontinuity,
+            twins.instrumental_variable,
+            twins.difference_in_differences,
+        ] {
+            assert_eq!(twin.premise_model_effect, 1.0);
+            assert_eq!(twin.twin_model_effect, -1.0);
+            assert!((twin.observed_masses.iter().sum::<f64>() - 1.0).abs() < 1e-14);
+        }
+
+        let rd = identification_twins().regression_discontinuity;
+        for row in rd.observed_rows {
+            let running = row[0];
+            let treatment = row[1];
+            let positive_model_outcome = treatment;
+            let threshold = if running >= 0.0 { 1.0 } else { 0.0 };
+            let negative_model_outcome = 2.0 * threshold - treatment;
+            assert_eq!(positive_model_outcome, row[2]);
+            assert_eq!(negative_model_outcome, row[2]);
+        }
+
+        let iv = identification_twins().instrumental_variable;
+        for row in iv.observed_rows {
+            let instrument = row[0];
+            let treatment = row[1];
+            assert_eq!(treatment, row[2]);
+            assert_eq!(-treatment + 2.0 * instrument, row[2]);
+        }
+
+        let did = identification_twins().difference_in_differences;
+        for row in did.observed_rows {
+            let group = row[0];
+            let post = row[1];
+            let treatment = row[2];
+            assert_eq!(treatment, row[3]);
+            assert_eq!(2.0 * group * post - treatment, row[3]);
+        }
+    }
+
     fn design_label(bits: [bool; 3]) -> String {
         bits.into_iter()
             .map(|bit| if bit { '1' } else { '0' })
@@ -140,6 +207,19 @@ mod tests {
             .filter(|(state, _)| state & mask != 0)
             .map(|(_, probability)| probability)
             .sum()
+    }
+
+    fn conditional_ratio_means(ratio: [f64; 4], conditioning_coordinate: usize) -> [f64; 2] {
+        let mask = 1_usize << (1 - conditioning_coordinate);
+        std::array::from_fn(|value| {
+            ratio
+                .iter()
+                .enumerate()
+                .filter(|(state, _)| usize::from(state & mask != 0) == value)
+                .map(|(_, ratio)| ratio)
+                .sum::<f64>()
+                / 2.0
+        })
     }
 
     #[test]

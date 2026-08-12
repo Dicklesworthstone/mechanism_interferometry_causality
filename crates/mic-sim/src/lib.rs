@@ -115,6 +115,53 @@ pub struct CausalTomographyExample {
     pub authority: String,
 }
 
+/// Exact flat four-law family whose primitive ratios are not causal mechanisms.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FlatNoncausalCube {
+    /// Baseline law in `X,Y = 00,01,10,11` order.
+    pub p0: [f64; 4],
+    /// First primitive corner.
+    pub p10: [f64; 4],
+    /// Second primitive corner.
+    pub p01: [f64; 4],
+    /// Product corner, exactly flat with the other three laws.
+    pub p11: [f64; 4],
+    /// First globally normalized primitive ratio.
+    pub r1: [f64; 4],
+    /// Second globally normalized primitive ratio.
+    pub r2: [f64; 4],
+}
+
+/// Two causal models with the same observed rows and opposite effect signs.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct IdentificationTwin {
+    /// Candidate identification strategy.
+    pub strategy: String,
+    /// Columns in each observed support row.
+    pub observed_columns: Vec<String>,
+    /// Exact observed support shared by both models.
+    pub observed_rows: Vec<Vec<f64>>,
+    /// Probability mass for each support row.
+    pub observed_masses: Vec<f64>,
+    /// Effect under the model satisfying the strategy premise.
+    pub premise_model_effect: f64,
+    /// Opposite effect under the observationally equivalent violating model.
+    pub twin_model_effect: f64,
+    /// Unobserved premise that separates the models.
+    pub separating_premise: String,
+}
+
+/// Exact observational twins for three common natural-experiment strategies.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct IdentificationTwins {
+    /// Sharp regression-discontinuity twin.
+    pub regression_discontinuity: IdentificationTwin,
+    /// Binary instrumental-variable twin.
+    pub instrumental_variable: IdentificationTwin,
+    /// Two-group, two-period difference-in-differences twin.
+    pub difference_in_differences: IdentificationTwin,
+}
+
 /// Complete exact simulation bundle.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExactSuite {
@@ -219,7 +266,7 @@ pub fn causal_tomography_chain() -> CausalTomographyExample {
         })
         .collect();
     CausalTomographyExample {
-        state_labels: (0_u8..8).map(|bits| format!("{:03b}", bits)).collect(),
+        state_labels: (0_u8..8).map(|bits| format!("{bits:03b}")).collect(),
         laws,
         primitive_families: vec![
             vec!["A".into()],
@@ -234,6 +281,85 @@ pub fn causal_tomography_chain() -> CausalTomographyExample {
         ],
         authority: "exact structural-equation construction".into(),
     }
+}
+
+/// Builds a normalized, common-support, rank-two flat cube that has no local
+/// normalized single-mechanism interpretation on either two-node DAG.
+///
+/// This is the smallest conformance witness that low rank, global
+/// normalization, and zero curvature do not establish causality. Each
+/// primitive ratio depends on both coordinates, and averaging it over either
+/// candidate target yields `(5/4, 3/4)` or its reversal rather than one.
+#[must_use]
+pub fn flat_noncausal_cube() -> FlatNoncausalCube {
+    let p0 = [0.25; 4];
+    let r1 = [1.5, 1.0, 1.0, 0.5];
+    let r2 = [1.0, 1.5, 0.5, 1.0];
+    FlatNoncausalCube {
+        p0,
+        p10: multiply(p0, r1),
+        p01: multiply(p0, r2),
+        p11: multiply(multiply(p0, r1), r2),
+        r1,
+        r2,
+    }
+}
+
+/// Builds exact RD, IV, and difference-in-differences observational twins.
+///
+/// Each pair has identical observed rows under a `+1` effect model satisfying
+/// the identifying premise and a `-1` effect model violating only that premise.
+/// These fixtures ensure that a strategy router can nominate a contract but
+/// cannot promote continuity, exclusion, or parallel trends from rows alone.
+#[must_use]
+pub fn identification_twins() -> IdentificationTwins {
+    IdentificationTwins {
+        regression_discontinuity: IdentificationTwin {
+            strategy: "regression_discontinuity".into(),
+            observed_columns: vec![
+                "running_variable".into(),
+                "treatment".into(),
+                "outcome".into(),
+            ],
+            observed_rows: vec![vec![-1.0, 0.0, 0.0], vec![1.0, 1.0, 1.0]],
+            observed_masses: vec![0.5, 0.5],
+            premise_model_effect: 1.0,
+            twin_model_effect: -1.0,
+            separating_premise: "continuity of untreated potential outcomes at the cutoff".into(),
+        },
+        instrumental_variable: IdentificationTwin {
+            strategy: "instrumental_variable".into(),
+            observed_columns: vec!["instrument".into(), "treatment".into(), "outcome".into()],
+            observed_rows: vec![vec![0.0, 0.0, 0.0], vec![1.0, 1.0, 1.0]],
+            observed_masses: vec![0.5, 0.5],
+            premise_model_effect: 1.0,
+            twin_model_effect: -1.0,
+            separating_premise: "instrument exclusion from the outcome mechanism".into(),
+        },
+        difference_in_differences: IdentificationTwin {
+            strategy: "difference_in_differences".into(),
+            observed_columns: vec![
+                "group".into(),
+                "post".into(),
+                "treatment".into(),
+                "outcome".into(),
+            ],
+            observed_rows: vec![
+                vec![0.0, 0.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0, 0.0],
+                vec![1.0, 0.0, 0.0, 0.0],
+                vec![1.0, 1.0, 1.0, 1.0],
+            ],
+            observed_masses: vec![0.25; 4],
+            premise_model_effect: 1.0,
+            twin_model_effect: -1.0,
+            separating_premise: "parallel untreated potential-outcome trends".into(),
+        },
+    }
+}
+
+fn multiply(left: [f64; 4], right: [f64; 4]) -> [f64; 4] {
+    std::array::from_fn(|index| left[index] * right[index])
 }
 
 fn chain_law(design: u8) -> [f64; 8] {
@@ -342,6 +468,15 @@ mod tests {
                     .all(|probability| *probability > 0.0)
             );
             assert!((law.probabilities.iter().sum::<f64>() - 1.0).abs() < 1e-14);
+        }
+    }
+
+    #[test]
+    fn noncausal_cube_is_globally_normalized() {
+        let cube = flat_noncausal_cube();
+        for law in [cube.p0, cube.p10, cube.p01, cube.p11] {
+            assert!(law.iter().all(|probability| *probability > 0.0));
+            assert!((law.iter().sum::<f64>() - 1.0).abs() < 1e-14);
         }
     }
 }

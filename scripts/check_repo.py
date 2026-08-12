@@ -648,7 +648,7 @@ def validate_cargo_and_sources() -> None:
     dependency_text = (ROOT / "Cargo.toml").read_text(encoding="utf-8")
     integration_text = (ROOT / "docs" / "FRANKEN_INTEGRATION.md").read_text(encoding="utf-8")
     revisions = {
-        "frankenpandas": "a9f8d86c9e52923b9b2082d00a65841862d5ca9a",
+        "frankenpandas": "9599d6f4a12306897a9bc19be3d2ba2ac228a97c",
         "franken_numpy": "6964e776528f1e492620ebd627d78d4f958220f4",
         "frankenscipy": "e259ed002eec05a2eca08d38a0763e0e58b0623c",
         "frankentorch": "5a3a0e70a2854c08e42ae02d816a78b8f88d912d",

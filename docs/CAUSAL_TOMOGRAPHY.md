@@ -52,7 +52,7 @@ It is useful to view the observed environment family as a discrete connection:
 - locality gives an edge transport a minimal state support;
 - conditional normalization distinguishes a candidate target inside that
   support;
-- square curvature is the loop holonomy;
+- square curvature is the mixed finite-difference integrability obstruction;
 - flat loops mean the result is path-independent and the primitive changes
   compose;
 - state expansion asks which missing measurement makes a curved connection
@@ -142,6 +142,41 @@ drivers with different delays, clock offsets, sensor latency, feedback, and
 unmeasured fast paths can all reverse a cross-lag ranking. Unknown latency is an
 abstention condition, not a nuisance to average away.
 
+### Natural experiments: discover contracts, not just arrows
+
+A second route to useful causality is **identification-opportunity mining**. A
+large table may contain an assignment boundary, lottery, encouragement,
+staggered policy, controller action, outage, or other shock that identifies a
+particular effect without identifying the whole graph. The autonomous product
+should find those opportunities and emit a frozen, query-specific contract.
+
+| Candidate design | What rows can suggest | Premise that rows cannot establish alone | Legitimate target | Cheap kill |
+|---|---|---|---|---|
+| Recorded randomization | treatment probabilities, balance, delivery and noncompliance | that the recorded generator really governed assignment and the unit was not rerandomized downstream | offer or assignment ITT; with IV premises, a separately named complier LATE/CACE rather than a generic treatment ATE | pre-treatment imbalance by batch, delivery failure, cluster mismatch |
+| Regression discontinuity | a treatment jump at a known running-variable cutoff | continuity of potential outcomes and absence of precise manipulation at the cutoff | local effect at the cutoff | sorting, covariate discontinuities, donut sensitivity, placebo cutoffs |
+| Instrument or encouragement | a relevant exogenous-looking variable that shifts treatment | exclusion, independence, monotonicity, and a defensible intervention meaning | a local complier effect, not a global edge | direct outcome response, weak first stage, negative-control failure |
+| Difference in differences | staggered adoption and repeated pre/post outcomes | parallel counterfactual trends, no anticipation, and stable composition | cohort- and time-specific treatment effects | pre-trends, pseudo-adoption dates, spillovers, changing measurement |
+| Interrupted time series | a sharp action time with a long pre/post record | no concurrent shock, stable sensor semantics, and correctly modeled dependence | local dynamic response to the interruption | unaffected-series placebo, alternate break dates, latency instability |
+| Negative-control or proximal bridge | a treatment, outcome, and treatment- and outcome-inducing proxy candidates | proxy exclusion semantics, relevance, completeness of the conditional-expectation operator, and bridge stability | an effect despite an unmeasured confounder, within the proximal model | no held-out conditional-moment solution, weak operator spectrum, forbidden proxy response, proxy-pair disagreement |
+
+This creates a **causal-opportunity atlas** alongside the mechanism atlas. Its
+nodes are typed roles such as unit, action, environment, running variable,
+cutoff, time, outcome, candidate instrument, and negative control. Its edges are
+proposed identification contracts, not causal edges. Strategy selection happens
+on discovery units; estimation happens only after the contract, transformation,
+candidate library, and unit split are frozen. Several strategies may apply, but
+agreement is corroboration rather than a vote and disagreement is a first-class
+finding.
+
+More data improves overlap, power, environmental diversity, and the chance of
+seeing an informative natural experiment. It does not make exclusion,
+no-selection, or counterfactual continuity empirically provable. The genuinely
+self-driving behavior is to discover the strongest available question, test all
+observable implications of its design, state the remaining premise, and propose
+the cheapest observation or intervention that would break the ambiguity.
+Passing a cheap kill is serialized as `not_falsified`, never
+`premise_verified`.
+
 ## The self-driving loop
 
 ### 1. Unit and environment discovery
@@ -152,6 +187,12 @@ environments through change points, recurring temporal states, site/device
 groups, or independently recorded actions. Fingerprint the complete candidate
 library. A partition learned using confirmation outcomes is not a confirmation
 partition.
+
+In parallel, inventory action probabilities, thresholds, adoption times,
+encouragements, outages, and controller commands for the causal-opportunity
+atlas. Empirical balance may nominate a randomized design but may never mint its
+assignment contract; an independently recorded generator, policy rule, or
+boundary-condition receipt supplies that authority.
 
 ### 2. Environment geometry
 
@@ -228,11 +269,15 @@ More precisely, let `R_t` be the union of variables whose marginal laws change
 under a correctly grouped, admissible family of tilts of target `t`. Under
 single-target modular interventions without selection, interference, or
 off-target effects, `R_t` is contained in the descendants of `t`. If every
-target responds to its own tilts and `R_v` is a subset of `R_u`, then `u` is an
+target responds to its own tilts and `R_v` is a proper subset of `R_u`, then `u` is an
 ancestor of `v`: `v` belongs to `R_v`, hence to `R_u`. If tilt diversity is
 response-complete, these reverse inclusions recover the reachability partial
 order. Transitive reduction is justified only when hidden nodes and bypasses
 have also been excluded.
+
+Equal response sets for distinct targets are indistinguishable, not two reverse
+ancestry claims. They create a tied preorder class and block strict orientation
+until another tilt or measurement separates them.
 
 This criterion is powerful but fragile. Marginal cancellations can hide a
 descendant; off-target delivery can add a non-descendant; and unverified
@@ -267,7 +312,12 @@ support, cost, randomization-unit, and product-design constraints. Candidate
 generation remains `proposal_only`; new independently collected data must pass
 preflight again.
 
-## Promotion ladder
+## Typed promotion ladders
+
+Mechanism-family recovery and query-specific effect identification are separate
+products. Evidence for one may never be coerced into the other.
+
+### Mechanism-family authority
 
 | Level | Claim | Minimum evidence | Authority |
 |---|---|---|---|
@@ -277,6 +327,19 @@ preflight again.
 | 3 | directed family candidate | one satisfied identification strategy and no fired strategy-specific falsifier | proposal only |
 | 4 | audited oriented family | independent confirmation, selection/unit contracts, equivalence bounds, locality and normalization | audit |
 | 5 | modular multi-mechanism model | Level 4 families plus complete eligible curvature/closure audit | certificate |
+
+### Effect-identification authority
+
+| Level | Claim | Minimum evidence | Authority |
+|---|---|---|---|
+| E0 | candidate opportunity | row pattern plus a frozen strategy proposal | proposal only |
+| E1 | design not falsified | assignment/unit receipt and all observable design checks pass | proposal only |
+| E2 | identified estimand contract | query, estimand, assignment rule, units, selection and untestable premises are externally frozen | audit eligible |
+| E3 | audited causal effect | E2 plus independent estimation, uncertainty, overlap, falsifiers and sensitivity analysis | audit |
+
+An E3 ITT, LATE, RD, or proximal effect is not an oriented causal family and
+does not imply a global graph. Conversely, a localized mechanism candidate does
+not identify a policy effect without the appropriate estimand contract.
 
 No amount of Level 1 evidence may be renamed Level 4. The purpose of the
 self-driving system is to reach the highest justified level automatically and to
@@ -311,6 +374,11 @@ exercise its assumptions rather than its preferred answers:
    differently. Emit conflict, never a normalized vote.
 10. **Null apparatus:** context labels are shuffled and all candidate
     environments collapse. Return no direction.
+11. **Identification twins:** observationally identical RD, IV, and
+    difference-in-differences tables have opposite causal effects because the
+    continuity, exclusion, or parallel-trend premise is changed. The router may
+    nominate the same strategy on both, but without the external premise it must
+    not name the sign.
 
 The primary loss is a wrong arrow. Among systems with the same wrong-arrow
 rate, fewer abstentions and cheaper follow-up proposals are better.
