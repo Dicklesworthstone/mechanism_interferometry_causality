@@ -25,7 +25,7 @@ interpretation.
 | P1 | [CausalBench single-cell perturbations](https://github.com/causalbench/causalbench) | Two open CRISPR single-cell experiments with more than 200,000 interventional observations | Unknown intervention targets, sparse mechanism shifts, high-dimensional localization, intervention-response prediction | Interventions are real; gene-network “truth” is partial and metric-dependent | Score on held-out intervention response as well as disputed graph edges; do not call biological databases exact truth |
 | P1 | [LINCS L1000](https://commonfund.nih.gov/lincs) | Chemical and genetic perturbations across cell types, doses, and times; hundreds of thousands of signatures | Repeated tilts, mechanism vocabulary induction, dose/time transport, cross-cell-context reuse | Perturbation delivery labels are strong; full downstream graph is not known | Leave out an entire perturbagen-context combination and require calibrated prediction plus raw normalization diagnostics |
 | P1 | [sci-Plex GSE139944](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE139944) | Public 9.2-GB chemical single-cell transcriptomics archive spanning compounds, doses, cell lines, and replicates | Same-perturbagen tilt families, dose response, context transport, representation learning, and plate/batch discipline | Compound, dose, cell-line and replicate labels are experimental metadata; transcriptomic causal edges are not truth | Hold out a compound-dose-cell-line block; cells may not replace the plate or experimental replicate as the uncertainty unit |
-| P1 | [NCI-ALMANAC](https://dtp.cancer.gov/ncialmanac/initializePage.do) | Downloadable single- and paired-drug response matrices over the NCI-60 cell lines | Large incomplete-square atlas, dose-dependent four-law composition, raw-normalizer audits, and missing-corner proposals | Drug delivery and dose are controlled; published synergy scores are derived summaries, not causal ground truth | Reconstruct results from single and paired response laws rather than training on the supplied combination score; missing monotherapy or dose corners must remain explicit |
+| P1 | [NCI-ALMANAC](https://dtp.cancer.gov/ncialmanac/initializePage.do) | Downloadable single- and paired-drug percent-growth response matrices over the NCI-60 cell lines | Scalar factorial-response interaction, heterogeneous dose-grid handling, held-out dose-surface prediction, and missing-cell proposals | Drug delivery and dose are controlled; percent growth and ComboScore are scale-specific assay summaries, not joint state laws or mechanism ground truth | Recompute declared additive/modified-Bliss summaries without training on ComboScore; bind physical doses and screen/plate provenance; never emit MIC density curvature, conditional normalization, or raw-normalizer claims from scalar endpoints |
 | P1 | Norman Perturb-seq | Large single- and double-guide expression experiment already under repository study | Factorial composition, curvature, hidden-state recovery, selection/unit discipline | Guide identities are known; expression-state graph and selection mechanism are not | Gemgroup-held-out field stability, four-corner occupancy, raw `Z`, and selection abstention are mandatory |
 | P1 | [Criteo uplift dataset](https://ailab.criteo.com/criteo-uplift-prediction-dataset/) | 13,979,592 rows in the corrected release from randomized advertising incrementality tests | Treatment-effect heterogeneity, randomized anchor relevance, scale and calibration | Randomized treatment assignment; anonymized features and non-uniform subsampling limit mechanism claims; CC BY-NC-SA makes this research-only | Pin the corrected-release hash and run feature-proxy leakage canaries; no advertiser ID exists for a genuine advertiser holdout |
 | P2 | [UCI hydraulic test rig](https://archive.ics.uci.edu/dataset/447) | 2,205 repeated 60-second cycles and 43,680 sensor features; four components varied over fault severities | Multi-actuator response signatures, fault localization, feedback/time dynamics, fat-intervention abstention | Controlled physical test rig; component conditions are recorded | The scout must distinguish “which component was altered” from “which sensor is causally upstream” |
@@ -71,6 +71,17 @@ collected factorial Causal Chamber experiments, and dose/context combinations in
 mechanism interferometry should be most distinctive. The primary prediction is
 a held-out law, not a scalar interaction score. Every compositional result must
 include raw normalization and common-support diagnostics.
+
+NCI-ALMANAC belongs to a different layer. Its released corners are scalar
+percent-growth summaries, not replicated joint state laws. Identical four-corner
+means can arise from either a flat family or a curved family of latent state
+distributions, so no function of those summaries identifies density curvature.
+The honest adapter predicts scalar combination response and reports explicitly
+named additive or modified-Bliss departures. Their sign and null are
+response-scale dependent; they are sensitivity analyses, not votes that create
+mechanism synergy. Whole drug-pair by cell-line surfaces or experiments are the
+holdout units, and heterogeneous physical concentration grids may not be
+silently aligned by matrix index.
 
 ### Effect identification rather than graph discovery
 
