@@ -475,7 +475,7 @@ T=\neg P\oplus N.
 \end{equation}
 The ratio depends on \((P,T)\), but both one-dimensional marginals remain balanced.  Deleting \(T\) leaves the invariant parent marginal; deleting \(P\) leaves the invariant child marginal.  Both coordinates pass.  Balanced parity mechanisms are a live discrete failure mode, not a measure-zero analytic curiosity.
 
-Multiple asymmetric tilts of the same target are the natural remedy.  The target must pass every valid tilt; a spurious symmetry usually does not.  Taking the union of supports across tilts also reveals parents omitted by a particular intervention.
+Multiple asymmetric tilts of the same target are the natural remedy.  The target must pass every valid tilt; a spurious symmetry usually does not.  When the experimental record identifies which tilts replace the same target mechanism, taking the union of their localized supports can also reveal parents omitted by a particular intervention.  That grouping is design metadata, not something an unlabeled family multiset generally identifies on its own.
 
 \subsection{Active tilt selection}\label{sec:active-tilt}
 
@@ -497,6 +497,8 @@ The acquisition score in \eqref{eq:active-tilt} has proposal authority only.  It
 \subsection{Recovering the DAG from family sets}
 
 If each node receives a sufficiently rich single-target perturbation, orientation gives every family \(\{i\}\cup\pa(i)\) directly.  Even without target labels, the multiset of family sets uniquely determines a DAG.  Process families in topological order.  After removing previously identified nodes, the earliest unidentified node has no unidentified parents, so its reduced family is the singleton containing itself.  Assign it, restore its removed parents, and continue.  A formal proof appears in \cref{app:proofs}.
+
+The one-family-per-node condition is load bearing.  With repeated tilts and no same-target group labels, an undercovered family can peel before a richer family of the same target.  For example, the unlabeled multiset \(\{\{A\},\{B\},\{A,B\}\}\) is compatible with \(A\to B\), one source-family observation for \(A\), and two tilts of \(B\), one of which omits parent \(A\).  The two singleton sets peel simultaneously, after which the remaining set contains no unidentified node and cannot be assigned uniquely.  Thus repeated tilts should be grouped by an independently recorded mechanism/target identifier and unioned before unlabeled peeling; absent that metadata, the reconstruction must abstain rather than infer which already identified member generated the extra family.
 
 \section{Conservation laws}
 
