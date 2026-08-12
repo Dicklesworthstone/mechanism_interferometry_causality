@@ -53,6 +53,8 @@ cargo test --workspace --no-default-features
 cargo run -p mic-cli -- simulate all --output artifacts/simulations/rust_exact_results.json
 cargo run -p mic-cli -- design audit examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- preflight examples/configs/feature_flag_pilot.json
+cargo run -p mic-cli -- orient examples/orientation/parity_demo.json
+cargo run -p mic-cli -- propose-tilt examples/proposal_inputs/parity_active_tilt.json
 
 # After committing the repository, produce source, website, and git-bundle releases.
 ./scripts/package_release.sh ./dist
@@ -79,7 +81,7 @@ The repository includes the complete mathematical paper, website, exact simulati
 
 Passive DAG learners, parsimony searches, residual heuristics, and previous audit runs may be connected only as proposal adapters. They can prioritize candidate supports, measurements, or follow-up interventions, but their scores never count as certificate evidence and data-adaptive proposals require independent confirmation.
 
-The `mic-proposal` crate now implements that boundary for active follow-up design. Given a multiple-pass orientation state, it validates a same-primitive candidate-tilt library, rejects candidates without delivery, common support, or the planned Product-Factorial design evidence, and ranks the remainder by worst-case predicted hypothesis separation. Every result is serialized with `authority: proposal_only`, complete provenance, a deterministic seed, and explicit rejection reasons.
+The `mic-proposal` crate now implements that boundary for active follow-up design. Given a multiple-pass orientation state, it validates a same-primitive candidate-tilt library, rejects candidates without delivery, common support, or the planned Product-Factorial design evidence, and ranks the remainder by worst-case predicted hypothesis separation. Every result is serialized with `authority: proposal_only`, an explicit recommendation-or-abstention status, a SHA-256 fingerprint of the full ordered candidate library, complete adapter provenance, a deterministic seed, the frozen tie rule, and explicit rejection reasons. The `mic propose-tilt` command turns the checked input contract into that deterministic artifact; it never alters the unresolved orientation verdict.
 
 ## Citation
 

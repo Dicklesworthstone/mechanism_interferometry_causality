@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Mechanism Interferometry — static site stylesheet.
+   Mechanism Interferometry: static site stylesheet.
    Zero build, zero remote dependencies, light and dark themes.
 
    Semantic colour contract. These meanings are fixed and are used identically
@@ -1092,7 +1092,9 @@ main > section.hero {
 
 .cube-edge { stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 4 5; fill: none; }
 .cube-edge.live { stroke: var(--violet); stroke-width: 2.4; stroke-dasharray: none; opacity: .55; }
-.cube-face { fill: var(--flat); opacity: .16; stroke: var(--flat); stroke-width: 1.5; }
+/* Faces overlap in projection, so the fill has to stay light enough that six
+   of them stacked still read as a cube rather than a solid block. */
+.cube-face { fill: var(--flat); opacity: .085; stroke: var(--flat); stroke-width: 1.4; }
 .cube-missing { fill: none; stroke: var(--line-strong); stroke-width: 1.8; stroke-dasharray: 4 4; }
 .cube-missing-text { fill: var(--fg-faint); font: 600 12px var(--mono); text-anchor: middle; }
 

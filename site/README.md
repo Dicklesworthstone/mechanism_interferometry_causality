@@ -12,11 +12,25 @@ Open `http://127.0.0.1:8765`.
 
 | File | Role |
 |---|---|
-| `index.html` | The whole page. Section order: problem, certificate, interferometer, failure modes, conservation laws, orientation, inference, pipeline, software, empirical path |
+| `index.html` | The whole page: problem, certificate, partial designs, interferometer, failure modes, conservation laws, orientation, inference, evidence boundary, pipeline, software, empirical path |
 | `styles.css` | Design tokens, light and dark themes, layout, and the classes that colour every diagram |
-| `app.js` | Theme, scroll behaviour, and five interactive figures. Plain script, no modules |
+| `app.js` | Theme, scroll behaviour, and seven interactive figures. Plain script, no modules |
 | `assets/fonts/` | Inter and JetBrains Mono variable subsets, self-hosted so the page makes no network request |
 | `mechanism_interferometry.pdf` | Byte-identical copy of `paper/main.pdf`, refreshed by `scripts/build_all.sh` |
+
+## The interactive figures
+
+Each one computes its own numbers from the closed forms in the paper, or reimplements the
+corresponding Rust logic. None of them display a stored result.
+
+| Figure | What it computes |
+|---|---|
+| Interferometer | Complete-state ratios beside `kappa(y) = log[1 + ab tanh(y / sigma^2)]`, at the paper fixture by default |
+| Partial designs | Main-effects rank, lack-of-fit dimension, complete square faces and square-contrast rank over any subset of a three-factor cube, matching `mic-design` |
+| Scenario gallery | The four exact fixtures in `artifacts/simulations/exact_results.json` |
+| Deletion evidence | Equivalence intervals against a movable tolerance, driving the five-state pass-count machine |
+| Preflight report | The selection gate and product-odds gate from `mic-engine`, including `--allow-unvalidated-selection-model` |
+| Estimator lens battery | `audit_lens_battery`: pairwise gaps scaled by the root sum of squared standard errors, asymmetric verdict, fail-closed on a non-positive standard error |
 
 ## Conventions
 
@@ -24,15 +38,16 @@ Open `http://127.0.0.1:8765`.
   build if a remote `src` or `href` appears in `index.html`.
 - **Colour is semantic, everywhere.** Green means the square closes and the curvature is zero; amber
   means curvature is present and the result is diagnostic only; red means fail-closed; violet marks a
-  mechanism or a primitive ratio. `app.js` contains no colour literals at all: diagram elements are
-  given class names and coloured by the stylesheet, so both themes work without a redraw.
-- **Every figure computes its own numbers** from the closed forms in the paper. The defaults
-  reproduce `artifacts/simulations/exact_results.json` exactly, including the outcome synergy of
-  `0.3`, the observed and hidden covariances of `-0.09` and `+0.09`, the implementation normalizer
-  `1.063`, and the parity deletion pass count of `2`.
+  mechanism or a primitive ratio. `app.js` contains no colour literals: diagram elements are given
+  class names and coloured by the stylesheet, so both themes work without a redraw.
+- **Dark bands redeclare the design tokens locally** rather than carrying a parallel set of component
+  rules, so any widget can sit on any band and inherit the right values through the cascade.
 - **JavaScript is an enhancement.** With scripts disabled the prose, the equations and the numbers
-  are all still present, and the three interactive figures fall back to the corresponding
+  are all still present, and the three interactive figures with static counterparts fall back to the
   simulation-generated figures from the paper.
+- **Claims stay inside what the paper supports.** The certificate is an existence result, agreement
+  across estimator families certifies nothing, inclusion frequencies are not probabilities, and
+  proposal-adapter scores are never evidence.
 - **Themes.** The page follows the operating-system preference and remembers an explicit choice in
   `localStorage` under `mi-theme`.
 

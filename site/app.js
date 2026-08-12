@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Mechanism Interferometry — site behaviour.
+   Mechanism Interferometry: site behaviour.
 
    Plain script, no modules, no dependencies, no network access.
 

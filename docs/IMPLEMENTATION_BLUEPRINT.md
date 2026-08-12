@@ -75,6 +75,8 @@ Owns the quarantined proposal layer:
 - complete hypothesis-pair validation for active follow-up design;
 - same-primitive, delivery, common-support, and planned-analysis feasibility gates;
 - deterministic maximin ranking with recorded seeds and tie rules;
+- SHA-256 binding of the complete ordered candidate library, including rejected inputs;
+- explicit recommendation-versus-experiment-design-abstention status;
 - explicitly `proposal_only` artifacts conforming to `proposal_batch.schema.json`.
 
 It does not depend on `mic-core`, `mic-engine`, or certificate-status types. A proposal can be deleted or reordered without changing the evidentiary meaning of a completed confirmatory audit.

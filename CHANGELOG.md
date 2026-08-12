@@ -9,7 +9,7 @@
 - Added `mic_engine::audit_orientation` and `mic_engine::audit_overlap`, activating the reserved `orientation_unresolved` and `overlap_failure` reason codes.
 - Added the `mic orient` CLI subcommand and the `examples/orientation/parity_demo.json` walkthrough.
 - Derived the parity fixture's pass count from exact deletion marginals instead of asserting it.
-- Added the proposal-layer boundary documents and the quarantined active-tilt proposal contract.
+- Added the proposal-layer boundary documents and the quarantined active-tilt proposal contract, including `mic propose-tilt`, input/output schemas, a derived candidate-library fingerprint, deterministic tie-policy provenance, and explicit no-eligible-candidate abstention.
 - Fixed the evidence-ledger digest for sha2 0.11, which no longer implements hexadecimal formatting on digest arrays.
 
 ## 0.1.0 — 2026-08-12

@@ -24,7 +24,7 @@
 - relative deletion equivalence (`mic_stats::classify_deletion`);
 - pass-count state machine and golden parity fixtures (`mic_stats::orient_from_deletions`, `mic_engine::audit_orientation`, derived parity pass count);
 - overlap gate on ratio-weight effective sample size (`mic_engine::audit_overlap`);
-- active tilt proposal for multiple-pass disambiguation (quarantined in `mic-proposal`).
+- active tilt proposal for multiple-pass disambiguation, with executable CLI, input/output schemas, candidate-library fingerprint, and explicit no-eligible-candidate abstention (quarantined in `mic-proposal`).
 
 ## Packet 3: GCM/wGCM
 
