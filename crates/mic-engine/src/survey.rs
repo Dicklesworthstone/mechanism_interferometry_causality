@@ -75,8 +75,10 @@ pub struct InterferometerProposal {
     pub sampling: Option<SamplingOddsAudit>,
     /// Whether a complete 2-factor square is observed.
     pub complete_square: bool,
-    /// Unobserved corners of the implied factorial, as bit strings. Empty if complete.
+    /// Factorial corners that never appeared in the table. Not the same as dropped.
     pub missing_corners: Vec<String>,
+    /// Corners observed below `min_corner_count` and excluded from the design.
+    pub dropped_corners: Vec<String>,
     /// Whether pooled odds are empirically product (estimated quotas, not known).
     pub empirically_product: bool,
     /// Smallest retained corner count.
@@ -378,7 +380,7 @@ fn propose(
     };
     let complete_square =
         design.points.len() == 4 && design.points.iter().all(|point| point.dimension() == 2);
-    let missing_corners = missing_factorial_corners(&design);
+    let (missing_corners, dropped_corners) = classify_factorial_corners(&design);
     let sampling = if complete_square {
         let mut rho = [0.0; 4];
         for (point, proportion) in design.points.iter().zip(&design.proportions) {
@@ -402,19 +404,13 @@ fn propose(
         .first()
         .is_some_and(|point| point.dimension() == 2)
         && design.points.len() == 3;
+    // Do not rank on empirically_product: estimated quotas test the wrong null.
     let priority = f64::from(u32::from(complete_square)) * 1_000.0
         + f64::from(u32::from(near_square)) * 200.0
         + min_corner_count as f64
-        + f64::from(u32::from(empirically_product)) * 50.0
-        - missing_corners.len() as f64;
-    let note = if missing_corners.is_empty() {
-        note.to_string()
-    } else {
-        format!(
-            "{note}; missing corners [{}] — collect those arms, do not impute them",
-            missing_corners.join(",")
-        )
-    };
+        - missing_corners.len() as f64
+        - dropped_corners.len() as f64;
+    let note = extension_note(note, &missing_corners, &dropped_corners);
     Ok(Some(InterferometerProposal {
         interferometer_id,
         context_columns,
@@ -422,6 +418,7 @@ fn propose(
         sampling,
         complete_square,
         missing_corners,
+        dropped_corners,
         empirically_product,
         min_corner_count,
         priority,
@@ -435,35 +432,65 @@ fn survey_next_step(interferometers: &[InterferometerProposal]) -> String {
     }
     if let Some(item) = interferometers
         .iter()
-        .find(|item| !item.missing_corners.is_empty())
+        .find(|item| !item.missing_corners.is_empty() || !item.dropped_corners.is_empty())
     {
         return format!(
-            "No complete square was observed. Highest-ranked incomplete design `{}` is missing corners [{}]. Collect those arms or run a factorial follow-up. Do not impute them. The atlas is a design proposal, not a graph.",
+            "No complete square was observed. Highest-ranked incomplete design `{}` has never-seen corners [{}] and under-supported dropped corners [{}]. Collect the never-seen arms; do not impute either class. The atlas is a design proposal, not a graph.",
             item.interferometer_id,
-            item.missing_corners.join(",")
+            item.missing_corners.join(","),
+            item.dropped_corners.join(",")
         );
     }
     "No complete square was observed. Add the missing corners or collect a factorial follow-up. The atlas is a design proposal, not a graph.".into()
 }
 
-fn missing_factorial_corners(design: &ObservedDesign) -> Vec<String> {
-    let Some(first) = design.points.first() else {
-        return Vec::new();
-    };
-    let dimension = first.dimension();
-    if dimension == 0 || dimension > 4 {
-        return Vec::new();
+fn extension_note(base: &str, missing: &[String], dropped: &[String]) -> String {
+    match (missing.is_empty(), dropped.is_empty()) {
+        (true, true) => base.to_string(),
+        (false, true) => format!(
+            "{base}; never-seen corners [{}] — collect those arms, do not impute them",
+            missing.join(",")
+        ),
+        (true, false) => format!(
+            "{base}; dropped below min_corner_count [{}] — observed but under-supported, not the same as never-seen",
+            dropped.join(",")
+        ),
+        (false, false) => format!(
+            "{base}; never-seen corners [{}]; dropped below min_corner_count [{}] — do not impute either class",
+            missing.join(","),
+            dropped.join(",")
+        ),
     }
-    let observed: BTreeSet<String> = design.points.iter().map(DesignPoint::bit_string).collect();
+}
+
+fn classify_factorial_corners(design: &ObservedDesign) -> (Vec<String>, Vec<String>) {
+    let Some(dimension) = design
+        .points
+        .first()
+        .or_else(|| design.dropped.first().map(|corner| &corner.point))
+        .map(DesignPoint::dimension)
+    else {
+        return (Vec::new(), Vec::new());
+    };
+    if dimension == 0 || dimension > 4 {
+        return (Vec::new(), Vec::new());
+    }
+    let retained: BTreeSet<String> = design.points.iter().map(DesignPoint::bit_string).collect();
+    let dropped: BTreeSet<String> = design
+        .dropped
+        .iter()
+        .map(|corner| corner.point.bit_string())
+        .collect();
     let n_corners = 1_usize << dimension;
-    (0..n_corners)
+    let missing = (0..n_corners)
         .map(|index| {
             (0..dimension)
                 .map(|bit| if (index >> bit) & 1 == 1 { '1' } else { '0' })
-                .collect()
+                .collect::<String>()
         })
-        .filter(|corner| !observed.contains(corner))
-        .collect()
+        .filter(|corner| !retained.contains(corner) && !dropped.contains(corner))
+        .collect();
+    (missing, dropped.into_iter().collect())
 }
 
 fn cluster_collapsed_bits(
@@ -644,12 +671,11 @@ mod tests {
             .expect("complete square should emit a draft");
         assert_eq!(suggested.selection, mic_data::SelectionContract::Unknown);
         assert_eq!(suggested.inference_track, mic_data::InferenceTrack::FourLaw);
-        assert!(
-            report
-                .interferometers
-                .iter()
-                .any(|item| item.complete_square && item.missing_corners.is_empty())
-        );
+        assert!(report.interferometers.iter().any(|item| {
+            item.complete_square
+                && item.missing_corners.is_empty()
+                && item.dropped_corners.is_empty()
+        }));
     }
 
     #[test]
@@ -740,8 +766,39 @@ mod tests {
             .expect("bitstring regime should still be proposed as an incomplete design");
         assert!(!square.complete_square);
         assert_eq!(square.missing_corners, ["11"]);
-        assert!(square.note.contains("missing corners [11]"));
+        assert!(square.dropped_corners.is_empty());
+        assert!(square.note.contains("never-seen corners [11]"));
         assert!(report.next_step.contains("11"));
-        assert!(report.next_step.contains("Do not impute"));
+        assert!(report.next_step.contains("do not impute"));
+    }
+
+    #[test]
+    fn under_supported_corner_is_dropped_not_missing() {
+        let dir = std::env::temp_dir().join("mic-survey-dropped-corner");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("dropped.csv");
+        std::fs::write(
+            &path,
+            "cluster_id,regime,x\n\
+             c00a,00,0\nc00b,00,1\n\
+             c10a,10,0\nc10b,10,1\n\
+             c01a,01,0\nc01b,01,1\n\
+             c11only,11,0\n",
+        )
+        .unwrap();
+        let report =
+            run_unsupervised_survey(&path, None, Some("cluster_id"), SurveyPolicy::default())
+                .unwrap();
+        let square = report
+            .interferometers
+            .iter()
+            .find(|item| item.context_columns == ["regime"])
+            .expect("bitstring regime should be proposed");
+        assert!(!square.complete_square);
+        assert!(square.missing_corners.is_empty());
+        assert_eq!(square.dropped_corners, ["11"]);
+        assert!(square.note.contains("dropped below min_corner_count [11]"));
+        assert!(!square.note.contains("never-seen corners [11]"));
+        assert!(report.suggested_manifest.is_none());
     }
 }
