@@ -22,6 +22,12 @@ pub enum StatsError {
     /// A matrix was ragged or had incompatible dimensions.
     #[error("feature matrix is ragged or incompatible")]
     MatrixShape,
+    /// A required evidence identifier or fingerprint was malformed.
+    #[error("{name} must be a nonempty audit id or sha256:<64 lowercase hex> fingerprint")]
+    InvalidEvidenceReference {
+        /// Name of the malformed reference.
+        name: &'static str,
+    },
 }
 
 /// Public authority grade attached to GCM design evidence.
@@ -48,6 +54,10 @@ pub struct ProductDesignEvidence {
 enum ProductDesignEvidenceKind {
     /// Corner masses were checked directly and have product pooled odds.
     ProductOddsVerified {
+        /// Stable identifier of the completed sampling-odds audit.
+        audit_id: String,
+        /// SHA-256 fingerprint of the declared allocation contract audited.
+        source_fingerprint: String,
         /// Positive masses in `00, 10, 01, 11` order.
         probabilities: [f64; 4],
         /// Sum of the supplied masses.
@@ -61,6 +71,8 @@ enum ProductDesignEvidenceKind {
     ReweightedToProduct {
         /// Stable identifier of the completed reweighting audit and diagnostics.
         audit_id: String,
+        /// SHA-256 fingerprint of the completed reweighting-audit artifact.
+        source_fingerprint: String,
     },
     /// A residual-product diagnostic with no certificate authority.
     DiagnosticOnly {
@@ -77,13 +89,20 @@ impl<'de> Deserialize<'de> for ProductDesignEvidence {
         let kind = ProductDesignEvidenceKind::deserialize(deserializer)?;
         match kind {
             ProductDesignEvidenceKind::ProductOddsVerified {
+                audit_id,
+                source_fingerprint,
                 probabilities,
                 probability_sum,
                 log_odds_ratio,
                 tolerance,
             } => {
-                let verified = Self::from_corner_odds(probabilities, tolerance)
-                    .map_err(serde::de::Error::custom)?;
+                let verified = Self::from_sampling_odds_audit(
+                    audit_id,
+                    source_fingerprint,
+                    probabilities,
+                    tolerance,
+                )
+                .map_err(serde::de::Error::custom)?;
                 let ProductDesignEvidenceKind::ProductOddsVerified {
                     probability_sum: recomputed_sum,
                     log_odds_ratio: recomputed_log_odds,
@@ -101,9 +120,11 @@ impl<'de> Deserialize<'de> for ProductDesignEvidence {
                 }
                 Ok(verified)
             }
-            ProductDesignEvidenceKind::ReweightedToProduct { audit_id } => {
-                Self::from_reweighting_audit(audit_id).map_err(serde::de::Error::custom)
-            }
+            ProductDesignEvidenceKind::ReweightedToProduct {
+                audit_id,
+                source_fingerprint,
+            } => Self::from_reweighting_audit(audit_id, source_fingerprint)
+                .map_err(serde::de::Error::custom),
             ProductDesignEvidenceKind::DiagnosticOnly { reason } => {
                 Self::diagnostic_only(reason).map_err(serde::de::Error::custom)
             }
@@ -112,8 +133,21 @@ impl<'de> Deserialize<'de> for ProductDesignEvidence {
 }
 
 impl ProductDesignEvidence {
-    /// Recomputes and verifies product pooled odds from four positive corner masses.
-    pub fn from_corner_odds(probabilities: [f64; 4], tolerance: f64) -> Result<Self, StatsError> {
+    /// Records a completed sampling-odds audit and rechecks its product pooled odds.
+    ///
+    /// The audit identifier and source fingerprint are required because product-looking
+    /// empirical corner counts do not establish a product assignment contract.
+    pub fn from_sampling_odds_audit(
+        audit_id: impl Into<String>,
+        source_fingerprint: impl Into<String>,
+        probabilities: [f64; 4],
+        tolerance: f64,
+    ) -> Result<Self, StatsError> {
+        let audit_id = validate_audit_id(audit_id.into(), "sampling-odds audit identifier")?;
+        let source_fingerprint = validate_sha256_fingerprint(
+            source_fingerprint.into(),
+            "sampling-odds source fingerprint",
+        )?;
         if !tolerance.is_finite() || tolerance < 0.0 {
             return Err(StatsError::Invalid {
                 name: "product-odds tolerance",
@@ -145,6 +179,8 @@ impl ProductDesignEvidence {
         }
         Ok(Self {
             kind: ProductDesignEvidenceKind::ProductOddsVerified {
+                audit_id,
+                source_fingerprint,
                 probabilities,
                 probability_sum,
                 log_odds_ratio,
@@ -154,17 +190,20 @@ impl ProductDesignEvidence {
     }
 
     /// Records a completed reweighting audit that established a product design.
-    pub fn from_reweighting_audit(audit_id: impl Into<String>) -> Result<Self, StatsError> {
-        let audit_id = audit_id.into();
-        let audit_id = audit_id.trim().to_owned();
-        if audit_id.is_empty() {
-            return Err(StatsError::Invalid {
-                name: "reweighting audit identifier",
-                value: f64::NAN,
-            });
-        }
+    pub fn from_reweighting_audit(
+        audit_id: impl Into<String>,
+        source_fingerprint: impl Into<String>,
+    ) -> Result<Self, StatsError> {
+        let audit_id = validate_audit_id(audit_id.into(), "reweighting audit identifier")?;
+        let source_fingerprint = validate_sha256_fingerprint(
+            source_fingerprint.into(),
+            "reweighting audit source fingerprint",
+        )?;
         Ok(Self {
-            kind: ProductDesignEvidenceKind::ReweightedToProduct { audit_id },
+            kind: ProductDesignEvidenceKind::ReweightedToProduct {
+                audit_id,
+                source_fingerprint,
+            },
         })
     }
 
@@ -173,9 +212,8 @@ impl ProductDesignEvidence {
         let reason = reason.into();
         let reason = reason.trim().to_owned();
         if reason.is_empty() {
-            return Err(StatsError::Invalid {
+            return Err(StatsError::InvalidEvidenceReference {
                 name: "diagnostic-only reason",
-                value: f64::NAN,
             });
         }
         Ok(Self {
@@ -197,7 +235,7 @@ impl ProductDesignEvidence {
         }
     }
 
-    /// Verified corner masses and tolerance, when direct product odds were checked.
+    /// Verified corner masses and tolerance, when a sampling-odds audit supplied them.
     #[must_use]
     pub const fn verified_corner_odds(&self) -> Option<([f64; 4], f64)> {
         match &self.kind {
@@ -214,8 +252,31 @@ impl ProductDesignEvidence {
     #[must_use]
     pub fn reweighting_audit_id(&self) -> Option<&str> {
         match &self.kind {
-            ProductDesignEvidenceKind::ReweightedToProduct { audit_id } => Some(audit_id),
+            ProductDesignEvidenceKind::ReweightedToProduct { audit_id, .. } => Some(audit_id),
             _ => None,
+        }
+    }
+
+    /// Completed sampling-odds audit identifier, when direct design evidence supplied eligibility.
+    #[must_use]
+    pub fn sampling_odds_audit_id(&self) -> Option<&str> {
+        match &self.kind {
+            ProductDesignEvidenceKind::ProductOddsVerified { audit_id, .. } => Some(audit_id),
+            _ => None,
+        }
+    }
+
+    /// Fingerprint of the audited allocation or reweighting source artifact.
+    #[must_use]
+    pub fn source_fingerprint(&self) -> Option<&str> {
+        match &self.kind {
+            ProductDesignEvidenceKind::ProductOddsVerified {
+                source_fingerprint, ..
+            }
+            | ProductDesignEvidenceKind::ReweightedToProduct {
+                source_fingerprint, ..
+            } => Some(source_fingerprint),
+            ProductDesignEvidenceKind::DiagnosticOnly { .. } => None,
         }
     }
 

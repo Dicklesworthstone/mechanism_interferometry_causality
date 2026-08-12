@@ -8,9 +8,8 @@ mod tests {
     use mic_data::{DataSource, ExperimentManifest, InferenceTrack, RegimeSpec, SelectionContract};
     use mic_design::{DesignPoint, audit_design, audit_sampling_odds};
     use mic_engine::{
-        FourLawPolicy, LensEstimate, PreflightPolicy, PreflightStatus, SurveyAuthority,
-        SurveyPolicy, audit_lens_battery, audit_orientation, run_preflight, run_tabular_audit,
-        run_unsupervised_survey,
+        FourLawPolicy, LensEstimate, PreflightPolicy, PreflightStatus, audit_lens_battery,
+        audit_orientation, run_preflight, run_tabular_audit,
     };
     use mic_model::PosteriorSquare;
     use mic_sim::exact_suite;
@@ -300,5 +299,25 @@ mod tests {
             markdown.find("## Abstentions").unwrap()
                 < markdown.find("## Informational findings").unwrap()
         );
+    }
+
+    #[test]
+    fn unsupervised_survey_is_proposal_only_and_finds_the_square() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let survey = run_unsupervised_survey(
+            root.join("examples/data/four_law_discrete.csv"),
+            Some(&root),
+            Some("cluster_id"),
+            SurveyPolicy::default(),
+        )
+        .unwrap();
+        assert_eq!(survey.authority, SurveyAuthority::ProposalOnly);
+        assert!(
+            survey
+                .interferometers
+                .iter()
+                .any(|item| item.complete_square)
+        );
+        assert!(!survey.wall.is_empty());
     }
 }
