@@ -14,6 +14,8 @@ This repository is a scientific audit system. Correctness evidence outranks feat
 8. Every optimization must preserve exact-algebra conformance fixtures and strict-mode failure behavior.
 9. `unsafe` is forbidden throughout this workspace.
 10. Franken* integrations belong behind adapter traits. Core causal contracts may not depend on unstable implementation details of sibling repositories.
+11. Never rely on GitHub Actions. It does not work for this project: runs sit queued indefinitely and never report. Do not treat a pushed commit as validated because CI was expected to check it, do not wait on a run, and do not cite a run as evidence. Run the validation block below locally, and use `dsr` (the Doodlestein Self-Releaser) for builds and releases.
+12. Never create a git worktree, and never open a feature branch. All work happens on `main`, in the primary working tree. Several agents share that tree at once, so reserve the files you are about to edit through MCP Agent Mail before you touch them, and announce anything that changes a shared contract.
 
 ## Required validation before a change is complete
 
@@ -25,5 +27,9 @@ python scripts/check_repo.py
 python scripts/generate_simulations.py
 cd paper && latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
 ```
+
+Every one of these is runnable locally, so "CI will catch it" is never an acceptable substitute for running them.
+
+Run them in place on `main`. Do not stand up a worktree or a scratch clone to validate in, and do not create one for any other reason either. That does mean validating against a tree that also carries untracked and gitignored files, which can mask the failures a fresh clone would hit, so check `git status --porcelain` before calling a change complete. `scripts/check_repo.py` compares the manifest path set against what is actually on disk, so a stray untracked file surfaces there rather than in someone else's checkout.
 
 Any unavailable validation must be recorded honestly in the commit or pull request. Do not replace it with an assertion that the code "should compile."
