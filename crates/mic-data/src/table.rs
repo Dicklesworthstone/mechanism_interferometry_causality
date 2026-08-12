@@ -166,8 +166,9 @@ pub fn load_csv_table(
     })?;
     let mut lines = text.lines();
     let header_line = lines.next().ok_or(TableError::EmptyTable)?;
-    let headers = parse_csv_line(header_line);
-    let header_index = column_index(&headers);
+    let headers =
+        parse_csv_line(header_line).map_err(|message| TableError::Parse { row: 0, message })?;
+    let header_index = column_index(&headers)?;
     let required = required_columns(manifest);
     for column in &required {
         if !header_index.contains_key(column.as_str()) {
@@ -176,19 +177,23 @@ pub fn load_csv_table(
     }
     let regime_lookup = regime_lookup(manifest);
     let mut rows = Vec::new();
+    let mut row_ids = BTreeSet::new();
     for (offset, line) in lines.enumerate() {
         if line.trim().is_empty() {
             continue;
         }
         let row_index = offset + 1;
-        let fields = parse_csv_line(line);
+        let fields = parse_csv_line(line).map_err(|message| TableError::Parse {
+            row: row_index,
+            message,
+        })?;
         if fields.len() != headers.len() {
             return Err(TableError::Parse {
                 row: row_index,
                 message: format!("expected {} columns, found {}", headers.len(), fields.len()),
             });
         }
-        rows.push(parse_observation(
+        let observation = parse_observation(
             manifest,
             &headers,
             &header_index,
@@ -196,7 +201,14 @@ pub fn load_csv_table(
             &path,
             row_index,
             &fields,
-        )?);
+        )?;
+        if !row_ids.insert(observation.row_id.clone()) {
+            return Err(TableError::Parse {
+                row: row_index,
+                message: format!("duplicate row identifier {:?}", observation.row_id),
+            });
+        }
+        rows.push(observation);
     }
     if rows.is_empty() {
         return Err(TableError::EmptyTable);
@@ -231,19 +243,24 @@ pub fn load_raw_csv(
     })?;
     let mut lines = text.lines();
     let header_line = lines.next().ok_or(TableError::EmptyTable)?;
-    let headers = parse_csv_line(header_line);
+    let headers =
+        parse_csv_line(header_line).map_err(|message| TableError::Parse { row: 0, message })?;
     if headers.is_empty() || headers.iter().all(String::is_empty) {
         return Err(TableError::Parse {
             row: 0,
             message: "csv header is empty".into(),
         });
     }
+    let _ = column_index(&headers)?;
     let mut rows = Vec::new();
     for (offset, line) in lines.enumerate() {
         if line.trim().is_empty() {
             continue;
         }
-        let fields = parse_csv_line(line);
+        let fields = parse_csv_line(line).map_err(|message| TableError::Parse {
+            row: offset + 1,
+            message,
+        })?;
         if fields.len() != headers.len() {
             return Err(TableError::Parse {
                 row: offset + 1,
@@ -350,11 +367,18 @@ fn parse_observation(
         }
         state.push(value);
     }
-    let row_id = header_index
-        .get("row_id")
-        .map(|&index| fields[index].clone())
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| format!("{}:{row_index}", path.display()));
+    let row_id = if let Some(&index) = header_index.get("row_id") {
+        let value = fields[index].trim();
+        if value.is_empty() {
+            return Err(TableError::Parse {
+                row: row_index,
+                message: "row identifier is empty".into(),
+            });
+        }
+        value.to_string()
+    } else {
+        format!("{}:{row_index}", path.display())
+    };
     let _ = headers;
     Ok(Observation {
         row_index,
@@ -442,7 +466,8 @@ fn summarize(
         .iter()
         .map(|cluster_id| ClusterFold {
             cluster_id: cluster_id.clone(),
-            fold: fold_for_cluster(manifest.seed, cluster_id, n_folds),
+            fold: fold_for_cluster(manifest.seed, cluster_id, n_folds)
+                .expect("load_csv_table rejects a zero fold count"),
         })
         .collect::<Vec<_>>();
     cluster_folds.sort_by(|left, right| left.cluster_id.cmp(&right.cluster_id));
@@ -468,8 +493,13 @@ fn summarize(
 }
 
 /// Assigns a cluster to a fold from the experiment seed. Rows never receive folds.
+///
+/// Returns `None` when `n_folds` is zero.
 #[must_use]
-pub fn fold_for_cluster(seed: u64, cluster_id: &str, n_folds: usize) -> usize {
+pub fn fold_for_cluster(seed: u64, cluster_id: &str, n_folds: usize) -> Option<usize> {
+    if n_folds == 0 {
+        return None;
+    }
     let mut hasher = Sha256::new();
     hasher.update(seed.to_be_bytes());
     hasher.update(cluster_id.as_bytes());
@@ -480,7 +510,7 @@ pub fn fold_for_cluster(seed: u64, cluster_id: &str, n_folds: usize) -> usize {
     // arrived as a `usize`, so neither direction can truncate on any target width.
     let modulus = u64::try_from(n_folds).expect("fold count originates from a usize");
     let fold = u64::from_be_bytes(bytes) % modulus;
-    usize::try_from(fold).expect("fold index is below the fold count, which is a usize")
+    Some(usize::try_from(fold).expect("fold index is below the fold count, which is a usize"))
 }
 
 fn fingerprint_ids(ids: &BTreeSet<String>) -> String {
@@ -506,12 +536,23 @@ fn hex_sha256_digest(digest: impl AsRef<[u8]>) -> String {
     encoded
 }
 
-fn column_index(headers: &[String]) -> BTreeMap<&str, usize> {
-    headers
-        .iter()
-        .enumerate()
-        .map(|(index, name)| (name.as_str(), index))
-        .collect()
+fn column_index(headers: &[String]) -> Result<BTreeMap<&str, usize>, TableError> {
+    let mut index = BTreeMap::new();
+    for (position, name) in headers.iter().enumerate() {
+        if name.is_empty() {
+            return Err(TableError::Parse {
+                row: 0,
+                message: format!("csv header column {} is empty", position + 1),
+            });
+        }
+        if index.insert(name.as_str(), position).is_some() {
+            return Err(TableError::Parse {
+                row: 0,
+                message: format!("duplicate csv header {name:?}"),
+            });
+        }
+    }
+    Ok(index)
 }
 
 fn field<'a>(fields: &'a [String], header_index: &BTreeMap<&str, usize>, column: &str) -> &'a str {
@@ -529,12 +570,25 @@ fn parse_flag(raw: &str, row: usize) -> Result<bool, TableError> {
     }
 }
 
-fn parse_csv_line(line: &str) -> Vec<String> {
+fn parse_csv_line(line: &str) -> Result<Vec<String>, String> {
     let mut fields = Vec::new();
     let mut current = String::new();
     let mut in_quotes = false;
+    let mut quote_closed = false;
     let mut chars = line.chars().peekable();
     while let Some(ch) = chars.next() {
+        if quote_closed {
+            match ch {
+                ',' => {
+                    fields.push(current.trim().to_string());
+                    current.clear();
+                    quote_closed = false;
+                }
+                ch if ch.is_whitespace() => {}
+                _ => return Err("characters after a closing csv quote".into()),
+            }
+            continue;
+        }
         match ch {
             '"' if in_quotes => {
                 if chars.peek() == Some(&'"') {
@@ -542,9 +596,13 @@ fn parse_csv_line(line: &str) -> Vec<String> {
                     chars.next();
                 } else {
                     in_quotes = false;
+                    quote_closed = true;
                 }
             }
-            '"' => in_quotes = true,
+            '"' if current.is_empty() => in_quotes = true,
+            '"' => {
+                return Err("quote inside an unquoted csv field".into());
+            }
             ',' if !in_quotes => {
                 fields.push(current.trim().to_string());
                 current.clear();
@@ -552,8 +610,14 @@ fn parse_csv_line(line: &str) -> Vec<String> {
             _ => current.push(ch),
         }
     }
+    if in_quotes {
+        return Err(
+            "unterminated quoted csv field; the standard-library reader does not support quoted newlines"
+                .into(),
+        );
+    }
     fields.push(current.trim().to_string());
-    fields
+    Ok(fields)
 }
 
 #[cfg(test)]
@@ -615,6 +679,7 @@ mod tests {
             fold_for_cluster(7, "c0", 5),
             "folds are deterministic"
         );
+        assert_eq!(fold_for_cluster(7, "c0", 0), None);
     }
 
     #[test]
@@ -633,5 +698,85 @@ mod tests {
         .unwrap();
         let report = load_csv_table(&manifest_for(&path), None, 2).unwrap();
         assert_eq!(report.clusters_spanning_regimes, vec!["shared".to_string()]);
+    }
+
+    #[test]
+    fn rejects_duplicate_headers_before_semantic_lookup() {
+        let dir = std::env::temp_dir().join("mic-data-table-duplicate-header");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("duplicate-header.csv");
+        fs::write(
+            &path,
+            "cluster_id,regime,x,x\n\
+             c0,00,0,0\n",
+        )
+        .unwrap();
+        let error = load_csv_table(&manifest_for(&path), None, 2).unwrap_err();
+        assert!(error.to_string().contains("duplicate csv header \"x\""));
+    }
+
+    #[test]
+    fn rejects_duplicate_explicit_row_identifiers() {
+        let dir = std::env::temp_dir().join("mic-data-table-duplicate-row-id");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("duplicate-row-id.csv");
+        fs::write(
+            &path,
+            "row_id,cluster_id,regime,x\n\
+             same,c0,00,0\n\
+             same,c1,10,1\n",
+        )
+        .unwrap();
+        let error = load_csv_table(&manifest_for(&path), None, 2).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("duplicate row identifier \"same\"")
+        );
+    }
+
+    #[test]
+    fn rejects_empty_explicit_row_identifiers() {
+        let dir = std::env::temp_dir().join("mic-data-table-empty-row-id");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("empty-row-id.csv");
+        fs::write(
+            &path,
+            "row_id,cluster_id,regime,x\n\
+             ,c0,00,0\n",
+        )
+        .unwrap();
+        let error = load_csv_table(&manifest_for(&path), None, 2).unwrap_err();
+        assert!(error.to_string().contains("row identifier is empty"));
+    }
+
+    #[test]
+    fn rejects_unterminated_or_trailing_quote_content() {
+        let dir = std::env::temp_dir().join("mic-data-table-malformed-quotes");
+        fs::create_dir_all(&dir).unwrap();
+
+        let unterminated = dir.join("unterminated.csv");
+        fs::write(
+            &unterminated,
+            "cluster_id,regime,x\n\
+             c0,00,\"unterminated\n",
+        )
+        .unwrap();
+        let error = load_raw_csv(&unterminated, None).unwrap_err();
+        assert!(error.to_string().contains("unterminated quoted csv field"));
+
+        let trailing = dir.join("trailing.csv");
+        fs::write(
+            &trailing,
+            "cluster_id,regime,x\n\
+             c0,00,\"quoted\"tail\n",
+        )
+        .unwrap();
+        let error = load_raw_csv(&trailing, None).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("characters after a closing csv quote")
+        );
     }
 }
