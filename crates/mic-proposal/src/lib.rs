@@ -861,6 +861,19 @@ mod tests {
     }
 
     #[test]
+    fn candidate_fingerprint_binds_both_ordered_hypothesis_labels() {
+        let mut item = candidate("candidate", "replace-target-T", 0.2);
+        let original = candidate_library_fingerprint(&[item.clone()]);
+        item.predicted_pairwise_separations[0].first = "alternate-first".into();
+        let changed_first = candidate_library_fingerprint(&[item.clone()]);
+        assert_ne!(original, changed_first);
+
+        item.predicted_pairwise_separations[0].second = "alternate-second".into();
+        let changed_second = candidate_library_fingerprint(&[item]);
+        assert_ne!(changed_first, changed_second);
+    }
+
+    #[test]
     fn ranked_candidate_identifiers_are_trimmed_before_tie_breaking() {
         let spaced = candidate(" z ", "replace-target-T", 0.2);
         let lexical_first = candidate("a", "replace-target-T", 0.2);
