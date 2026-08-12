@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T18:58:57Z",
+  "generated_at_utc": "2026-08-12T19:01:03Z",
   "hash_algorithm": "sha256",
   "file_count": 116,
-  "aggregate_sha256": "c2af40f97d3876d9d395f58ca48fcdc7cc5af3f92dc0df6008a4235af64eda5e",
+  "aggregate_sha256": "c63a4bb0afb2fec1924ea9d861269307eec05395809bdbd41c27f9f638893068",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -163,13 +163,13 @@
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 16342,
-      "sha256": "596adc87dca700c6b85b49f704751f4111cc4c3bed9f1eeb682830b76e33c295"
+      "bytes": 16335,
+      "sha256": "8dad8cf9dd1f12083e4fc4b39646c2bc3aa9af059808b304a0494a0090c47308"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
-      "bytes": 31870,
-      "sha256": "3bd62f71b968a5a5a42643b922cb8924cf16b311e45f34dcb199a679ed04eb01"
+      "bytes": 31890,
+      "sha256": "9aca1b9f29dc79a7a6668f9b968dd565e7511b8e163d65a5dc126a81f5aa740a"
     },
     {
       "path": "crates/mic-model/Cargo.toml",
