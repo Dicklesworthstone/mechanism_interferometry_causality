@@ -250,27 +250,31 @@ pub struct CandidateSupport {
     pub variables: Vec<String>,
     /// Held-out proper regime-prediction loss for a model fit on this support.
     pub holdout_loss: f64,
-    /// Explicit nonnegative complexity measure for the fitted model.
+    /// Nonnegative learner-specific complexity used only to break support-cardinality ties.
     pub complexity: f64,
 }
 
 /// Parsimony-frontier summary of a completed localization ensemble.
 ///
 /// The frontier is the set of candidates whose held-out loss is within
-/// `loss_tolerance` of the best loss in the ensemble, ordered by increasing
-/// complexity.  By locality, the true support is the smallest support carrying
-/// full regime information, so the least-complex frontier member is the
-/// preferred localization and per-variable inclusion frequencies across the
-/// frontier are reported as stability paths.
+/// `loss_tolerance` of the best loss in the ensemble, ordered first by support
+/// cardinality and then by learner-specific complexity.  Under ratio
+/// faithfulness and adequate learner capacity, locality makes the true support
+/// the smallest support carrying full regime information, so the
+/// smallest-cardinality frontier member is the preferred localization
+/// proposal.  Inclusion frequencies are descriptive frequencies over the
+/// designed candidate ensemble, not probabilities, and any certificate-grade
+/// conclusion about an adaptively selected support requires an outer held-out
+/// confirmation sample.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ParsimonyFrontier {
     /// Best held-out loss over the completed ensemble.
     pub best_loss: f64,
     /// Absolute loss tolerance defining the frontier.
     pub loss_tolerance: f64,
-    /// Indices into the candidate slice, ordered by complexity, then loss, then index.
+    /// Indices ordered by cardinality, learner complexity, loss, then input index.
     pub frontier: Vec<usize>,
-    /// Variables of the least-complex frontier member.
+    /// Variables of the smallest-cardinality frontier member.
     pub minimal_support: Vec<String>,
     /// Fraction of frontier members containing each variable, normalized per variable.
     pub inclusion_frequencies: std::collections::BTreeMap<String, f64>,
@@ -335,8 +339,14 @@ pub fn parsimony_frontier(
         .collect();
     frontier.sort_by(|&left, &right| {
         candidates[left]
-            .complexity
-            .total_cmp(&candidates[right].complexity)
+            .variables
+            .len()
+            .cmp(&candidates[right].variables.len())
+            .then(
+                candidates[left]
+                    .complexity
+                    .total_cmp(&candidates[right].complexity),
+            )
             .then(
                 candidates[left]
                     .holdout_loss
@@ -473,7 +483,7 @@ mod tests {
     }
 
     #[test]
-    fn frontier_frequencies_are_per_variable_probabilities() {
+    fn frontier_frequencies_are_descriptive_per_variable_rates() {
         let candidates = vec![
             candidate(&["a", "b"], 0.1, 2.0),
             candidate(&["a", "c"], 0.1, 2.0),
@@ -487,6 +497,17 @@ mod tests {
                 .values()
                 .all(|&value| (0.0..=1.0).contains(&value))
         );
+        assert_eq!(frontier.minimal_support, vec!["a".to_string()]);
+    }
+
+    #[test]
+    fn support_cardinality_precedes_learner_complexity() {
+        let candidates = vec![
+            candidate(&["a", "b"], 0.1, 0.0),
+            candidate(&["a"], 0.1, 100.0),
+        ];
+        let frontier = parsimony_frontier(&candidates, 0.0).unwrap();
+        assert_eq!(frontier.frontier, vec![1, 0]);
         assert_eq!(frontier.minimal_support, vec!["a".to_string()]);
     }
 
