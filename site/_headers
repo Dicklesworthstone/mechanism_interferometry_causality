@@ -17,9 +17,12 @@
 # against a fresh index.html would silently break the figures. The fonts and the
 # paper PDF are immutable in practice and are cached for a week.
 #
-# `/` needs its own rule. A `/index.html` entry does not cover the bare root,
-# which otherwise falls through to the `/*` default and served a stale copy of
-# the page for several minutes after a deploy. Measured, not theorised.
+# `/` needs its own rule, and it is the ONLY rule that matters for the page.
+# Pages answers `/index.html` with a 308 redirect to `/`, so a `/index.html`
+# entry decorates a redirect and never reaches the document; without the `/`
+# entry the page fell through to the `/*` default and served a stale copy for
+# several minutes after a deploy. The `/index.html` line below is kept only so
+# that a direct request for it is not cached either. Measured, not theorised.
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff

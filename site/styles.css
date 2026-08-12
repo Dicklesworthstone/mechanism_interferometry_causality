@@ -1515,6 +1515,10 @@ main > section.hero {
   padding-inline-start: 1.1rem;
 }
 
+/* .label sets `margin: 0 0 .7rem`, whose shorthand resets margin-top and so
+   defeats .mt on the same element. Space the group from the readouts here. */
+.readouts + .label { margin-top: 1.4rem; }
+
 .pair-list { display: grid; gap: .35rem; }
 
 .pair-row {
