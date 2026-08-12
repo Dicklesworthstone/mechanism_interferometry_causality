@@ -114,12 +114,18 @@ def authority_template_semantic_errors(
         if not condition:
             errors.append(message)
 
+    source_table_path = benchmark_dir / "source_table.csv"
     routing_data_path = benchmark_dir / "routing_data.csv"
+    confirmation_data_path = benchmark_dir / "confirmation_data.csv"
+    diagnostic_path = benchmark_dir / "design_diagnostic_receipt.json"
     transformation_path = benchmark_dir / "transformation.json"
     discovery_path = benchmark_dir / "discovery_units.txt"
     confirmation_path = benchmark_dir / "confirmation_units.txt"
     required_paths = [
+        source_table_path,
         routing_data_path,
+        confirmation_data_path,
+        diagnostic_path,
         transformation_path,
         discovery_path,
         confirmation_path,
@@ -129,8 +135,9 @@ def authority_template_semantic_errors(
 
     documents = [routing_view, authorized, blind, oracle]
     expected_hashes = {
-        "source_table_sha256": sha256(routing_data_path),
+        "source_table_sha256": sha256(source_table_path),
         "routing_data_sha256": sha256(routing_data_path),
+        "confirmation_data_sha256": sha256(confirmation_data_path),
         "transformation_sha256": sha256(transformation_path),
         "discovery_unit_sha256": sha256(discovery_path),
         "confirmation_unit_sha256": sha256(confirmation_path),
@@ -151,6 +158,18 @@ def authority_template_semantic_errors(
         reader = csv.DictReader(handle)
         rows = list(reader)
         table_columns = reader.fieldnames or []
+    with source_table_path.open(newline="", encoding="utf-8") as handle:
+        source_rows = list(csv.DictReader(handle))
+    with confirmation_data_path.open(newline="", encoding="utf-8") as handle:
+        confirmation_rows = list(csv.DictReader(handle))
+    source_serialized = [json.dumps(row, sort_keys=True) for row in source_rows]
+    partition_serialized = [
+        json.dumps(row, sort_keys=True) for row in [*rows, *confirmation_rows]
+    ]
+    require(
+        sorted(source_serialized) == sorted(partition_serialized),
+        "discovery and confirmation tables do not reconstruct the source table",
+    )
     require(column_ids == table_columns, "routing column order mismatch")
     transformation = load_json(transformation_path)
     transformation_columns = (
@@ -215,9 +234,87 @@ def authority_template_semantic_errors(
         for line in confirmation_path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     }
-    data_units = {row.get(str(assignment_unit)) for row in rows}
+    source_units = {row.get(str(assignment_unit)) for row in source_rows}
+    routing_units = {row.get(str(assignment_unit)) for row in rows}
+    sealed_confirmation_units = {
+        row.get(str(assignment_unit)) for row in confirmation_rows
+    }
     require(not (discovery_units & confirmation_units), "unit partitions overlap")
-    require(discovery_units | confirmation_units == data_units, "unit partitions do not cover data")
+    require(discovery_units | confirmation_units == source_units, "unit partitions do not cover source")
+    require(routing_units == discovery_units, "routing data is not discovery-only")
+    require(
+        sealed_confirmation_units == confirmation_units,
+        "confirmation data does not match its sealed partition",
+    )
+
+    diagnostic = load_json(diagnostic_path)
+    if not isinstance(diagnostic, dict):
+        diagnostic = {}
+    require(
+        diagnostic.get("routing_data_sha256") == sha256(routing_data_path),
+        "diagnostic is not bound to routing data",
+    )
+    require(
+        diagnostic.get("discovery_unit_sha256") == sha256(discovery_path),
+        "diagnostic is not bound to discovery units",
+    )
+    require(diagnostic.get("unit_column") == assignment_unit, "diagnostic unit disagrees")
+
+    unit_values: dict[str, tuple[float, float]] = {}
+    for unit in sorted(discovery_units):
+        unit_rows = [row for row in rows if row.get(str(assignment_unit)) == unit]
+        require(bool(unit_rows), f"diagnostic unit {unit} has no rows")
+        if not unit_rows:
+            continue
+        assignments = {float(row.get(str(assignment_column), "nan")) for row in unit_rows}
+        exposure_column = next(
+            (
+                item.get("exposure_column")
+                for item in authorization_items
+                if item.get("strategy") == "instrumental_variable"
+            ),
+            None,
+        )
+        exposures = [float(row.get(str(exposure_column), "nan")) for row in unit_rows]
+        require(len(assignments) == 1 and assignments <= {0.0, 1.0}, "assignment varies within unit")
+        require(all(value in {0.0, 1.0} for value in exposures), "exposure is not binary")
+        if len(assignments) == 1 and exposures:
+            unit_values[unit] = (next(iter(assignments)), sum(exposures) / len(exposures))
+    zero_values = [exposure for assignment_value, exposure in unit_values.values() if assignment_value == 0]
+    one_values = [exposure for assignment_value, exposure in unit_values.values() if assignment_value == 1]
+    require(bool(zero_values) and bool(one_values), "diagnostic lacks both assignment arms")
+    if zero_values and one_values:
+        zero_mean = sum(zero_values) / len(zero_values)
+        one_mean = sum(one_values) / len(one_values)
+        first_stage = abs(one_mean - zero_mean)
+        relevance = diagnostic.get("relevance", {})
+        positivity = diagnostic.get("positivity", {})
+        if not isinstance(relevance, dict):
+            relevance = {}
+        if not isinstance(positivity, dict):
+            positivity = {}
+        require(relevance.get("assignment_column") == assignment_column, "relevance assignment differs")
+        require(relevance.get("exposure_column") == exposure_column, "relevance exposure differs")
+        require(relevance.get("assignment_zero_units") == len(zero_values), "zero-unit count differs")
+        require(relevance.get("assignment_one_units") == len(one_values), "one-unit count differs")
+        require(math.isclose(relevance.get("mean_exposure_given_zero", math.nan), zero_mean), "zero mean differs")
+        require(math.isclose(relevance.get("mean_exposure_given_one", math.nan), one_mean), "one mean differs")
+        require(math.isclose(relevance.get("absolute_first_stage", math.nan), first_stage), "first stage differs")
+        relevance_floor = relevance.get("minimum_absolute_first_stage", math.inf)
+        require(first_stage >= relevance_floor, "first stage is below its frozen floor")
+        total_units = len(zero_values) + len(one_values)
+        zero_fraction = len(zero_values) / total_units
+        one_fraction = len(one_values) / total_units
+        positivity_floor = positivity.get("minimum_arm_fraction", math.inf)
+        require(
+            math.isclose(positivity.get("assignment_zero_fraction", math.nan), zero_fraction),
+            "zero-arm fraction differs",
+        )
+        require(
+            math.isclose(positivity.get("assignment_one_fraction", math.nan), one_fraction),
+            "one-arm fraction differs",
+        )
+        require(min(zero_fraction, one_fraction) >= positivity_floor, "positivity floor is not met")
 
     evidence_items = [
         item for item in authorized.get("premise_evidence", []) if isinstance(item, dict)
@@ -393,11 +490,15 @@ def required_files() -> None:
         "schemas/benchmark_routing_view.schema.json",
         "schemas/design_authority_receipt.schema.json",
         "schemas/benchmark_oracle.schema.json",
+        "schemas/design_diagnostic_receipt.schema.json",
         "examples/orientation/parity_demo.json",
         "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
         "examples/benchmarks/authority_ablation_template/README.md",
+        "examples/benchmarks/authority_ablation_template/source_table.csv",
         "examples/benchmarks/authority_ablation_template/routing_data.csv",
+        "examples/benchmarks/authority_ablation_template/confirmation_data.csv",
+        "examples/benchmarks/authority_ablation_template/design_diagnostic_receipt.json",
         "examples/benchmarks/authority_ablation_template/transformation.json",
         "examples/benchmarks/authority_ablation_template/discovery_units.txt",
         "examples/benchmarks/authority_ablation_template/confirmation_units.txt",
@@ -447,6 +548,7 @@ def validate_schemas_and_manifests() -> None:
     routing_view_schema = schemas.get("benchmark_routing_view.schema.json")
     design_receipt_schema = schemas.get("design_authority_receipt.schema.json")
     benchmark_oracle_schema = schemas.get("benchmark_oracle.schema.json")
+    design_diagnostic_schema = schemas.get("design_diagnostic_receipt.schema.json")
 
     check(audit_report_schema is not None, "audit report schema was not loaded")
     check(four_law_report_schema is not None, "four-law report schema was not loaded")
@@ -544,21 +646,25 @@ def validate_schemas_and_manifests() -> None:
     check(routing_view_schema is not None, "benchmark routing-view schema was not loaded")
     check(design_receipt_schema is not None, "design-authority receipt schema was not loaded")
     check(benchmark_oracle_schema is not None, "benchmark oracle schema was not loaded")
+    check(design_diagnostic_schema is not None, "design diagnostic schema was not loaded")
     if (
         routing_view_schema is not None
         and design_receipt_schema is not None
         and benchmark_oracle_schema is not None
+        and design_diagnostic_schema is not None
     ):
         benchmark_dir = ROOT / "examples" / "benchmarks" / "authority_ablation_template"
         routing_view = load_json(benchmark_dir / "routing_view.json")
         authorized = load_json(benchmark_dir / "authorized_design_receipt.json")
         blind = load_json(benchmark_dir / "blind_design_receipt.json")
         oracle = load_json(benchmark_dir / "oracle.json")
+        diagnostic = load_json(benchmark_dir / "design_diagnostic_receipt.json")
         benchmark_documents = [
             (routing_view, Draft202012Validator(routing_view_schema), "routing view"),
             (authorized, Draft202012Validator(design_receipt_schema), "authorized receipt"),
             (blind, Draft202012Validator(design_receipt_schema), "blind receipt"),
             (oracle, Draft202012Validator(benchmark_oracle_schema), "oracle"),
+            (diagnostic, Draft202012Validator(design_diagnostic_schema), "design diagnostic"),
         ]
         for document, document_validator, label in benchmark_documents:
             for error in sorted(
@@ -572,14 +678,17 @@ def validate_schemas_and_manifests() -> None:
                 routing_view, authorized, blind, oracle, benchmark_dir
             ):
                 fail(f"authority-template semantic violation: {error}")
+            source_table_path = benchmark_dir / "source_table.csv"
             routing_data_path = benchmark_dir / "routing_data.csv"
+            confirmation_data_path = benchmark_dir / "confirmation_data.csv"
             transformation_path = benchmark_dir / "transformation.json"
             discovery_path = benchmark_dir / "discovery_units.txt"
             confirmation_path = benchmark_dir / "confirmation_units.txt"
             transformation = load_json(transformation_path)
             expected_hashes = {
-                "source_table_sha256": sha256(routing_data_path),
+                "source_table_sha256": sha256(source_table_path),
                 "routing_data_sha256": sha256(routing_data_path),
+                "confirmation_data_sha256": sha256(confirmation_data_path),
                 "transformation_sha256": sha256(transformation_path),
                 "discovery_unit_sha256": sha256(discovery_path),
                 "confirmation_unit_sha256": sha256(confirmation_path),
@@ -590,6 +699,7 @@ def validate_schemas_and_manifests() -> None:
                 "routing_view_id",
                 "source_table_sha256",
                 "routing_data_sha256",
+                "confirmation_data_sha256",
                 "transformation_sha256",
                 "discovery_unit_sha256",
                 "confirmation_unit_sha256",
@@ -597,7 +707,7 @@ def validate_schemas_and_manifests() -> None:
             for field in binding_fields:
                 values = {document.get(field) for document in [routing_view, authorized, blind, oracle]}
                 check(len(values) == 1, f"authority-template binding drift in {field}")
-            for document, _, label in benchmark_documents:
+            for document, _, label in benchmark_documents[:4]:
                 for field, expected_hash in expected_hashes.items():
                     check(
                         document.get(field) == expected_hash,
@@ -714,11 +824,24 @@ def validate_schemas_and_manifests() -> None:
                 for line in confirmation_path.read_text(encoding="utf-8").splitlines()
                 if line.strip()
             }
-            data_units = {row.get(str(assignment_unit)) for row in rows}
+            with source_table_path.open(newline="", encoding="utf-8") as handle:
+                source_rows = list(csv.DictReader(handle))
+            with confirmation_data_path.open(newline="", encoding="utf-8") as handle:
+                confirmation_rows = list(csv.DictReader(handle))
+            data_units = {row.get(str(assignment_unit)) for row in source_rows}
+            routing_units = {row.get(str(assignment_unit)) for row in rows}
+            confirmation_data_units = {
+                row.get(str(assignment_unit)) for row in confirmation_rows
+            }
             check(not (discovery_units & confirmation_units), "unit partitions overlap")
             check(
                 discovery_units | confirmation_units == data_units,
-                "unit partitions do not exactly cover the routing table",
+                "unit partitions do not exactly cover the source table",
+            )
+            check(routing_units == discovery_units, "routing table is not discovery-only")
+            check(
+                confirmation_data_units == confirmation_units,
+                "confirmation table does not match the sealed partition",
             )
 
             evidence_items = [

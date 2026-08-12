@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "diagnostic_id": "diagnostic_001",
+  "routing_data_sha256": "5f3616d847f5dc2c475b6d4c570dbf5508a7eaccae8d45ae1b17e3977ecaa0cc",
+  "discovery_unit_sha256": "002a272be16c65ff8c2934eccca5600a4a8fadd48a2b3ea15f55d511b946ac11",
+  "unit_column": "u_001",
+  "computation": "exact_equal_unit_binary_means",
+  "relevance": {
+    "assignment_column": "x_001",
+    "exposure_column": "x_002",
+    "assignment_zero_units": 2,
+    "assignment_one_units": 2,
+    "mean_exposure_given_zero": 0.0,
+    "mean_exposure_given_one": 1.0,
+    "absolute_first_stage": 1.0,
+    "minimum_absolute_first_stage": 0.2,
+    "status": "above_frozen_floor"
+  },
+  "positivity": {
+    "assignment_zero_fraction": 0.5,
+    "assignment_one_fraction": 0.5,
+    "minimum_arm_fraction": 0.25,
+    "status": "both_arms_observed_above_floor"
+  }
+}

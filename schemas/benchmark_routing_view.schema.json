@@ -11,6 +11,7 @@
     "routing_view_id",
     "source_table_sha256",
     "routing_data_sha256",
+    "confirmation_data_sha256",
     "transformation_sha256",
     "discovery_unit_sha256",
     "confirmation_unit_sha256",
@@ -26,6 +27,7 @@
     "routing_view_id": {"$ref": "#/$defs/routing_view_id"},
     "source_table_sha256": {"$ref": "#/$defs/sha256"},
     "routing_data_sha256": {"$ref": "#/$defs/sha256"},
+    "confirmation_data_sha256": {"$ref": "#/$defs/sha256"},
     "transformation_sha256": {"$ref": "#/$defs/sha256"},
     "discovery_unit_sha256": {"$ref": "#/$defs/sha256"},
     "confirmation_unit_sha256": {"$ref": "#/$defs/sha256"},
@@ -104,6 +106,7 @@
         "paper_visible",
         "replication_scripts_visible",
         "published_results_visible",
+        "confirmation_outcomes_visible",
         "network_access"
       ],
       "properties": {
@@ -114,6 +117,7 @@
         "paper_visible": {"const": false},
         "replication_scripts_visible": {"const": false},
         "published_results_visible": {"const": false},
+        "confirmation_outcomes_visible": {"const": false},
         "network_access": {"const": false}
       }
     }

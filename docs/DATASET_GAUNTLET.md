@@ -122,14 +122,16 @@ authority must disappear. Run blind twins under neutral paths with network
 access disabled.
 
 The machine-readable **contract template** lives in
-`examples/benchmarks/authority_ablation_template/`. Its synthetic routing table,
-identity transformation, disjoint unit partitions, illustrative design receipt,
-withheld receipt, and declared-sealed oracle are content-bound and checked for
-referential integrity. This is not an executed blind trial: the sibling files do
-not provide process, filesystem, or network isolation. A real runner must mount
-only a neutral routing bundle, attach exactly one receipt through a separate
-channel, keep the oracle unavailable until scoring, and record an execution
-receipt proving those access boundaries. Oregon is the intended first public-data
+`examples/benchmarks/authority_ablation_template/`. Its synthetic discovery-only
+routing table, separately sealed confirmation table, identity transformation,
+disjoint unit partitions, deterministic relevance/positivity diagnostic,
+illustrative design receipt, withheld receipt, and declared-sealed oracle are
+content-bound and checked for referential integrity. This is not an executed
+blind trial: the sibling files do not provide process, filesystem, or network
+isolation. A real runner must mount only the neutral discovery bundle, attach
+exactly one receipt through a separate channel, keep confirmation outcomes and
+the oracle unavailable until strategy freeze, and record an execution receipt
+proving those access boundaries. Oregon is the intended first public-data
 instantiation after that runner exists.
 
 The evaluation vector is lexicographic:

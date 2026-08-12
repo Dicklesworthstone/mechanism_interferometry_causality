@@ -2,12 +2,17 @@
 
 This synthetic fixture exercises the file shapes and cross-file bindings for a
 future isolated benchmark runner. It is not an executed blind experiment and
-does not contain Oregon public-use data. The neutral table, transformation, and
-unit partitions are included so the repository checker can recompute their
-SHA-256 digests instead of trusting self-asserted placeholders.
+does not contain Oregon public-use data. The source table, discovery-only routing
+table, separately sealed confirmation table, transformation, and unit partitions
+are included so the repository checker can recompute their SHA-256 digests
+instead of trusting self-asserted placeholders. The deterministic diagnostic
+receipt is recomputed from discovery units; a raw-table hash is not treated as
+evidence that relevance passed.
 
-An eventual runner must copy `routing_data.csv` and `routing_view.json` into an
-isolated neutral path. In the authorized condition it separately mounts
+An eventual runner must copy only `routing_data.csv` and `routing_view.json`
+into an isolated neutral path. `routing_data.csv` contains discovery units only;
+`confirmation_data.csv`, `source_table.csv`, and `oracle.json` stay sealed until
+strategy freeze. In the authorized condition it separately mounts
 `authorized_design_receipt.json`; in the blind condition it mounts
 `blind_design_receipt.json`. It must never mount this directory wholesale:
 `oracle.json` is a sibling for repository conformance only and its
@@ -17,8 +22,8 @@ Expected behavior:
 
 - `q_001` may route to unit-clustered offer ITT only with the supplied
   design receipt.
-- `q_002` may route to a complier LATE only with the encouragement receipt and the
-  separately stated IV premises.
+- `q_002` may route to a complier LATE only with the encouragement receipt, the
+  separately stated IV premises, and the discovery-only relevance diagnostic.
 - with the design authority withheld, both queries remain proposals and report
   `design_authority_withheld`; balance, first-stage strength, or outcome patterns
   cannot recreate the missing authority.

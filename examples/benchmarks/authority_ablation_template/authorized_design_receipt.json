@@ -4,8 +4,9 @@
   "benchmark_id": "bench_002",
   "routing_view_id": "view_001",
   "receipt_id": "receipt_001",
-  "source_table_sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d",
-  "routing_data_sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d",
+  "source_table_sha256": "cfc5febf09cbf87d650c54aaf9d5664f8321d5fae7a96f0dd6a424b6c98ed09b",
+  "routing_data_sha256": "5f3616d847f5dc2c475b6d4c570dbf5508a7eaccae8d45ae1b17e3977ecaa0cc",
+  "confirmation_data_sha256": "385ff3d2ef0800ad254302c3d1098f262e54d9bc6acb9df37e53a802eb747823",
   "transformation_sha256": "6c9fea494d651d34130d060fba5eff311073a1f1e45af7f98adb45f3fc83da34",
   "discovery_unit_sha256": "002a272be16c65ff8c2934eccca5600a4a8fadd48a2b3ea15f55d511b946ac11",
   "confirmation_unit_sha256": "41ebcfaa35d69fb09aae9619c2657a3dd90b1ec18910741afa57af1c6094d15b",
@@ -36,8 +37,8 @@
     },
     {
       "evidence_id": "ev_relevance",
-      "relative_path": "routing_data.csv",
-      "content_sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d",
+      "relative_path": "design_diagnostic_receipt.json",
+      "content_sha256": "30e89ad9955e3c8dfe3a016abad31132175ffb53c94748243350982f3e4f57ab",
       "evidence_class": "empirical_diagnostic",
       "covers_premises": ["positivity", "relevance"]
     }

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/design_diagnostic_receipt.schema.json",
+  "title": "Deterministic Design Diagnostic Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "diagnostic_id",
+    "routing_data_sha256",
+    "discovery_unit_sha256",
+    "unit_column",
+    "computation",
+    "relevance",
+    "positivity"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "diagnostic_id": {"type": "string", "pattern": "^diagnostic_[0-9]{3}$"},
+    "routing_data_sha256": {"$ref": "#/$defs/sha256"},
+    "discovery_unit_sha256": {"$ref": "#/$defs/sha256"},
+    "unit_column": {"$ref": "#/$defs/identifier"},
+    "computation": {"const": "exact_equal_unit_binary_means"},
+    "relevance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assignment_column",
+        "exposure_column",
+        "assignment_zero_units",
+        "assignment_one_units",
+        "mean_exposure_given_zero",
+        "mean_exposure_given_one",
+        "absolute_first_stage",
+        "minimum_absolute_first_stage",
+        "status"
+      ],
+      "properties": {
+        "assignment_column": {"$ref": "#/$defs/identifier"},
+        "exposure_column": {"$ref": "#/$defs/identifier"},
+        "assignment_zero_units": {"type": "integer", "minimum": 1},
+        "assignment_one_units": {"type": "integer", "minimum": 1},
+        "mean_exposure_given_zero": {"type": "number", "minimum": 0, "maximum": 1},
+        "mean_exposure_given_one": {"type": "number", "minimum": 0, "maximum": 1},
+        "absolute_first_stage": {"type": "number", "minimum": 0, "maximum": 1},
+        "minimum_absolute_first_stage": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "status": {"const": "above_frozen_floor"}
+      }
+    },
+    "positivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assignment_zero_fraction",
+        "assignment_one_fraction",
+        "minimum_arm_fraction",
+        "status"
+      ],
+      "properties": {
+        "assignment_zero_fraction": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+        "assignment_one_fraction": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+        "minimum_arm_fraction": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.5},
+        "status": {"const": "both_arms_observed_above_floor"}
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

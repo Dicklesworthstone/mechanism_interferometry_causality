@@ -3,8 +3,8 @@
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
   "generated_at_utc": "2026-08-12T23:00:00Z",
   "hash_algorithm": "sha256",
-  "file_count": 150,
-  "aggregate_sha256": "eefc2bcd806da09736ed4f8e6233f8b6da6f99863de9d593dce43a4e93ed534d",
+  "file_count": 154,
+  "aggregate_sha256": "45f7994a649f7bc6cc204bab7feec2c7a93b067a9df7e23da3d46846fe87bdf3",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -243,8 +243,8 @@
     },
     {
       "path": "docs/DATASET_GAUNTLET.md",
-      "bytes": 21660,
-      "sha256": "aa55e7d088ecb4af99ee55f7e118cecefb2e29cac67240d8da738f3b36489757"
+      "bytes": 21798,
+      "sha256": "a7c145f175f7339cffefe14b6096e011620e8b25508397efd80c58f27981eb21"
     },
     {
       "path": "docs/EXPERIMENTAL_PROTOCOL.md",
@@ -303,23 +303,33 @@
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/README.md",
-      "bytes": 1602,
-      "sha256": "72bddc2c515ba6324e0df1210d7541a95cef4af3986896ab8041b38fc41a1ee4"
+      "bytes": 2004,
+      "sha256": "18a4b8e3b7593dca6cf4fd56525b95114e4062ab8eb1e645c3a417eedacb8ac4"
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/authorized_design_receipt.json",
-      "bytes": 4274,
-      "sha256": "3d955aaf6ecc5d043815cc2178aefd9939b272a14d508ffa3dc92102ae87c352"
+      "bytes": 4386,
+      "sha256": "25dec7c565f84c16ffa26f39144ae15c28308f4ce01c9d8769ab61573ee871aa"
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/blind_design_receipt.json",
-      "bytes": 718,
-      "sha256": "75f5c228ec60ff58aabdbcb98093a69518297b5194802292d9d45d6a757c3bf2"
+      "bytes": 816,
+      "sha256": "a63de766fa009d2c7c7abb25ceddbfb11dea61370ee42cde9e53e86c5b673c30"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/confirmation_data.csv",
+      "bytes": 142,
+      "sha256": "385ff3d2ef0800ad254302c3d1098f262e54d9bc6acb9df37e53a802eb747823"
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/confirmation_units.txt",
       "bytes": 16,
       "sha256": "41ebcfaa35d69fb09aae9619c2657a3dd90b1ec18910741afa57af1c6094d15b"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/design_diagnostic_receipt.json",
+      "bytes": 843,
+      "sha256": "30e89ad9955e3c8dfe3a016abad31132175ffb53c94748243350982f3e4f57ab"
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/design_source_excerpt.txt",
@@ -333,23 +343,28 @@
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/oracle.json",
-      "bytes": 1475,
-      "sha256": "46bc73d8a4e990e2ddc67e7bec982257655bb6e6672cf7e30343cb0c546c8a42"
+      "bytes": 1573,
+      "sha256": "a57371ea5c6275a9df6218a6140f85260631c1a9f81b8c1704cedc928b7dfd50"
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/routing_data.csv",
-      "bytes": 254,
-      "sha256": "1f64bb9f45f9d547d453c5ef040de70263b8bdc45c91d53996cb8e96fe8c643d"
+      "bytes": 142,
+      "sha256": "5f3616d847f5dc2c475b6d4c570dbf5508a7eaccae8d45ae1b17e3977ecaa0cc"
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/routing_view.json",
-      "bytes": 1883,
-      "sha256": "ffcbd2b9c474081acbb90ad349bef9587d5f003a2ee30073c954499c3d49b9bb"
+      "bytes": 2025,
+      "sha256": "5764fdfb426728146d6a76bddc5bf29fc1284ee58c0058ea7e39cf6a85813cf7"
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/semantic_contract.txt",
       "bytes": 308,
       "sha256": "878ca6c63bbddd62d7f3e3a643004390b99d28772da8683f8e667ddf4d767c52"
+    },
+    {
+      "path": "examples/benchmarks/authority_ablation_template/source_table.csv",
+      "bytes": 254,
+      "sha256": "cfc5febf09cbf87d650c54aaf9d5664f8321d5fae7a96f0dd6a424b6c98ed09b"
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/transformation.json",
@@ -568,8 +583,8 @@
     },
     {
       "path": "schemas/README.md",
-      "bytes": 1433,
-      "sha256": "9f6102a97a6b753a6be9beaaf2c0c3f293e0aa1908ba8ccee72c4325b57aa019"
+      "bytes": 1607,
+      "sha256": "b5762879ee7c90811d4e9fbe1ed559cd218dcc150276db1e63df00a3197b0aff"
     },
     {
       "path": "schemas/active_tilt_input.schema.json",
@@ -583,18 +598,23 @@
     },
     {
       "path": "schemas/benchmark_oracle.schema.json",
-      "bytes": 3032,
-      "sha256": "602314a80c0c2052a1acf8f5ae8cb996cea6e285e85f0348f6ef01048774941d"
+      "bytes": 3124,
+      "sha256": "a52b050e5869a8e2a4cc5e6b66096a40bd7b018a40e33be4da0173937cfdddfb"
     },
     {
       "path": "schemas/benchmark_routing_view.schema.json",
-      "bytes": 3875,
-      "sha256": "91f5fc7cb2d9d67c4e1d2bf339e8de8d3df9a84489116986d63f516c2af818fc"
+      "bytes": 4067,
+      "sha256": "efd1eab3f629f8a3c797bf2c2089a61da063239a02f578bad952147ad3763f7c"
     },
     {
       "path": "schemas/design_authority_receipt.schema.json",
-      "bytes": 7364,
-      "sha256": "9a93124c231fba6a06df26d47a912b6d4441615c49a86ae4de2c241cebe49d6c"
+      "bytes": 7456,
+      "sha256": "8fc077829011a2be57ec2daa05bb05767cf2d6a1e205a40026e34537a55b2320"
+    },
+    {
+      "path": "schemas/design_diagnostic_receipt.schema.json",
+      "bytes": 2760,
+      "sha256": "aa01e7870d63db970ab982ac5426a2f53a7ed7cfe3d45023595c7b8781705aa7"
     },
     {
       "path": "schemas/evidence_finding.schema.json",
@@ -633,8 +653,8 @@
     },
     {
       "path": "scripts/check_repo.py",
-      "bytes": 70071,
-      "sha256": "2c7f0d44c3eb8e9e2861965582c87d3bf4dba421bc4159aad5fa0b0327307582"
+      "bytes": 77078,
+      "sha256": "8f61e4d586cc3b303fd80a98d1c0c497c9a288ea763fda34831b84086ae5b930"
     },
     {
       "path": "scripts/generate_example_data.py",
