@@ -81,7 +81,7 @@ Use a joint multiplier or cluster bootstrap to produce simultaneous lower and up
 - `lower > epsilon`: certified changed;
 - otherwise: undetermined.
 
-The target is returned only if exactly one coordinate is certified invariant and every competitor is certified changed.
+The target is returned only if exactly one coordinate is certified invariant and every competitor is certified changed. This pass pattern has orientation authority only under separately justified single-target intervention semantics and deletion faithfulness; the pass count cannot establish those premises from the same marginals.
 
 Reference primitives: `mic_stats::classify_deletion` performs the tri-state comparison, `mic_stats::simultaneous_mean_bounds` supplies deterministic reference Rademacher multiplier bounds for mean-type discrepancy vectors at the cluster level (not a finite-sample coverage guarantee; U-statistic degeneracy corrections remain future work), and `mic_stats::orient_from_deletions` runs the five-state pass-count machine. The reference multiplier routine rejects every zero-scale or nonfinite-scale column: until a valid degenerate correction exists, a constant empirical discrepancy cannot receive a zero-width interval or certify equivalence. The state machine rejects row-specific equivalence tolerances: every deletion in a declared family uses the same preregistered `epsilon`. `mic_engine::audit_orientation` records the verdict: the unique-target state is informational, and every other state is a blocking `orientation_unresolved` error, so strict runs abstain rather than force an orientation. An underpowered intervention abstains before any counting. The `mic orient` subcommand exposes this audit on a schema-validated JSON bounds file, but accepts it only with declared simultaneous coverage, interval method, randomization unit, source fingerprint, and deterministic seed; it derives and records a SHA-256 hash of the exact input artifact. `examples/orientation/parity_demo.json` reproduces the parity ambiguity end to end. Ratio-weight overlap is gated separately by `mic_engine::audit_overlap`, which blocks with `overlap_failure` when the effective-sample-size ratio falls below the policy floor.
 
@@ -122,3 +122,21 @@ All deletion candidates, face contrasts, and witness functions within a declared
 ## 12. Estimator lens battery
 
 Population curvature functionals are gauge invariant, but every empirical projection inherits the inductive bias of its nuisance learner. Certified projections are therefore repeated across a declared battery of deliberately dissimilar model families, for example a regularized linear model, a kernel or nearest-neighbour method, and a boosted tree or neural learner, each inside its own cross-fitting scheme. The reference primitive is `mic_engine::audit_lens_battery`: each family contributes a point estimate and a finite, strictly positive standard error for the same estimand; each pairwise gap is scaled by the root sum of squared standard errors; and the maximum scaled gap is compared with the policy tolerance `lens_gap_tolerance`. The families normally share data and folds, so the scaled gap is a preregistered robustness heuristic, not a calibrated joint test statistic; a calibrated verdict-level gate belongs where joint equivalence bounds exist. The audit is asymmetric by design. Disagreement is recorded with reason code `estimator_family_disagreement` and blocks certification in strict mode, because a learner-dependent projection is evidence about the estimator, not the system. Agreement is recorded as an informational finding only: consensus among families is diagnostic, never certifying, and cannot repair a violated sampling contract. Degenerate inputs, including non-positive standard errors, fail closed rather than producing non-finite metrics, so every audit artifact remains serializable. The sampling gates of Section 1 run first.
+
+## 13. Final certificate derivation
+
+`EvidenceLedger::status` accepts a complete `CertificateGates` value rather than
+a Boolean. The gate object records locality, conditional normalization, square
+flatness, and unique orientation independently. `unresolved` is used for absent,
+invalid, underpowered, or indeterminate evidence and never means a population
+refutation. A strict `failed` result requires a valid refutation of at least one
+necessary implication; otherwise incomplete evidence abstains. Blocking ledger
+errors precede both pass and failure because a violated selection, design, unit,
+or calibration contract invalidates the purported scientific verdict.
+
+Report constructors derive status internally from the ledger and gate object.
+Serialized audit reports carry the same gates, and the JSON Schema rejects
+exploratory passes, passes with unresolved gates, passes or failures with
+blocking errors, failures without a refuted implication, and unexplained
+abstentions. Current histogram, lens-battery, and orientation-only paths remain
+non-certifying until independent producers populate every theorem gate.

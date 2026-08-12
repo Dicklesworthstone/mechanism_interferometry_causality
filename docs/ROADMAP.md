@@ -19,12 +19,16 @@ Foundations already landed here include the hard product-odds tolerance ceiling,
 blocking four-law geometry gates, diagnostic-only unvalidated selection,
 manifest column-role and regime-alias validation, fail-closed zero-scale
 reference multiplier bounds, and the histogram report's non-certifying status
-schema. The remaining work is the authority-bearing integration below.
+schema. The ledger status API now also consumes a closed typed aggregate for
+locality, conditional normalization, square flatness, and orientation; missing
+evidence abstains rather than masquerading as a scientific failure, report
+rendering derives status internally, and the general report schema has negative
+authority fixtures. Per-face overlap checks and strict partial-support errors are
+also in place. The remaining work is the authority-bearing integration below.
 
-- replace `EvidenceLedger::status(bool)` with a typed gate aggregate that
-  distinguishes satisfied, refuted, and missing evidence for locality,
-  conditional normalization, flatness, selection, product design, overlap,
-  clustering, equivalence calibration, and confirmation-split independence;
+- add content-bound producer contracts for selection, product design, overlap,
+  clustering, equivalence calibration, and confirmation-split independence,
+  then allow those producers to populate the typed theorem gates;
 - make finalized ledgers append-only, reject duplicate provenance keys, and bind
   every stochastic stage's seed, randomization unit, folds, and source fingerprint;
 - bind preflight product-odds and reweighting audits to the manifest, allocation
@@ -32,14 +36,13 @@ schema. The remaining work is the authority-bearing integration below.
   transplanted to a different projection;
 - require cluster-aware GCM standard errors and carry the declared randomization
   unit through bounds, orientation, and the final report;
-- audit every primitive ratio on every observed face and bind the reported
-  overlap summary to that complete collection, rather than retaining only the
-  first successfully projected face;
-- propagate hard abstention semantics for partial common support and externally
-  supplied degenerate bounds through every library/report boundary;
-- encode the remaining impossible authority combinations in the general report
-  schema (for example, exploratory `passed` or `passed` with blocking findings)
-  and add negative schema fixtures.
+- replace the report's single retained overlap summary with a serialized
+  per-face/per-ratio collection, even though every face and ratio is already
+  checked and any failure is recorded in the ledger;
+- propagate fail-closed semantics for externally supplied degenerate bounds
+  through every library/report boundary;
+- apply the typed-gate/status invariants to the specialized four-law schema and
+  add runtime validation at every deserialization boundary.
 
 ## Packet 1: tabular vertical slice
 

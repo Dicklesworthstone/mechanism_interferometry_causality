@@ -7,7 +7,9 @@ fail-closed ingest error, not a synthetic stand-in.
 
 The only datasets considered here already have, or can be reduced to, a
 four-corner square: control, A, B, and AB. Observational DAGs, GWAS, and
-single-arm A/Bs are ineligible. No square, no \(\kappa\).
+single-arm A/Bs are ineligible. No square, no \(\kappa\). The Stage 0–1
+survey names the missing arms on incomplete designs (`missing_corners`)
+and does not invent them.
 
 ## Shared mapping
 

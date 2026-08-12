@@ -940,7 +940,7 @@
     var stateStyle = {
       UNIQUE_TARGET: {
         kind: "flat", verdict: "oriented",
-        note: "Exactly one coordinate is certified invariant and every competitor is certified changed. The family is oriented."
+        note: "Exactly one coordinate is certified invariant and every competitor is certified changed. Under separately justified single-target and deletion-faithfulness premises, the family is oriented."
       },
       NO_PASS: {
         kind: "curve", verdict: "no target",

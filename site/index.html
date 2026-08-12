@@ -464,8 +464,10 @@
         <h3>When corners are missing, the testable content is a null space</h3>
         <p class="note">
           Drop corners from the design and the question stops being which squares you can see. The
-          complete testable content is the lack-of-fit space of a main-effects-only design matrix
-          with a function-valued response. Toggle corners below; the ranks are computed exactly as
+          complete testable <em>flatness</em> content is the lack-of-fit space of a main-effects-only
+          design matrix with a function-valued response. This is not by itself a partial-design
+          modularity certificate when missing primitive corners prevent separate locality and
+          normalization checks. Toggle corners below; the ranks are computed exactly as
           <code>mic-design</code> computes them.
         </p>
       </div>
@@ -967,7 +969,8 @@
               <code>R_v = D_v / (D_full + eta)</code>, and an interval that straddles the tolerance
               yields the honest answer rather than the convenient one. A target is returned only when
               exactly one coordinate is certified invariant and every competitor is certified
-              changed.
+              changed, and only after the single-target intervention semantics and deletion-faithfulness
+              premise have been justified separately.
             </p>
             <div class="readouts" aria-live="polite">
               <div class="readout"><span>Deletion pass count</span><strong id="passCount">1</strong></div>
@@ -983,7 +986,7 @@
           </div>
           <div class="panel-body">
             <div class="viz-wide"><svg id="vizOrient" viewBox="0 0 560 300" role="img" aria-label="Equivalence intervals for each candidate deletion against the tolerance"></svg></div>
-            <p class="caption" id="orientNote">Exactly one coordinate is certified invariant and every competitor is certified changed. The family is oriented.</p>
+            <p class="caption" id="orientNote">Exactly one coordinate is certified invariant and every competitor is certified changed. Under the separately justified single-target and deletion-faithfulness premises, the family is oriented.</p>
           </div>
         </div>
       </div>
@@ -993,9 +996,10 @@
           <span class="callout-mark" aria-hidden="true">&#9670;</span>
           <div>
             <p>
-              <b>Undercoverage degrades gracefully.</b> When the proposed parent set is incomplete,
-              an affected descendant generically drives the pass count to zero instead of quietly
-              reversing the arrow. Given the family sets, the graph is reassembled by peeling in
+              <b>Undercoverage fails conservatively.</b> When the proposed parent set is incomplete,
+              the true target still passes, but a newly balanced marginal can create extra passes;
+              the result is a missing edge or a multiple-pass abstention, not a unique reversed arrow.
+              An affected descendant generically drives the pass count to zero. Given the family sets, the graph is reassembled by peeling in
               topological order even without target labels, and the peel either completes or reports
               itself <em>stuck</em>, listing the families it could not reduce to a unique
               unidentified node. Where several tilts of one target disagree about the parent set,

@@ -39,8 +39,13 @@ E_0[r_e(X)\mid X_A]=\frac{p_e(X_A)}{p_0(X_A)}.
 Consequences:
 
 - `E_0[r_e]=1` pins a discriminative score's additive constant.
-- Deleting the true target from a localized family leaves an invariant marginal.
+- Under a credible single-target intervention premise, deleting the true target from a localized family leaves an invariant marginal.
 - Orientation should be estimated directly by low-dimensional two-sample equivalence, not by conditional means of an estimated ratio.
+
+A unique deletion pass does not establish the single-target premise. A regime
+that changes two mechanisms can preserve one deletion marginal and therefore
+produce exactly one pass. Orientation authority requires the intervention
+semantics and deletion-faithfulness premise to be justified separately.
 
 ## 4. Pass-count state machine
 
@@ -53,6 +58,11 @@ The orientation result is one of:
 - `UNDETERMINED`: simultaneous intervals overlap the equivalence boundary.
 
 Only `UNIQUE_TARGET` produces an oriented family.
+
+Support undercoverage cannot create a unique wrong target while the true target
+remains in the support, but it can create extra passes. Deletion faithfulness on
+the full causal family therefore does not automatically transfer to a restricted
+candidate support.
 
 ## 5. Curvature and sampling
 
@@ -113,6 +123,29 @@ For observed corners `D`, define the main-effects design matrix `M_D=[1,s_1,...,
 - unobserved faces;
 - the rank and dimension of the lack-of-fit space.
 
+This null-space test is the complete flatness audit on `D`, not by itself a
+partial-design modularity certificate. If `D` omits primitive corners, locality
+and conditional normalization may be unidentifiable even when the lack-of-fit
+space is trivial. Certificate-grade use requires observed or otherwise
+identified primitive potentials with separate locality and normalization
+evidence, or an explicit existence/feasibility test for such potentials.
+
 ## 9. Longitudinal data
 
 Ratios are estimated at the transition level. Whole-trajectory ratio products are prohibited as the primary estimator because their variance can grow exponentially with horizon. Resampling and uncertainty operate at the trajectory or randomization-unit level.
+
+## 10. Certificate authority
+
+Final status is derived from a closed typed gate set, never from a caller Boolean:
+
+- locality, conditional normalization, and square flatness are each
+  `established`, `refuted`, or `unresolved`;
+- orientation is either `established` or `unresolved`; `established` means both
+  a unique deletion pass and the single-target/deletion-faithfulness premises
+  were justified under the declared evidence contract, while ambiguity does not
+  refute modularity;
+- `passed` requires all three implications established and unique orientation;
+- `failed` requires at least one valid implication refutation;
+- missing, invalid, underpowered, or ambiguous evidence yields `abstained`;
+- any blocking evidence-contract error takes precedence over a purported
+  refutation, and exploratory runs are always `diagnostic_only`.

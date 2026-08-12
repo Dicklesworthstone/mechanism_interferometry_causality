@@ -86,11 +86,11 @@
 \begin{abstract}
 We study a system observed under a reference regime, primitive perturbations, and combinations of those perturbations.  For common-support soft interventions, autonomous causal mechanisms impose a rigid algebra on the family of regime distributions.  A primitive intervention that replaces one conditional mechanism has a likelihood ratio local to the target and its parents.  The ratio conditionally normalizes over the target.  Distinct mechanism replacements compose multiplicatively, so mixed finite differences of regime log densities vanish on every square of the factorial design.
 
-These facts yield a finite biconditional certificate on a complete factorial cube (or complete subcube).  Relative to a proposed directed acyclic graph and target assignment, locality, targetwise conditional normalization, and zero square curvature on every face are necessary and sufficient for the existence of a context-invariant modular soft-intervention representation.  On an irregular partial design, observed squares suffice only when their contrasts span the full lack-of-fit space; in general the certificate instead tests every contrast in the null space of the observed main-effects design.  A master identity,
+These facts yield a finite biconditional certificate on a complete factorial cube.  Relative to a proposed directed acyclic graph and target assignment, locality, targetwise conditional normalization, and zero square curvature on every face are necessary and sufficient for the existence of a context-invariant modular soft-intervention representation.  The same argument applies to a complete subcube only when its reference-corner law factorizes over the proposed DAG and its varying-edge ratios are the local normalized primitives.  On an irregular partial design, the null space of the observed main-effects design characterizes all testable flatness restrictions, but flatness alone is not a modularity certificate when the primitive potentials needed to check locality and conditional normalization are unobserved.  A master identity,
 \[
 \E_0[r_e(X)\mid X_A]=\frac{p_e(X_A)}{p_0(X_A)},
 \]
-turns orientation into ordinary marginal invariance testing: within a localized causal family, the target is the coordinate whose deletion leaves the remaining marginal unchanged.  The number of invariant deletions is itself diagnostic: undercoverage degrades gracefully, affected descendants generically produce no pass, and balanced parity mechanisms can produce multiple passes.
+turns orientation into ordinary marginal invariance testing: under a separately justified single-target premise and deletion faithfulness, the target is the coordinate whose deletion leaves the remaining marginal unchanged.  The number of invariant deletions is itself diagnostic: undercoverage can remove edges or create conservative multi-pass abstention, affected descendants generically produce no pass, and balanced parity mechanisms can produce multiple passes.
 
 For two perturbations we define the gauge-invariant mechanism-curvature field
 \[
@@ -133,11 +133,11 @@ The closest ingredients are classical or already present in neighboring literatu
 The paper makes eight main contributions.
 
 \begin{enumerate}
-\item \textbf{A finite biconditional certificate.}  For a complete factorial family of common-support soft interventions with proposed distinct targets, locality, conditional normalization, and zero curvature on every two-dimensional design face are necessary and sufficient for a modular causal representation.  Pairwise square flatness then suffices and all higher Boolean-lattice curvatures vanish automatically; irregular partial designs require the full estimable lack-of-fit contrast space.
+\item \textbf{A finite biconditional certificate.}  For a complete factorial family of common-support soft interventions with proposed distinct targets, locality, conditional normalization, and zero curvature on every two-dimensional design face are necessary and sufficient for a modular causal representation.  Pairwise square flatness then suffices and all higher Boolean-lattice curvatures vanish automatically.  On an irregular partial design, the full estimable lack-of-fit contrast space gives the complete flatness audit, while a modularity certificate additionally requires identified local, normalized primitive potentials.
 
-\item \textbf{Ratio-free orientation.}  The identity \(\E_0[r_e\mid X_A]=p_e(X_A)/p_0(X_A)\) converts target orientation into low-dimensional two-sample equivalence tests.  It also pins the otherwise unidentified additive constant of an unnormalized discriminative log-ratio score.
+\item \textbf{Ratio-free orientation.}  Under separately justified single-target intervention semantics and deletion faithfulness, the identity \(\E_0[r_e\mid X_A]=p_e(X_A)/p_0(X_A)\) converts target orientation into low-dimensional two-sample equivalence tests.  It also pins the otherwise unidentified additive constant of an unnormalized discriminative log-ratio score.
 
-\item \textbf{Support-error diagnostics.}  The deletion rule is robust to omitted parents and unaffected nondescendants, but affected descendants generically make every deletion fail.  Zero, one, or multiple invariant deletions become model diagnostics rather than merely estimator outputs.
+\item \textbf{Support-error diagnostics.}  Omitted parents cannot create a unique wrong target but can remove edges or create additional passes; unaffected nondescendants can survive until pruning; and affected descendants generically make every deletion fail.  Zero, one, or multiple invariant deletions become model diagnostics rather than merely estimator outputs, conditional on the separately stated intervention-family assumptions.
 
 \item \textbf{Gauge-invariant curvature and conservation laws.}  We identify curvature with excess conditional design log odds and derive exact balance identities linking weighted curvature, observable ratio covariance, and hidden conditional likelihood-factor covariance.
 
@@ -415,7 +415,7 @@ For the chosen collection of mechanism tilts, the target is the unique coordinat
 Under deletion faithfulness,
 \begin{equation}
 \boxed{
-t=	ext{the unique }v\in S\text{ such that }P_e^{X_{S\setminus\{v\}}}=P_0^{X_{S\setminus\{v\}}}.
+t=\text{the unique }v\in S\text{ such that }P_e^{X_{S\setminus\{v\}}}=P_0^{X_{S\setminus\{v\}}}.
 }
 \end{equation}
 This should be estimated by low-dimensional two-sample equivalence tests, not by conditional means of an estimated density ratio.  A global calibration error in \(\widehat r_e\) moves every estimated conditional mean away from one; direct marginal comparison avoids that failure.
@@ -438,7 +438,7 @@ If
 \begin{equation}
 \widehat S\subseteq\{t\}\cup\pa(t),
 \end{equation}
-but the intervention ratio happens not to depend detectably on one or more true parents, then deleting \(t\) still leaves a subset of parents.  The target passes, and under deletion faithfulness it remains the unique pass.  The recovered parent set is \(\widehat S\setminus\{t\}\subseteq\pa(t)\).  Undercoverage therefore misses edges rather than reversing the target.
+but the intervention ratio happens not to depend detectably on one or more true parents, then deleting \(t\) still leaves a subset of parents, so the target passes.  Deletion faithfulness on the full family need not survive restriction to \(\widehat S\): omitting a parent can balance a remaining shifted marginal and create an additional pass.  If deletion faithfulness is separately re-established on \(\widehat S\), the target remains unique and the recovered parent set is \(\widehat S\setminus\{t\}\subseteq\pa(t)\).  Without that extra premise, undercoverage can miss edges or force conservative multiple-pass abstention, but it cannot create a unique wrong orientation because the true target still passes.
 
 \subsection{Overcoverage by unaffected nondescendants}
 
@@ -456,12 +456,14 @@ The intended interpretation is therefore
 \toprule
 Pass count & Interpretation \\
 \midrule
-Exactly one & Coherent single-target family with identifiable orientation. \\
+Exactly one & Consistent with unique orientation only after a single-target/locality premise and deletion faithfulness have been established separately. \\
 Zero & Descendant contamination, multi-target primitive, selection, implementation mismatch, or insufficient support. \\
 More than one & Symmetry, redundancy, deletion-faithfulness failure, or an insufficiently rich set of tilts. \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+The qualification in the one-pass row is essential: pass count cannot validate the single-target premise from the same marginals.  For example, let the baseline on the DAG \(X\to Y\) have independent fair binary variables.  In one perturbed regime, change the root mechanism to \(P_e(X=1)=3/4\) and also change the child mechanism to \(P_e(Y=1\mid X=1)=2/5\), \(P_e(Y=1\mid X=0)=4/5\).  Then \(P_e(Y=1)=1/2\) remains invariant while \(X\) shifts.  Deleting \(X\) is the unique pass on \(\{X,Y\}\), even though both mechanisms changed.  A unique pass orients a family only conditional on independently credible intervention semantics; it does not establish those semantics.
 
 \subsection{A nonpathological parity failure}\label{sec:parity-placeholder}
 
@@ -916,7 +918,7 @@ Report \(\widehat Z_T-1\) rather than silently discarding it: it is itself a fai
 
 \subsection{Localization by Design-IAMB}
 
-A concrete localization procedure treats the regime label as the response in Markov-boundary discovery.  A forward phase repeatedly adds the state variable with the largest reproducible cross-fitted improvement in proper regime-prediction loss, which at the Bayes optimum equals conditional mutual information.  A backward phase removes variables whose conditional contribution disappears.  This is an intervention-adapted form of IAMB \citep{tsamardinos2003iamb}.
+A concrete localization procedure treats the regime label as the response in Markov-boundary discovery.  A forward phase repeatedly adds the state variable with the largest reproducible cross-fitted improvement in proper regime-prediction loss.  At the Bayes optimum, log-loss improvement equals Shannon conditional mutual information; other strictly proper scores induce their associated generalized information and should not be labeled mutual information.  A backward phase removes variables whose conditional contribution disappears.  This is an intervention-adapted form of IAMB \citep{tsamardinos2003iamb}.
 
 The conditional-independence engine can again be residual products: one-hot regime residuals against residualized candidate variables.  Repeated sample splits and stability selection \citep{meinshausen2010stability} are preferable to pretending that a fully nonparametric finite-sample support guarantee is available.
 
@@ -971,6 +973,8 @@ C^\top h_D(x)=0
 \label{eq:lack-of-fit-space}
 \end{equation}
 Thus estimability and aliasing are exactly those of classical factorial design, with a function-valued response \citep{box2005statistics,wu2009experiments}.
+
+Equation~\eqref{eq:lack-of-fit-space} is the complete \emph{flatness} content of the observed design, not by itself a partial-design modularity certificate.  If primitive corners are missing, the data may not identify the local normalized potentials whose existence the complete-cube theorem requires.  A minimal witness is \(D=\{00,11\}\): the main-effects matrix has full row rank, so its lack-of-fit null space is trivial and every observed law family passes the flatness audit.  Yet with a uniform baseline on two binary root variables and a correlated positive law at corner \(11\), no pair of distinct root-mechanism replacements can reproduce the observed \(11\) law, because such replacements preserve a product form.  Certificate-grade use of a partial design therefore needs either observed or otherwise identified primitive potentials with separate locality and normalization checks, or an explicit feasibility test for the existence of such potentials.  Null-space flatness alone is diagnostic.
 
 Squares suffice when observed face contrasts span the lack-of-fit space, as in complete subcubes and many square-connected designs.  They need not suffice on irregular designs.  In the three-cube with corners \(000\) and \(111\) removed, no square face is fully observed, yet the six-point main-effects matrix has rank four, leaving a two-dimensional lack-of-fit space.  One valid contrast is
 \begin{equation}
@@ -1162,7 +1166,7 @@ The certificate also admits an exact sparsity reading.  Under modularity, the ma
 
 The differential-geometric program of \citet{mahadevan2026infinitesimal} is conceptually adjacent: failures of intervention-induced fields to close can witness unmodeled structure.  Its Lie brackets measure sequential infinitesimal noncommutativity, while the present construction is a finite symmetric mixed difference on a Boolean design and requires no smooth intervention path.
 
-No individual probability identity in this paper should be claimed as novel.  The narrow contribution is the assembled object:
+No individual probability identity in this paper should be claimed as novel.  Relative to the complete-cube, common-support, proposed-DAG, and distinct-target assumptions of \cref{thm:certificate}, the narrow contribution is the assembled object:
 \begin{equation}
 \boxed{
 \text{local family support}
@@ -1182,7 +1186,7 @@ together with ratio-free orientation, support-error diagnostics, exact latent co
 
 \section{Conclusion}
 
-Mechanism interferometry treats a factorial family of empirical regimes as one constrained mathematical object.  The central logic can be summarized in four lines:
+Mechanism interferometry treats a factorial family of empirical regimes as one constrained mathematical object.  The first implication below assumes ratio and minimal-support faithfulness; the second assumes credible single-target semantics and deletion faithfulness; and the fourth assumes the regular dominated smooth family and zero complete-state cross-Hessian used in the missing-information derivation.  With those premises retained, the central logic can be summarized in four lines:
 \begin{align}
 \text{locality}
 &\Longrightarrow
@@ -1190,7 +1194,7 @@ Mechanism interferometry treats a factorial family of empirical regimes as one c
 \text{deletion invariance}
 &\Longrightarrow
 \text{which family member is the target},\\
-\text{square curvature}
+\text{nonzero square curvature}
 &\Longrightarrow
 \text{where autonomous composition fails},\\
 \text{conditional score covariance}
@@ -1198,7 +1202,7 @@ Mechanism interferometry treats a factorial family of empirical regimes as one c
 \text{how much joint mechanism information was lost}.
 \end{align}
 
-The method separates system nonlinearity, genuine mechanism coupling, and representational incompleteness.  Evidence for causality no longer rests on one significant coefficient.  It rests on simultaneous satisfaction of locality, normalization, square closure, moment restrictions, held-out compositional prediction, overlap requirements, and implementation negative controls.  The resulting overdetermination is the source of evidential strength.
+The method separates outcome-scale nonlinearity from failure of closure at the chosen state representation.  Curvature alone cannot then distinguish genuine mechanism coupling from representational incompleteness: the same observed regime laws can admit either explanation.  State expansion, intervention metadata, and implementation controls supply discriminative follow-up evidence, but do not turn that observational ambiguity into an algebraic identification result.  Evidence for causality no longer rests on one significant coefficient.  It rests on simultaneous satisfaction of locality, normalization, square closure, moment restrictions, held-out compositional prediction, overlap requirements, and implementation negative controls.  The resulting overdetermination is the source of evidential strength.
 
 \appendix
 

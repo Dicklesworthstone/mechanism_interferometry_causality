@@ -4,7 +4,8 @@
 
 This repository contains the formal paper, an explanatory static website, exact simulation fixtures, and the architecture of a memory-safe Rust audit system for deciding whether empirical perturbations compose as autonomous causal mechanisms.
 
-The core certificate is
+On a complete common-support factorial cube, relative to a proposed DAG and
+distinct target assignment, the core certificate is
 
 \[
 \text{locality}+\text{conditional normalization}+\text{square flatness}
@@ -18,7 +19,11 @@ For a pair of perturbations,
 \kappa_{AB}(x)=\log\frac{p_{AB}(x)p_0(x)}{p_A(x)p_B(x)}
 \]
 
-is the gauge-invariant mechanism-curvature field. It separates nonlinear response from actual coupling between mechanism changes and from curvature created by incomplete observation.
+is the gauge-invariant mechanism-curvature field. It separates outcome-scale
+nonlinearity from failure of closure at the chosen state representation.
+Curvature alone does not distinguish genuine mechanism coupling from omitted
+state; state expansion, intervention metadata, and implementation controls are
+the discriminative follow-up evidence.
 
 ## Repository map
 
@@ -81,7 +86,7 @@ Within-regime state-dependent selection invalidates both modes unless modeled. S
 
 ## Current implementation status
 
-The repository includes the complete mathematical paper, website, exact simulation generators, schemas, runnable example datasets, architectural contracts, and a safe-Rust reference core implementing the exact population algebra, partial-design geometry, fail-closed preflight, and deterministic audit primitives. A standard-library CSV path now produces cluster-weighted histogram four-law diagnostics, and a proposal-only survey inventories candidate squares without claiming selection, assignment, or orientation. Neither is the production FrankenPandas estimator stack: the histogram path never issues a passed certificate, and an autonomous survey can only recommend the next declared audit. The production estimators that depend on the evolving Franken* numerical APIs remain isolated behind feature-gated adapters and specified packet-by-packet in the roadmap. This keeps the mathematical contracts stable while allowing the four sibling projects to advance without contaminating the causal API.
+The repository includes the complete mathematical paper, website, exact simulation generators, schemas, runnable example datasets, architectural contracts, and a safe-Rust reference core implementing the exact population algebra, partial-design geometry, fail-closed preflight, and deterministic audit primitives. A standard-library CSV path now produces cluster-weighted histogram four-law diagnostics, and a proposal-only survey inventories candidate squares without claiming selection, assignment, or orientation. Neither is the production FrankenPandas estimator stack: the histogram path never issues a passed certificate, and an autonomous survey can only recommend the next declared audit. Final status is derived from an opaque typed gate summary rather than a caller Boolean; only the deliberately unresolved constructor is public until content-bound locality, normalization, flatness, and orientation producers exist. The production estimators that depend on the evolving Franken* numerical APIs remain isolated behind feature-gated adapters and specified packet-by-packet in the roadmap. This keeps the mathematical contracts stable while allowing the four sibling projects to advance without contaminating the causal API.
 
 Passive DAG learners, parsimony searches, residual heuristics, and previous audit runs may be connected only as proposal adapters. They can prioritize candidate supports, measurements, or follow-up interventions, but their scores never count as certificate evidence and data-adaptive proposals require independent confirmation.
 
@@ -89,4 +94,4 @@ The `mic-proposal` crate now implements that boundary for active follow-up desig
 
 ## Citation
 
-Citation metadata is provided in [`CITATION.cff`](CITATION.cff), and the complete scholarly bibliography is in [`paper/references.bib`](paper/references.bib). The individual ingredients are classical or have direct precedents; the claimed contribution is the assembled biconditional certificate, its conservation laws, normalization orientation, and the integrated inferential protocol.
+Citation metadata is provided in [`CITATION.cff`](CITATION.cff), and the complete scholarly bibliography is in [`paper/references.bib`](paper/references.bib). The individual ingredients are classical or have direct precedents; the claimed contribution is the scoped complete-cube biconditional certificate, its conservation laws, equivalence-based orientation protocol under explicit intervention-family premises, and the integrated inferential architecture.
