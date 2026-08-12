@@ -5,6 +5,7 @@ members = [
   "crates/mic-design",
   "crates/mic-data",
   "crates/mic-stats",
+  "crates/mic-proposal",
   "crates/mic-model",
   "crates/mic-audit",
   "crates/mic-engine",

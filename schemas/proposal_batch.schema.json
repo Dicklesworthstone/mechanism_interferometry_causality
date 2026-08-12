@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/proposal_batch.schema.json",
+  "title": "Mechanism Interferometry Active-Tilt Proposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proposal_id",
+    "primitive_id",
+    "surviving_hypotheses",
+    "planned_analysis",
+    "source",
+    "seed",
+    "authority",
+    "score_semantics",
+    "rankings",
+    "rejected",
+    "selected_candidate_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "proposal_id": { "$ref": "#/$defs/nonempty" },
+    "primitive_id": { "$ref": "#/$defs/nonempty" },
+    "surviving_hypotheses": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonempty" }
+    },
+    "planned_analysis": {
+      "enum": ["four_law", "product_factorial"]
+    },
+    "source": { "$ref": "#/$defs/source" },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "authority": { "const": "proposal_only" },
+    "score_semantics": { "$ref": "#/$defs/nonempty" },
+    "rankings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ranked_tilt" }
+    },
+    "rejected": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rejected_tilt" }
+    },
+    "selected_candidate_id": {
+      "oneOf": [
+        { "$ref": "#/$defs/nonempty" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "$defs": {
+    "nonempty": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter_id",
+        "adapter_revision",
+        "source_kind",
+        "model_family",
+        "data_fingerprint",
+        "assignment_unit_fingerprint",
+        "fold_fingerprint",
+        "hyperparameter_policy",
+        "feature_flags"
+      ],
+      "properties": {
+        "adapter_id": { "$ref": "#/$defs/nonempty" },
+        "adapter_revision": { "$ref": "#/$defs/nonempty" },
+        "source_kind": {
+          "enum": [
+            "preregistered_domain_model",
+            "passive_learner",
+            "previous_independent_audit",
+            "exploratory_search"
+          ]
+        },
+        "model_family": { "$ref": "#/$defs/nonempty" },
+        "data_fingerprint": { "$ref": "#/$defs/nonempty" },
+        "assignment_unit_fingerprint": { "$ref": "#/$defs/nonempty" },
+        "fold_fingerprint": { "$ref": "#/$defs/nonempty" },
+        "hyperparameter_policy": { "$ref": "#/$defs/nonempty" },
+        "feature_flags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonempty" }
+        }
+      }
+    },
+    "ranked_tilt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rank",
+        "candidate_id",
+        "primitive_id",
+        "worst_case_predicted_separation",
+        "predicted_pairwise_separations",
+        "measurable_delivery",
+        "common_support",
+        "design_eligibility",
+        "cost"
+      ],
+      "properties": {
+        "rank": { "type": "integer", "minimum": 1 },
+        "candidate_id": { "$ref": "#/$defs/nonempty" },
+        "primitive_id": { "$ref": "#/$defs/nonempty" },
+        "worst_case_predicted_separation": {
+          "type": "number",
+          "minimum": 0
+        },
+        "predicted_pairwise_separations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/pairwise_separation" }
+        },
+        "measurable_delivery": { "const": true },
+        "common_support": { "const": true },
+        "design_eligibility": { "$ref": "#/$defs/design_eligibility" },
+        "cost": {
+          "oneOf": [
+            { "type": "number", "minimum": 0 },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "pairwise_separation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["first", "second", "separation"],
+      "properties": {
+        "first": { "$ref": "#/$defs/nonempty" },
+        "second": { "$ref": "#/$defs/nonempty" },
+        "separation": { "type": "number", "minimum": 0 }
+      }
+    },
+    "design_eligibility": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {
+            "status": { "const": "not_required_for_four_law" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "audit_id"],
+          "properties": {
+            "status": { "const": "product_odds_verified" },
+            "audit_id": { "$ref": "#/$defs/nonempty" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "plan_id"],
+          "properties": {
+            "status": { "const": "reweighted_to_product" },
+            "plan_id": { "$ref": "#/$defs/nonempty" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {
+            "status": { "const": "not_established" }
+          }
+        }
+      ]
+    },
+    "rejected_tilt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "code", "detail"],
+      "properties": {
+        "candidate_id": { "$ref": "#/$defs/nonempty" },
+        "code": {
+          "enum": [
+            "wrong_primitive",
+            "unmeasurable_delivery",
+            "common_support_failure",
+            "product_design_not_established",
+            "empty_identifier",
+            "invalid_cost",
+            "invalid_hypothesis_pair",
+            "duplicate_hypothesis_pair",
+            "incomplete_hypothesis_pairs",
+            "invalid_predicted_separation"
+          ]
+        },
+        "detail": { "$ref": "#/$defs/nonempty" }
+      }
+    }
+  }
+}
