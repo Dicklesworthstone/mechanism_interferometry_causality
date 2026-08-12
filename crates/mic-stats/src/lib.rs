@@ -421,7 +421,8 @@ pub fn classify_deletion(
     epsilon: f64,
 ) -> Result<DeletionEquivalence, StatsError> {
     let variable = variable.into();
-    if variable.trim().is_empty() {
+    let variable = variable.trim().to_owned();
+    if variable.is_empty() {
         return Err(StatsError::Invalid {
             name: "deletion variable",
             value: f64::NAN,
@@ -504,6 +505,16 @@ pub fn orient_from_deletions(
 ) -> Result<OrientationOutcome, StatsError> {
     if deletions.is_empty() {
         return Err(StatsError::Shape);
+    }
+    let epsilon = deletions[0].epsilon;
+    if deletions
+        .iter()
+        .any(|deletion| deletion.epsilon.to_bits() != epsilon.to_bits())
+    {
+        return Err(StatsError::Invalid {
+            name: "mixed equivalence tolerances",
+            value: f64::NAN,
+        });
     }
     if !full_discrepancy.is_finite() || full_discrepancy < 0.0 {
         return Err(StatsError::Invalid {
@@ -898,6 +909,17 @@ mod tests {
                 unresolved: vec!["p".into()]
             }
         );
+    }
+
+    #[test]
+    fn orientation_rejects_row_specific_equivalence_tolerances() {
+        let deletions = [
+            classify_deletion(" target ", 0.01, 0.0, 0.02, 0.05).unwrap(),
+            classify_deletion("parent", 0.09, 0.06, 0.12, 0.10).unwrap(),
+        ];
+        assert_eq!(deletions[0].variable, "target");
+        let error = orient_from_deletions(&deletions, 1.0, 0.1).unwrap_err();
+        assert!(matches!(error, StatsError::Invalid { .. }));
     }
 
     #[test]

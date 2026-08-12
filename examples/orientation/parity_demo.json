@@ -3,6 +3,14 @@
   "full_discrepancy": 0.82,
   "min_full_discrepancy": 0.1,
   "strict": true,
+  "calibration": {
+    "interval_method": "analytic_fixture_bounds",
+    "simultaneous": true,
+    "confidence": 0.95,
+    "randomization_unit": "synthetic_fixture",
+    "source_fingerprint": "sha256:4fa793ef7a6294d4891c5f81f47c1db8143ddc67db5c00d358c211c468982d70",
+    "seed": 0
+  },
   "deletions": [
     {
       "variable": "P",

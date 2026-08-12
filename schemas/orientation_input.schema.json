@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/orientation_input.schema.json",
+  "title": "Mechanism Interferometry Orientation Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "epsilon",
+    "full_discrepancy",
+    "min_full_discrepancy",
+    "strict",
+    "calibration",
+    "deletions"
+  ],
+  "properties": {
+    "epsilon": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "full_discrepancy": {
+      "type": "number",
+      "minimum": 0
+    },
+    "min_full_discrepancy": {
+      "type": "number",
+      "minimum": 0
+    },
+    "strict": { "type": "boolean" },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interval_method",
+        "simultaneous",
+        "confidence",
+        "randomization_unit",
+        "source_fingerprint",
+        "seed"
+      ],
+      "properties": {
+        "interval_method": { "$ref": "#/$defs/nonblank" },
+        "simultaneous": { "const": true },
+        "confidence": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "randomization_unit": { "$ref": "#/$defs/nonblank" },
+        "source_fingerprint": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "deletions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["variable", "relative_discrepancy", "lower", "upper"],
+        "properties": {
+          "variable": { "$ref": "#/$defs/nonblank" },
+          "relative_discrepancy": { "type": "number", "minimum": 0 },
+          "lower": { "type": "number", "minimum": 0 },
+          "upper": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonblank": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    }
+  }
+}

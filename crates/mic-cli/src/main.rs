@@ -9,7 +9,9 @@ use mic_sim::{
     exact_suite, implementation_inconsistency, latent_conservation, parity_example, running_example,
 };
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use std::env;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -141,6 +143,23 @@ struct OrientDeletionInput {
     upper: f64,
 }
 
+/// Provenance required for externally supplied simultaneous orientation bounds.
+#[derive(Debug, Deserialize)]
+struct OrientCalibrationInput {
+    /// Stable name of the joint interval construction.
+    interval_method: String,
+    /// Must be true: pointwise intervals cannot certify a pass count.
+    simultaneous: bool,
+    /// Declared simultaneous coverage level.
+    confidence: f64,
+    /// Unit at which randomization and uncertainty were computed.
+    randomization_unit: String,
+    /// Content fingerprint of the data or exact source behind the supplied bounds.
+    source_fingerprint: String,
+    /// Deterministic seed used by the interval procedure or its upstream fit.
+    seed: u64,
+}
+
 /// Input contract for `mic orient`.
 #[derive(Debug, Deserialize)]
 struct OrientInput {
@@ -149,6 +168,7 @@ struct OrientInput {
     min_full_discrepancy: f64,
     #[serde(default = "default_strict")]
     strict: bool,
+    calibration: OrientCalibrationInput,
     deletions: Vec<OrientDeletionInput>,
 }
 
@@ -161,7 +181,9 @@ fn orient(args: &[String]) -> Result<(), String> {
         .first()
         .ok_or("usage: mic orient INPUT.json [--output PATH]")?;
     let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let input_fingerprint = sha256_bytes(&bytes);
     let input: OrientInput = serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    validate_orientation_calibration(&input.calibration)?;
     let deletions = input
         .deletions
         .iter()
@@ -184,6 +206,21 @@ fn orient(args: &[String]) -> Result<(), String> {
     let mut ledger = EvidenceLedger::new(mode);
     ledger.provenance("input_path", path.as_str());
     ledger.provenance("epsilon", format!("{:.6}", input.epsilon));
+    ledger.provenance("interval_method", &input.calibration.interval_method);
+    ledger.provenance(
+        "simultaneous_confidence",
+        format!("{:.6}", input.calibration.confidence),
+    );
+    ledger.provenance(
+        "randomization_unit",
+        &input.calibration.randomization_unit,
+    );
+    ledger.provenance(
+        "orientation_source_fingerprint",
+        &input.calibration.source_fingerprint,
+    );
+    ledger.provenance("orientation_input_sha256", input_fingerprint);
+    ledger.provenance("orientation_seed", input.calibration.seed.to_string());
     let audit = audit_orientation(
         &deletions,
         input.full_discrepancy,
@@ -195,6 +232,46 @@ fn orient(args: &[String]) -> Result<(), String> {
     let value = serde_json::json!({ "audit": audit, "ledger": ledger });
     let output = option_value(args, "--output").map(PathBuf::from);
     write_json_value(&value, output.as_deref())
+}
+
+fn validate_orientation_calibration(calibration: &OrientCalibrationInput) -> Result<(), String> {
+    if !calibration.simultaneous {
+        return Err("orientation bounds must be simultaneous over the declared deletion family".into());
+    }
+    if !calibration.confidence.is_finite()
+        || calibration.confidence <= 0.0
+        || calibration.confidence >= 1.0
+    {
+        return Err("orientation calibration confidence must lie in (0, 1)".into());
+    }
+    for (name, value) in [
+        ("interval_method", calibration.interval_method.as_str()),
+        ("randomization_unit", calibration.randomization_unit.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            return Err(format!("orientation calibration {name} must not be empty"));
+        }
+    }
+    let Some(hex) = calibration.source_fingerprint.strip_prefix("sha256:") else {
+        return Err("orientation source_fingerprint must use the sha256:<lowercase-hex> form".into());
+    };
+    if hex.len() != 64
+        || !hex
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err("orientation source_fingerprint must use the sha256:<lowercase-hex> form".into());
+    }
+    Ok(())
+}
+
+fn sha256_bytes(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let mut encoded = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        write!(&mut encoded, "{byte:02x}").expect("writing hex into a String cannot fail");
+    }
+    encoded
 }
 
 /// Input contract for `mic propose-tilt`.
@@ -273,4 +350,35 @@ fn print_help() {
            mic propose-tilt INPUT.json [--output PATH]\n\
            mic version"
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn calibration() -> OrientCalibrationInput {
+        OrientCalibrationInput {
+            interval_method: "cluster_multiplier".into(),
+            simultaneous: true,
+            confidence: 0.95,
+            randomization_unit: "request".into(),
+            source_fingerprint: format!("sha256:{}", "a".repeat(64)),
+            seed: 17,
+        }
+    }
+
+    #[test]
+    fn orientation_calibration_requires_simultaneous_bounds() {
+        let mut input = calibration();
+        input.simultaneous = false;
+        assert!(validate_orientation_calibration(&input).is_err());
+    }
+
+    #[test]
+    fn orientation_calibration_requires_a_sha256_source() {
+        let mut input = calibration();
+        input.source_fingerprint = "not-a-hash".into();
+        assert!(validate_orientation_calibration(&input).is_err());
+        assert!(validate_orientation_calibration(&calibration()).is_ok());
+    }
 }
