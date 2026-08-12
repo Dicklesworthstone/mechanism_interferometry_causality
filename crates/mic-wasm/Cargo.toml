@@ -1,0 +1,31 @@
+[package]
+name = "mic-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+publish = false
+
+# cdylib is the browser artifact; rlib keeps the crate testable under a plain
+# `cargo test` on the host, so the boundary is not a wasm-only code path.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+mic-core = { path = "../mic-core" }
+mic-design = { path = "../mic-design" }
+mic-data = { path = "../mic-data" }
+mic-stats = { path = "../mic-stats" }
+mic-model = { path = "../mic-model" }
+mic-audit = { path = "../mic-audit" }
+mic-engine = { path = "../mic-engine" }
+mic-sim = { path = "../mic-sim" }
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+
+[lints]
+workspace = true
