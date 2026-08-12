@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T21:22:05Z",
+  "generated_at_utc": "2026-08-12T21:24:42Z",
   "hash_algorithm": "sha256",
   "file_count": 134,
-  "aggregate_sha256": "90cc4d87314824237cc92bb2850f3c716cfc0ccf8d802c8f4a4deab389088b80",
+  "aggregate_sha256": "05fbb779955243d9831c1f88cead813667f56aa3f99dfd01265cf415e32a7e0b",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -598,8 +598,8 @@
     },
     {
       "path": "site/app.js",
-      "bytes": 76308,
-      "sha256": "0fcf9c4f79b6b96327f6b0b49763b42c84792ce763567469893de3cd2f2fdb5d"
+      "bytes": 89210,
+      "sha256": "431521904ff02e59f89df932ef6f6387925f0207d53008a5cc0e6148d0b37a8b"
     },
     {
       "path": "site/assets/favicon.svg",
@@ -633,8 +633,8 @@
     },
     {
       "path": "site/index.html",
-      "bytes": 100041,
-      "sha256": "c2fa89b81deae82a2482d78788f8b9a1b54f300ae2b1b4503dbdf94337c10b0d"
+      "bytes": 103451,
+      "sha256": "ccf5ad1de6d15a6026b0aa12b9a9319699edc33992802809ee958c96cf13a85b"
     },
     {
       "path": "site/mechanism_interferometry.pdf",
@@ -668,8 +668,8 @@
     },
     {
       "path": "site/styles.css",
-      "bytes": 54970,
-      "sha256": "7c88484c0db777c4e1a237c03fd05c54fa18fb07315850a86ba9b72c775ab4fa"
+      "bytes": 55499,
+      "sha256": "291c9950275301e8ad6a60fec60471b0ced2067379c084929fec6a6b5b881aff"
     },
     {
       "path": "uv.lock",
