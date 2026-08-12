@@ -9,10 +9,12 @@ use crate::{
     EngineError, OverlapAudit, PreflightPolicy, PreflightReport, audit_overlap,
     finding_with_context, run_preflight,
 };
-use mic_audit::{CertificateStatus, EvidenceLedger, NarrativeReport, Severity, render_narrative};
+use mic_audit::{
+    CertificateStatus, EvidenceLedger, ExecutionMode, NarrativeReport, Severity, render_narrative,
+};
 use mic_core::DensitySquare;
 use mic_data::{ExperimentManifest, IngestReport, load_csv_table};
-use mic_design::DesignPoint;
+use mic_design::{DesignPoint, SquareFace};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -277,29 +279,15 @@ pub fn run_tabular_audit(
             }
             Err(error) => return Err(error),
         };
-        if overlap.is_none() {
-            for (name, pick) in [
-                (
-                    "r_A",
-                    (|cell: &CellCurvature| cell.ra) as fn(&CellCurvature) -> f64,
-                ),
-                ("r_B", |cell| cell.rb),
-                ("r_AB", |cell| cell.rab),
-            ] {
-                if let Some(weights) = primitive_ratio_weights(&labeled, &audit, &corners[0], pick)
-                {
-                    let face_overlap = audit_overlap(
-                        &weights,
-                        &preflight,
-                        &format!("overlap_{name}"),
-                        &mut ledger,
-                    )?;
-                    if overlap.is_none() {
-                        overlap = Some(face_overlap);
-                    }
-                }
-            }
-        }
+        audit_face_overlap(
+            &labeled,
+            &audit,
+            face,
+            &corners,
+            &preflight,
+            &mut overlap,
+            &mut ledger,
+        )?;
         record_face(&audit, &mut ledger);
         faces.push(audit);
     }
@@ -665,6 +653,43 @@ fn weighted_mean(values: &[f64], weights: &[f64]) -> f64 {
     }
 }
 
+fn overlap_stage(name: &str, face: &SquareFace) -> String {
+    format!(
+        "overlap_{name}@{}:{}:{}",
+        face.base.bit_string(),
+        face.first,
+        face.second
+    )
+}
+
+fn audit_face_overlap(
+    labeled: &[(ObservationLabel, Vec<usize>)],
+    audit: &FourLawFaceAudit,
+    face: &SquareFace,
+    corners: &[DesignPoint; 4],
+    preflight: &PreflightPolicy,
+    stored: &mut Option<OverlapAudit>,
+    ledger: &mut EvidenceLedger,
+) -> Result<(), EngineError> {
+    for (name, pick) in [
+        (
+            "r_A",
+            (|cell: &CellCurvature| cell.ra) as fn(&CellCurvature) -> f64,
+        ),
+        ("r_B", |cell| cell.rb),
+        ("r_AB", |cell| cell.rab),
+    ] {
+        if let Some(weights) = primitive_ratio_weights(labeled, audit, &corners[0], pick) {
+            let face_overlap =
+                audit_overlap(&weights, preflight, &overlap_stage(name, face), ledger)?;
+            if stored.is_none() {
+                *stored = Some(face_overlap);
+            }
+        }
+    }
+    Ok(())
+}
+
 fn primitive_ratio_weights(
     labeled: &[(ObservationLabel, Vec<usize>)],
     face: &FourLawFaceAudit,
@@ -730,8 +755,13 @@ fn record_face(face: &FourLawFaceAudit, ledger: &mut EvidenceLedger) {
         format!("{:.6}", face.omitted_baseline_mass),
     );
     if face.incomplete_cells > 0 || face.omitted_baseline_mass > 1e-12 {
+        let severity = if ledger.mode == ExecutionMode::Strict {
+            Severity::Error
+        } else {
+            Severity::Warning
+        };
         ledger.push(finding_with_context(
-            Severity::Warning,
+            severity,
             "four_law",
             "incomplete_common_support",
             "some histogram cells lack all four corners; moments are renormalized onto the surviving common-support mass and do not represent omitted cells",
@@ -811,6 +841,7 @@ fn cmp_f64(left: f64, right: f64) -> std::cmp::Ordering {
 mod tests {
     use super::*;
     use crate::PreflightStatus;
+    use mic_audit::code;
     use mic_data::{DataSource, InferenceTrack, RegimeSpec, SelectionContract};
     use std::path::PathBuf;
 
@@ -1031,6 +1062,7 @@ mod tests {
         assert!(face.omitted_baseline_mass > 0.0);
         assert!(report.ledger.findings.iter().any(|finding| {
             finding.code == "incomplete_common_support"
+                && finding.severity == Severity::Error
                 && finding.context.contains_key("omitted_baseline_mass")
         }));
         assert_eq!(report.status, CertificateStatus::Abstained);
@@ -1045,15 +1077,97 @@ mod tests {
             Some(&workspace_root()),
         )
         .unwrap();
-        for stage in ["overlap_r_A", "overlap_r_B", "overlap_r_AB"] {
+        for stage in ["overlap_r_A@", "overlap_r_B@", "overlap_r_AB@"] {
             assert!(
                 report
                     .ledger
                     .findings
                     .iter()
-                    .any(|finding| finding.stage == stage),
+                    .any(|finding| finding.stage.starts_with(stage)),
                 "missing overlap audit for {stage}"
             );
         }
+    }
+
+    #[test]
+    fn later_face_overlap_failure_is_not_hidden_by_the_first_face() {
+        let dir = std::env::temp_dir().join("mic-engine-later-face-overlap");
+        std::fs::create_dir_all(&dir).unwrap();
+        let csv = dir.join("cube.csv");
+        let mut rows = String::from("cluster_id,regime,x,included\n");
+        let balanced = ["000", "100", "010", "110", "011", "111"];
+        for regime in balanced {
+            for value in [0, 1] {
+                for index in 0..20 {
+                    rows.push_str(&format!("c{regime}{value}{index},{regime},{value},1\n"));
+                }
+            }
+        }
+        for index in 0..20 {
+            rows.push_str(&format!("c0010{index},001,0,1\n"));
+            rows.push_str(&format!("c1011{index},101,1,1\n"));
+        }
+        rows.push_str("c0011only,001,1,1\n");
+        rows.push_str("c1010only,101,0,1\n");
+        std::fs::write(&csv, rows).unwrap();
+
+        let labels = ["000", "001", "010", "011", "100", "101", "110", "111"];
+        let manifest = ExperimentManifest {
+            schema_version: "1.0.0".into(),
+            experiment_id: "later-face-overlap".into(),
+            strict: true,
+            inference_track: InferenceTrack::FourLaw,
+            selection: SelectionContract::StateIndependentWithinRegime,
+            cluster_column: "cluster_id".into(),
+            regime_column: "regime".into(),
+            state_columns: vec!["x".into()],
+            candidate_state_blocks: Vec::new(),
+            regimes: labels
+                .iter()
+                .map(|label| RegimeSpec {
+                    id: (*label).into(),
+                    design: DesignPoint::parse(label).unwrap(),
+                    sampling_proportion: 0.125,
+                    perturbations: Vec::new(),
+                })
+                .collect(),
+            data: DataSource {
+                format: "csv".into(),
+                path: csv,
+            },
+            seed: 11,
+        };
+        let report = run_tabular_audit(
+            &manifest,
+            FourLawPolicy::default(),
+            PreflightPolicy::default(),
+            None,
+        )
+        .unwrap();
+        assert!(report.preflight.design.square_faces.len() > 1);
+        assert!(
+            report.four_law.len() > 1,
+            "the 3-cube fixture must project more than one square"
+        );
+        let first_face = &report.preflight.design.square_faces[0];
+        let first_prefix = format!(
+            "overlap_r_A@{}:{}:{}",
+            first_face.base.bit_string(),
+            first_face.first,
+            first_face.second
+        );
+        assert!(
+            report.ledger.findings.iter().any(|finding| {
+                finding.stage == first_prefix && finding.code == "overlap_adequate"
+            }),
+            "first face must remain an adequate-overlap control"
+        );
+        assert!(
+            report.ledger.findings.iter().any(|finding| {
+                finding.code == code::OVERLAP_FAILURE && !finding.stage.starts_with(&first_prefix)
+            }),
+            "a later face must be able to fail overlap after the first face passed"
+        );
+        assert_eq!(report.status, CertificateStatus::Abstained);
     }
 }
