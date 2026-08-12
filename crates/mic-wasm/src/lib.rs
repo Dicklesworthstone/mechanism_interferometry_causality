@@ -19,9 +19,9 @@ use serde::{Deserialize, Serialize};
 
 use mic_data::ExperimentManifest;
 use mic_design::{
-    audit_design, audit_interaction_aliasing, audit_sampling_odds, DesignPoint, SquareFace,
+    DesignPoint, SquareFace, audit_design, audit_interaction_aliasing, audit_sampling_odds,
 };
-use mic_engine::{audit_lens_battery, run_preflight, LensEstimate, PreflightPolicy};
+use mic_engine::{LensEstimate, PreflightPolicy, audit_lens_battery, run_preflight};
 use mic_sim::exact_suite;
 
 #[cfg(target_arch = "wasm32")]
@@ -37,7 +37,10 @@ pub struct BoundaryError {
 
 impl BoundaryError {
     pub fn new(stage: &'static str, message: impl Into<String>) -> Self {
-        Self { stage, message: message.into() }
+        Self {
+            stage,
+            message: message.into(),
+        }
     }
 
     pub fn to_json(&self) -> String {
@@ -104,11 +107,19 @@ pub fn audit_sampling_odds_impl(probabilities: &[f64], tolerance: f64) -> Bounda
     if probabilities.len() != 4 {
         return Err(BoundaryError::new(
             "sampling",
-            format!("expected four corner probabilities, got {}", probabilities.len()),
+            format!(
+                "expected four corner probabilities, got {}",
+                probabilities.len()
+            ),
         )
         .to_json());
     }
-    let quad = [probabilities[0], probabilities[1], probabilities[2], probabilities[3]];
+    let quad = [
+        probabilities[0],
+        probabilities[1],
+        probabilities[2],
+        probabilities[3],
+    ];
     let audit = audit_sampling_odds(quad, tolerance)
         .map_err(|error| BoundaryError::new("sampling", error.to_string()).to_json())?;
     encode("sampling", &audit)
@@ -160,7 +171,10 @@ pub fn validate_manifest_impl(manifest_json: &str) -> BoundaryResult {
 /// rejection of degenerate standard errors.
 pub fn lens_battery_impl(estimates_json: &str, tolerance: f64) -> BoundaryResult {
     let estimates: Vec<LensEstimate> = decode("lens", estimates_json)?;
-    let policy = PreflightPolicy { lens_gap_tolerance: tolerance, ..PreflightPolicy::default() };
+    let policy = PreflightPolicy {
+        lens_gap_tolerance: tolerance,
+        ..PreflightPolicy::default()
+    };
     let mut ledger = mic_audit::EvidenceLedger::new(mic_audit::ExecutionMode::Strict);
     let audit = audit_lens_battery(&estimates, &policy, "curvature", &mut ledger)
         .map_err(|error| BoundaryError::new("lens", error.to_string()).to_json())?;
@@ -275,7 +289,9 @@ mod tests {
     fn simulate_all_carries_the_paper_fixtures() {
         let json = simulate_all_impl().expect("suite serializes");
         let value: serde_json::Value = serde_json::from_str(&json).expect("valid json");
-        let synergy = value["running_example"]["outcome_synergy"].as_f64().expect("synergy");
+        let synergy = value["running_example"]["outcome_synergy"]
+            .as_f64()
+            .expect("synergy");
         assert!((synergy - 0.3).abs() < 1e-14);
     }
 
@@ -324,7 +340,10 @@ mod tests {
             {"family":"gcm","estimate":0.04,"standard_error":0.0}
         ]"#;
         let error = lens_battery_impl(estimates, 3.0).expect_err("must fail closed");
-        assert!(error.contains("\"stage\":\"lens\""), "error names its stage: {error}");
+        assert!(
+            error.contains("\"stage\":\"lens\""),
+            "error names its stage: {error}"
+        );
     }
 
     #[test]

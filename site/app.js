@@ -1383,6 +1383,9 @@
     }
   ];
 
+  /* PreflightPolicy::default().rank_tolerance. */
+  var RANK_TOLERANCE = 1e-10;
+
   var audit = (function () {
     var modulePromise = null;
     var loaded = null;
@@ -1432,74 +1435,8 @@
     };
   }());
 
-  /* ----------------------------------------------------------------------
-     Linear algebra used by the partial-design widget.
 
-     Gauss-Jordan with partial pivoting. Only the rank is needed, and the
-     matrices here are at most 8 by 8 with entries in {0, 1, -1}, so the naive
-     implementation is both exact enough and instant.
-     ---------------------------------------------------------------------- */
 
-  /* Orthonormal basis of the span of a set of vectors, by modified Gram-Schmidt.
-     Used to project an interaction column onto the main-effects span and onto
-     the span of the observed square contrasts. */
-  function orthonormalBasis(vectors, tolerance) {
-    var tol = tolerance === undefined ? 1e-9 : tolerance;
-    var basis = [];
-    vectors.forEach(function (vector) {
-      var residual = vector.slice();
-      basis.forEach(function (b) {
-        var dot = 0;
-        for (var i = 0; i < residual.length; i += 1) { dot += residual[i] * b[i]; }
-        for (var k = 0; k < residual.length; k += 1) { residual[k] -= dot * b[k]; }
-      });
-      var norm = Math.sqrt(residual.reduce(function (s, v) { return s + v * v; }, 0));
-      if (norm > tol) {
-        basis.push(residual.map(function (v) { return v / norm; }));
-      }
-    });
-    return basis;
-  }
-
-  /* The part of `vector` that no basis direction reaches. */
-  function residualNorm(vector, basis) {
-    var residual = vector.slice();
-    basis.forEach(function (b) {
-      var dot = 0;
-      for (var i = 0; i < residual.length; i += 1) { dot += residual[i] * b[i]; }
-      for (var k = 0; k < residual.length; k += 1) { residual[k] -= dot * b[k]; }
-    });
-    return Math.sqrt(residual.reduce(function (s, v) { return s + v * v; }, 0));
-  }
-
-  function matrixRank(rows, tolerance) {
-    var tol = tolerance === undefined ? 1e-10 : tolerance;
-    var m = rows.map(function (row) { return row.slice(); });
-    var height = m.length;
-    if (!height) { return 0; }
-    var width = m[0].length;
-    var rank = 0;
-
-    for (var col = 0; col < width && rank < height; col += 1) {
-      var pivot = rank;
-      var best = Math.abs(m[rank][col]);
-      for (var i = rank + 1; i < height; i += 1) {
-        if (Math.abs(m[i][col]) > best) { best = Math.abs(m[i][col]); pivot = i; }
-      }
-      if (best <= tol) { continue; }
-
-      var swap = m[rank]; m[rank] = m[pivot]; m[pivot] = swap;
-
-      for (var r = 0; r < height; r += 1) {
-        if (r === rank) { continue; }
-        var factor = m[r][col] / m[rank][col];
-        if (factor === 0) { continue; }
-        for (var c = col; c < width; c += 1) { m[r][c] -= factor * m[rank][c]; }
-      }
-      rank += 1;
-    }
-    return rank;
-  }
 
   /* ----------------------------------------------------------------------
      Partial factorial designs
@@ -1577,79 +1514,56 @@
       return node;
     }
 
+    /* The design geometry and the pairwise estimability both come from the
+       module. This used to be a JavaScript reimplementation of audit_design and
+       audit_interaction_aliasing, which is exactly the arrangement that let a
+       widget drift from the engine for an hour. If the module cannot answer,
+       the figure says so rather than substituting a second opinion. */
     function analyse() {
       var observed = [];
       boxes.forEach(function (box, cornerIndex) { if (box.checked) { observed.push(cornerIndex); } });
+      var labels = observed.map(function (cornerIndex) { return corners[cornerIndex].label; });
 
       var slot = {};
       observed.forEach(function (cornerIndex, row) { slot[cornerIndex] = row; });
 
-      /* Main-effects design matrix: an intercept plus one column per factor. */
-      var mainRows = observed.map(function (cornerIndex) {
-        return [1].concat(corners[cornerIndex].bits);
+      return audit.ensure().then(function (mod) {
+        var design = JSON.parse(mod.design_audit(labels, RANK_TOLERANCE));
+        var alias = JSON.parse(mod.interaction_aliasing(labels, RANK_TOLERANCE));
+
+        /* A face's base is a DesignPoint, which serializes as {bits:[bool,...]}
+           rather than as the bit-string the corner labels use. Rebuild the label
+           before looking the index up, or every face resolves to undefined and
+           the draw dies on position[undefined]. */
+        var byLabel = {};
+        corners.forEach(function (corner, index) { byLabel[corner.label] = index; });
+        var completeFaces = design.square_faces.map(function (face) {
+          var baseLabel = face.base.bits.map(function (bit) { return bit ? "1" : "0"; }).join("");
+          var base = byLabel[baseLabel];
+          var j = face.first;
+          var k = face.second;
+          var bitJ = 1 << (FACTORS - 1 - j);
+          var bitK = 1 << (FACTORS - 1 - k);
+          return { j: j, k: k, corners: [base, base | bitJ, base | bitJ | bitK, base | bitK] };
+        });
+
+        return {
+          observed: observed,
+          slot: slot,
+          mainRank: design.main_effects_rank,
+          lackOfFit: design.lack_of_fit_dimension,
+          completeFaces: completeFaces,
+          squareRank: design.square_contrast_rank,
+          spans: design.squares_span_lack_of_fit,
+          untestedDimension: alias.untested_lack_of_fit_dimension,
+          pairs: alias.pairs.map(function (pair) {
+            return {
+              label: "s" + (pair.first + 1) + "\u00d7s" + (pair.second + 1),
+              kind: pair.status
+            };
+          })
+        };
       });
-      var mainRank = matrixRank(mainRows);
-      var lackOfFit = observed.length - mainRank;
-
-      var completeFaces = faces.filter(function (face) {
-        return face.corners.every(function (cornerIndex) { return slot[cornerIndex] !== undefined; });
-      });
-
-      /* One contrast per complete face, expressed over the observed corners
-         only: +1 at the base and the double flip, -1 at each single flip. */
-      var contrasts = completeFaces.map(function (face) {
-        var vector = new Array(observed.length).fill(0);
-        vector[slot[face.corners[0]]] += 1;
-        vector[slot[face.corners[1]]] -= 1;
-        vector[slot[face.corners[2]]] += 1;
-        vector[slot[face.corners[3]]] -= 1;
-        return vector;
-      });
-      var squareRank = contrasts.length ? matrixRank(contrasts) : 0;
-
-      /* Per-pair estimability, the way audit_interaction_aliasing classifies it.
-         Take the interaction column for the pair over the observed corners, strip
-         off whatever the main effects already explain, and ask what is left:
-         nothing at all means the pair is indistinguishable from main effects;
-         something the observed squares reach means it is testable as a square;
-         something they do not reach needs a general lack-of-fit contrast. */
-      var mainBasis = orthonormalBasis(
-        [0, 1, 2, 3].map(function (column) {
-          return observed.map(function (cornerIndex) {
-            return column === 0 ? 1 : corners[cornerIndex].bits[column - 1];
-          });
-        })
-      );
-      var squareBasis = orthonormalBasis(contrasts);
-
-      var pairs = [];
-      for (var a = 0; a < FACTORS; a += 1) {
-        for (var b = a + 1; b < FACTORS; b += 1) {
-          var column = observed.map(function (cornerIndex) {
-            var bits = corners[cornerIndex].bits;
-            return (2 * bits[a] - 1) * (2 * bits[b] - 1);
-          });
-          var scale = Math.max(1, Math.sqrt(column.length));
-          var beyondMain = residualNorm(column, mainBasis);
-          var kind;
-          if (beyondMain <= 1e-9 * scale) { kind = "fully_aliased"; }
-          else if (residualNorm(column, mainBasis.concat(squareBasis)) <= 1e-9 * scale) { kind = "testable_via_squares"; }
-          else { kind = "requires_general_contrast"; }
-          pairs.push({ label: "s" + (a + 1) + "\u00d7s" + (b + 1), kind: kind });
-        }
-      }
-
-      return {
-        observed: observed,
-        slot: slot,
-        mainRank: mainRank,
-        lackOfFit: lackOfFit,
-        completeFaces: completeFaces,
-        squareRank: squareRank,
-        spans: lackOfFit > 0 && squareRank === lackOfFit,
-        pairs: pairs,
-        untestedDimension: Math.max(0, lackOfFit - squareRank)
-      };
     }
 
     function draw(state) {
@@ -1699,9 +1613,23 @@
       });
     }
 
-    function render() {
-      var state = analyse();
+    function refuse(described) {
+      setVerdict($("cubeVerdict"), "block", "no answer");
+      ["cubeCorners", "cubeRank", "cubeLof", "cubeFaces", "cubeSpan", "cubeUntested"]
+        .forEach(function (id) { $(id).textContent = "--"; });
+      $("cubePairs").textContent = "";
+      var box = $("cubeFindings");
+      box.textContent = "";
+      box.appendChild(finding("error", described.stage,
+        described.message + " The figure reports the refusal rather than substituting a JavaScript answer."));
+      clear(svg);
+    }
 
+    function render() {
+      analyse().then(paint).catch(function (error) { refuse(audit.describeError(error)); });
+    }
+
+    function paint(state) {
       $("cubeCorners").textContent = String(state.observed.length);
       $("cubeRank").textContent = String(state.mainRank);
       $("cubeLof").textContent = String(state.lackOfFit);
@@ -1906,60 +1834,56 @@
       $("lensTolOut").value = tolerance.toFixed(1);
 
       var values = rows.map(function (row) {
-        var estimate = Number(row.estimate.value);
-        var se = Number(row.error.value);
         return {
           name: row.name,
-          estimate: estimate,
-          se: se,
-          valid: isFinite(estimate) && isFinite(se) && se > 0
+          estimate: Number(row.estimate.value),
+          se: Number(row.error.value),
+          valid: true
         };
       });
 
-      var invalid = values.filter(function (value) { return !value.valid; });
       var box = $("lensFindings");
-      box.textContent = "";
 
-      if (invalid.length) {
-        /* InvalidLensBattery: the audit refuses to run and, deliberately,
-           writes no finding to the ledger at all. */
+      /* The verdict, the scaled gap and the refusal all come from
+         audit_lens_battery. The page draws the intervals and nothing else. */
+      audit.ensure().then(function (mod) {
+        var payload = JSON.stringify(values.map(function (value) {
+          return { family: value.name, estimate: value.estimate, standard_error: value.se };
+        }));
+        var result = JSON.parse(mod.lens_battery(payload, tolerance));
+
+        box.textContent = "";
+        var worst = result.audit.worst_pair.slice();
+        worst.agrees = result.audit.agrees;
+
+        $("lensGap").textContent = fmt(result.audit.max_scaled_gap, 6);
+        setClassState($("lensGap"), result.audit.agrees ? "flat" : "block");
+        $("lensPair").textContent = worst[0] + " vs " + worst[1];
+        setVerdict($("lensStatus"), result.audit.agrees ? "flat" : "block",
+          result.audit.agrees ? "AGREES" : "DISAGREES");
+
+        result.findings.forEach(function (item) {
+          box.appendChild(finding(
+            item.severity === "error" ? "error" : (item.severity === "warning" ? "warn" : "ok"),
+            item.code, item.message));
+        });
+
+        draw(values, tolerance, worst);
+      }).catch(function (error) {
+        /* A rejected battery is a refusal by the engine, and it deliberately
+           writes nothing to the ledger, so there is no finding to echo. */
+        var described = audit.describeError(error);
+        box.textContent = "";
         setVerdict($("lensStatus"), "block", "REJECTED");
         $("lensGap").textContent = "--";
         setClassState($("lensGap"), "block");
         $("lensPair").textContent = "\u2014";
-        box.appendChild(finding("error", "InvalidLensBattery",
-          "Every standard error must be finite and strictly positive. The battery is rejected before any comparison is attempted, and nothing is written to the evidence ledger."));
+        box.appendChild(finding("error", described.stage, described.message));
+        values.forEach(function (value) {
+          value.valid = isFinite(value.estimate) && isFinite(value.se) && value.se > 0;
+        });
         draw(values, tolerance, null);
-        return;
-      }
-
-      var maxGap = 0;
-      var worst = [values[0].name, values[1].name];
-      for (var i = 0; i < values.length; i += 1) {
-        for (var k = i + 1; k < values.length; k += 1) {
-          var gap = Math.abs(values[i].estimate - values[k].estimate) /
-            Math.hypot(values[i].se, values[k].se);
-          if (gap > maxGap) { maxGap = gap; worst = [values[i].name, values[k].name]; }
-        }
-      }
-
-      var agrees = maxGap <= tolerance;
-      worst.agrees = agrees;
-
-      $("lensGap").textContent = fmt(maxGap, 6);
-      setClassState($("lensGap"), agrees ? "flat" : "block");
-      $("lensPair").textContent = worst[0] + " vs " + worst[1];
-      setVerdict($("lensStatus"), agrees ? "flat" : "block", agrees ? "AGREES" : "DISAGREES");
-
-      if (agrees) {
-        box.appendChild(finding("ok", "estimator_family_agreement",
-          "Estimator families agree within the preregistered sensitivity tolerance. Agreement is diagnostic, not certifying, and on its own it establishes nothing."));
-      } else {
-        box.appendChild(finding("error", "estimator_family_disagreement",
-          "Estimator families disagree beyond tolerance. The projection is learner-dependent and cannot be certified."));
-      }
-
-      draw(values, tolerance, worst);
+      });
     }
 
     tolSlider.addEventListener("input", render);
@@ -2178,7 +2102,7 @@
     var output = $("runOutput");
     var findingsBox = $("runFindings");
     var engineChip = $("engineState");
-    if (!select || !editor || !runButton || !output) { return; }
+    if (!select || !editor || !runButton || !output || !statusChip || !findingsBox) { return; }
 
     MANIFEST_PRESETS.forEach(function (preset, index) {
       var option = doc.createElement("option");
@@ -2301,5 +2225,11 @@
       if (params.get("autorun") === "1") { run(); }
     } catch (ignored) { /* older engines without URLSearchParams simply skip it */ }
   }());
+
+
+  /* The design figure and the lens battery are drawn from the module now, so
+     fetch it once at startup instead of making the first interaction wait.
+     A failure here is not fatal: each caller reports its own refusal. */
+  audit.ensure().catch(function () { /* reported per widget */ });
 
 }());

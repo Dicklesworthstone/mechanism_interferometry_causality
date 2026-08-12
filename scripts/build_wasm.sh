@@ -40,13 +40,20 @@ wasm-pack build crates/mic-wasm \
 # very artifact the site serves. Remove it every time.
 rm -f "${OUT_DIR}/.gitignore"
 
+# wasm-pack already runs wasm-opt at -O on a release build. This second pass is
+# specifically for size (-Oz), and it enables the same six-feature browser
+# baseline the module is compiled against, so an optimiser that does not know a
+# feature cannot quietly reject the module or strip something it needs.
 if command -v wasm-opt >/dev/null 2>&1; then
-    echo "==> wasm-opt -Oz"
-    wasm-opt -Oz --enable-bulk-memory --enable-sign-ext \
-        -o "${OUT_DIR}/mic_bg.opt.wasm" "${OUT_DIR}/mic_bg.wasm"
-    mv "${OUT_DIR}/mic_bg.opt.wasm" "${OUT_DIR}/mic_bg.wasm"
+    echo "==> wasm-opt -Oz (size pass)"
+    wasm-opt -Oz \
+        --enable-bulk-memory --enable-mutable-globals --enable-nontrapping-float-to-int \
+        --enable-sign-ext --enable-reference-types --enable-multivalue \
+        -o "${OUT_DIR}/mic_bg.size.wasm" "${OUT_DIR}/mic_bg.wasm"
+    cp "${OUT_DIR}/mic_bg.size.wasm" "${OUT_DIR}/mic_bg.wasm"
+    rm -f "${OUT_DIR}/mic_bg.size.wasm"
 else
-    echo "wasm-opt not found; shipping the unoptimised module" >&2
+    echo "wasm-opt not found; shipping the wasm-pack module unchanged" >&2
 fi
 
 RAW=$(wc -c < "${OUT_DIR}/mic_bg.wasm" | tr -d ' ')

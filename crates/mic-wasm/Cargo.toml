@@ -11,12 +11,12 @@ publish = false
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# Only the crates the boundary actually names. mic-core, mic-stats and mic-model
+# arrive transitively through mic-engine; declaring them here as well would imply
+# a direct coupling this crate does not have.
 [dependencies]
-mic-core = { path = "../mic-core" }
 mic-design = { path = "../mic-design" }
 mic-data = { path = "../mic-data" }
-mic-stats = { path = "../mic-stats" }
-mic-model = { path = "../mic-model" }
 mic-audit = { path = "../mic-audit" }
 mic-engine = { path = "../mic-engine" }
 mic-sim = { path = "../mic-sim" }
