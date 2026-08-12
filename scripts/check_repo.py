@@ -63,6 +63,10 @@ def required_files() -> None:
         "schemas/experiment_manifest.schema.json",
         "schemas/evidence_finding.schema.json",
         "schemas/audit_report.schema.json",
+        "schemas/proposal_batch.schema.json",
+        "examples/proposals/parity_active_tilt.json",
+        "crates/mic-proposal/Cargo.toml",
+        "crates/mic-proposal/src/lib.rs",
         "scripts/generate_simulations.py",
         "scripts/generate_example_data.py",
         "scripts/generate_repository_manifest.py",
@@ -92,6 +96,69 @@ def validate_schemas_and_manifests() -> None:
         schemas[path.name] = document
 
     manifest_schema = schemas.get("experiment_manifest.schema.json")
+    proposal_schema = schemas.get("proposal_batch.schema.json")
+    check(proposal_schema is not None, "proposal batch schema was not loaded")
+    if proposal_schema is not None:
+        proposal_validator = Draft202012Validator(proposal_schema)
+        for path in sorted((ROOT / "examples" / "proposals").glob("*.json")):
+            proposal = load_json(path)
+            errors = sorted(proposal_validator.iter_errors(proposal), key=lambda error: list(error.path))
+            for error in errors:
+                location = ".".join(str(part) for part in error.path) or "<root>"
+                fail(f"{path.relative_to(ROOT)} proposal schema violation at {location}: {error.message}")
+            if not isinstance(proposal, dict):
+                continue
+            check(proposal.get("authority") == "proposal_only", f"{path.name} grants proposal artifact certificate authority")
+            hypotheses = proposal.get("surviving_hypotheses", [])
+            check(hypotheses == sorted(hypotheses), f"{path.name} hypotheses are not canonicalized")
+            expected_pairs = {
+                (hypotheses[left], hypotheses[right])
+                for left in range(len(hypotheses))
+                for right in range(left + 1, len(hypotheses))
+            }
+            source = proposal.get("source", {})
+            feature_flags = source.get("feature_flags", []) if isinstance(source, dict) else []
+            check(feature_flags == sorted(set(feature_flags)), f"{path.name} feature flags are not canonicalized")
+            rankings = proposal.get("rankings", [])
+            if isinstance(rankings, list):
+                ranks = [item.get("rank") for item in rankings if isinstance(item, dict)]
+                check(ranks == list(range(1, len(rankings) + 1)), f"{path.name} ranks are not consecutive")
+                scores = [item.get("worst_case_predicted_separation") for item in rankings if isinstance(item, dict)]
+                check(scores == sorted(scores, reverse=True), f"{path.name} maximin scores are not descending")
+                candidate_ids = [item.get("candidate_id") for item in rankings if isinstance(item, dict)]
+                check(len(candidate_ids) == len(set(candidate_ids)), f"{path.name} repeats a ranked candidate")
+                for item in rankings:
+                    if not isinstance(item, dict):
+                        continue
+                    check(item.get("primitive_id") == proposal.get("primitive_id"), f"{path.name} ranked tilt changes primitive")
+                    predictions = item.get("predicted_pairwise_separations", [])
+                    pair_keys = [
+                        (prediction.get("first"), prediction.get("second"))
+                        for prediction in predictions
+                        if isinstance(prediction, dict)
+                    ]
+                    check(pair_keys == sorted(pair_keys), f"{path.name} pairwise predictions are not canonicalized")
+                    check(set(pair_keys) == expected_pairs and len(pair_keys) == len(expected_pairs), f"{path.name} lacks a complete unique hypothesis-pair table")
+                    values = [
+                        float(prediction["separation"])
+                        for prediction in predictions
+                        if isinstance(prediction, dict) and "separation" in prediction
+                    ]
+                    score = float(item.get("worst_case_predicted_separation", math.nan))
+                    check(bool(values) and math.isclose(score, min(values), abs_tol=1e-14), f"{path.name} maximin score does not match raw predictions")
+                    if proposal.get("planned_analysis") == "product_factorial":
+                        eligibility = item.get("design_eligibility", {})
+                        status = eligibility.get("status") if isinstance(eligibility, dict) else None
+                        check(status in {"product_odds_verified", "reweighted_to_product"}, f"{path.name} ranks a product-factorial tilt without design evidence")
+                selected = proposal.get("selected_candidate_id")
+                expected = rankings[0].get("candidate_id") if rankings and isinstance(rankings[0], dict) else None
+                check(selected == expected, f"{path.name} selected candidate does not match rank one")
+                rejected = proposal.get("rejected", [])
+                rejected_ids = {item.get("candidate_id") for item in rejected if isinstance(item, dict)}
+                check(not rejected_ids.intersection(candidate_ids), f"{path.name} both ranks and rejects a candidate")
+            semantics = str(proposal.get("score_semantics", "")).lower()
+            check("not probability or confidence" in semantics, f"{path.name} does not quarantine proposal score semantics")
+
     check(manifest_schema is not None, "experiment manifest schema was not loaded")
     if manifest_schema is None:
         return
@@ -269,6 +336,8 @@ def validate_proposal_boundary() -> None:
         "may not break a `MULTIPLE_PASSES`",
         "must preserve the asserted primitive target",
         "product-odds rule",
+        "mic_proposal::rank_active_tilts",
+        "proposal_only",
     ]:
         check(token in source, f"proposal-adapter contract is missing boundary token: {token}")
 
