@@ -316,14 +316,14 @@ pub fn rank_active_tilts(
             .worst_case_separation
             .total_cmp(&left_evaluation.worst_case_separation)
             .then_with(|| compare_cost(left.cost, right.cost))
-            .then_with(|| left.candidate_id.cmp(&right.candidate_id))
+            .then_with(|| left.candidate_id.trim().cmp(right.candidate_id.trim()))
     });
     let rankings: Vec<RankedTilt> = accepted
         .into_iter()
         .enumerate()
         .map(|(index, (candidate, evaluation))| RankedTilt {
             rank: index + 1,
-            candidate_id: candidate.candidate_id.clone(),
+            candidate_id: candidate.candidate_id.trim().to_owned(),
             primitive_id: candidate.primitive_id.clone(),
             worst_case_predicted_separation: evaluation.worst_case_separation,
             predicted_pairwise_separations: evaluation.pairwise_separations,
@@ -525,6 +525,7 @@ fn validate_candidate(
             "candidate does not preserve declared common support".into(),
         ));
     }
+    validate_cost(candidate.cost)?;
     validate_analysis_eligibility(request, candidate)?;
     validate_prediction_table(candidate, hypotheses, required_pairs)
 }
@@ -560,7 +561,11 @@ fn validate_analysis_eligibility(
             }
         }
     }
-    if let Some(cost) = candidate.cost
+    Ok(())
+}
+
+fn validate_cost(cost: Option<f64>) -> Result<(), (TiltRejectionCode, String)> {
+    if let Some(cost) = cost
         && (!cost.is_finite() || cost < 0.0)
     {
         return Err((
@@ -853,5 +858,20 @@ mod tests {
         let second = candidate_library_fingerprint(&[invalid]);
         assert!(first.starts_with("sha256:"));
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn ranked_candidate_identifiers_are_trimmed_before_tie_breaking() {
+        let spaced = candidate(" z ", "replace-target-T", 0.2);
+        let lexical_first = candidate("a", "replace-target-T", 0.2);
+        let proposal =
+            rank_active_tilts(&request(PlannedAnalysis::FourLaw), &[spaced, lexical_first])
+                .expect("valid proposal");
+        let identifiers: Vec<&str> = proposal
+            .rankings
+            .iter()
+            .map(|ranked| ranked.candidate_id.as_str())
+            .collect();
+        assert_eq!(identifiers, ["a", "z"]);
     }
 }
