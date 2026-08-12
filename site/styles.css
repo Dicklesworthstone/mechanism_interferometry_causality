@@ -597,7 +597,8 @@ pre.code .c { color: var(--fg-faint); }
 
 .top nav { display: none; gap: .1rem; }
 
-@media (min-width: 1024px) { .top nav { display: flex; } }
+/* Eight destinations need more room than seven did. */
+@media (min-width: 1180px) { .top nav { display: flex; } }
 
 .top nav a {
   padding: .45rem .6rem;
@@ -1311,6 +1312,155 @@ main > section.hero {
 .quota:focus-within { border-color: var(--violet); box-shadow: 0 0 0 3px var(--violet-wash); }
 
 /* --------------------------------------------------------------------------
+   17b. Spec tables, pull quote, corner grid, lens grid, fail list
+   -------------------------------------------------------------------------- */
+
+/* The caption is sticky at the left edge and sized to the visible box rather
+   than the table width, so on a phone it wraps to the screen and not to the
+   scroll extent. */
+.table-scroll {
+  overflow-x: auto;
+  container-type: inline-size;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.band--deep .table-scroll { border-color: rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .045); }
+
+.spec-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+
+.spec-table caption {
+  position: sticky;
+  left: 0;
+  width: 100cqw;
+  padding: .9rem 1.1rem;
+  text-align: left;
+  font-size: .8rem;
+  color: var(--fg-dim);
+  border-bottom: 1px solid var(--line);
+}
+
+.band--deep .spec-table caption { color: #aeb9d1; border-color: rgba(255, 255, 255, .1); }
+
+.spec-table th {
+  padding: .7rem 1.1rem;
+  text-align: left;
+  font: 800 .68rem/1.3 var(--sans);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--violet);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.band--deep .spec-table th { color: #3fd7a4; border-color: rgba(255, 255, 255, .1); }
+
+.spec-table td { padding: .8rem 1.1rem; vertical-align: top; border-bottom: 1px solid var(--line); color: var(--fg-mid); }
+.spec-table tr:last-child td { border-bottom: 0; }
+.band--deep .spec-table td { color: #c3ccdf; border-color: rgba(255, 255, 255, .07); }
+.spec-table td code { white-space: nowrap; }
+.spec-table td.yes { color: var(--flat-ink); }
+.spec-table td.no { color: var(--block-ink); }
+.band--deep .spec-table td.yes { color: #7fe9c6; }
+.band--deep .spec-table td.no { color: #ff9fac; }
+
+.pullquote {
+  max-width: 30ch;
+  margin: 0 0 1.6rem;
+  font: 800 clamp(1.35rem, 2.8vw, 2rem)/1.22 var(--sans);
+  letter-spacing: -.025em;
+  color: #fff;
+  border-inline-start: 3px solid #3fd7a4;
+  padding-inline-start: 1.1rem;
+}
+
+.corner-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+
+.corner-toggle {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .55rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  font: 600 .84rem/1 var(--mono);
+  color: var(--fg-dim);
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+
+.corner-toggle input { width: 15px; height: 15px; accent-color: var(--violet); cursor: pointer; }
+.corner-toggle:hover { border-color: var(--violet); }
+.corner-toggle:has(input:checked) { color: var(--violet-ink); border-color: color-mix(in srgb, var(--violet) 42%, var(--line)); background: var(--violet-wash); }
+
+.band--deep .corner-toggle { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .1); color: #aeb9d1; }
+.band--deep .corner-toggle:has(input:checked) { color: #fff; border-color: rgba(157, 136, 255, .5); background: rgba(157, 136, 255, .16); }
+
+.lens-grid { display: grid; gap: .6rem; }
+
+.lens-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.4rem 5.4rem;
+  gap: .5rem;
+  align-items: center;
+}
+
+.lens-row > span { font: 600 .82rem/1.2 var(--mono); color: var(--fg-dim); overflow-wrap: anywhere; }
+.band--deep .lens-row > span { color: #aeb9d1; }
+
+.lens-row input {
+  width: 100%;
+  min-height: 38px;
+  padding: .3rem .5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--fg);
+  font: 700 .85rem/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.band--deep .lens-row input { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); color: #eef1f8; }
+.lens-row input:focus-visible { border-color: var(--violet); outline: none; box-shadow: 0 0 0 3px var(--violet-wash); }
+.lens-head { font: 800 .64rem/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-faint); text-align: center; }
+
+.fail-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: .6rem;
+  margin: 0;
+  padding: 0;
+  counter-reset: fail;
+}
+
+.fail-list > li {
+  list-style: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: .8rem;
+  padding: .8rem 1rem;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, .045);
+  font-size: .89rem;
+  color: #c3ccdf;
+}
+
+.fail-list > li::before {
+  counter-increment: fail;
+  content: counter(fail, decimal-leading-zero);
+  font: 800 .78rem/1.5 var(--mono);
+  color: #ff7286;
+}
+
+@media (max-width: 620px) {
+  .lens-row { grid-template-columns: minmax(0, 1fr) 4.4rem 4.4rem; }
+  .corner-grid { grid-template-columns: 1fr; }
+}
+
+/* --------------------------------------------------------------------------
    18. Tracks, figures, footer
    -------------------------------------------------------------------------- */
 
@@ -1324,23 +1474,36 @@ main > section.hero {
 .figure img { display: block; width: 100%; background: #fff; }
 .figure figcaption { padding: .8rem 1.1rem; border-top: 1px solid var(--line); font-size: .82rem; color: var(--fg-dim); }
 
+/* The paper's closing alignment: what each observable buys you, one row each. */
 .final-eq {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: .6rem .9rem;
+  display: grid;
+  gap: .5rem;
   margin-top: 1.8rem;
-  padding: 1.8rem;
+  padding: clamp(1.4rem, 3vw, 2.2rem);
   border-radius: var(--r-lg);
   background: linear-gradient(165deg, #161f38, #0b1120);
   color: #e7ecf7;
-  font: 700 .92rem/1.4 var(--mono);
-  text-align: center;
 }
 
-.final-eq b { color: #3fd7a4; }
-.final-eq strong { flex-basis: 100%; margin-top: .7rem; font: 800 1.1rem/1.3 var(--sans); color: #ffab5c; }
+.final-row {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) 1.4rem minmax(0, 1fr);
+  gap: .4rem .8rem;
+  align-items: baseline;
+  margin: 0;
+  padding: .5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.final-row:last-child { border-bottom: 0; }
+.final-row b { font: 700 .92rem/1.4 var(--mono); color: #3fd7a4; }
+.final-row > span[aria-hidden] { color: #ffab5c; font-size: 1.05rem; }
+.final-row > span:last-child { color: #e7ecf7; font-size: 1rem; }
+
+@media (max-width: 620px) {
+  .final-row { grid-template-columns: minmax(0, 1fr); }
+  .final-row > span[aria-hidden] { display: none; }
+}
 
 footer { border-top: 1px solid var(--line); background: var(--bg-deep); padding-block: 2.6rem 2rem; }
 
