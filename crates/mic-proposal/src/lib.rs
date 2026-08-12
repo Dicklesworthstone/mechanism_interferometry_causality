@@ -4,7 +4,9 @@
 //! This crate may prioritize what the certificate pipeline tests next. It has no
 //! authority to certify a target, edge, invariant, or modularity claim.
 
+use core::fmt::Write as _;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
@@ -109,8 +111,6 @@ pub struct ActiveTiltRequest {
     pub primitive_id: String,
     /// Labels of all surviving deletion hypotheses.
     pub surviving_hypotheses: Vec<String>,
-    /// Content fingerprint of the frozen feasible-tilt library and predictions.
-    pub candidate_library_fingerprint: String,
     /// Planned confirmatory inference track.
     pub planned_analysis: PlannedAnalysis,
     /// Adapter provenance.
@@ -288,6 +288,7 @@ pub fn rank_active_tilts(
     candidates: &[ActiveTiltCandidate],
 ) -> Result<ActiveTiltProposal, ProposalError> {
     let hypotheses = validate_request(request)?;
+    let candidate_library_fingerprint = candidate_library_fingerprint(candidates);
     let required_pairs = required_pairs(&hypotheses);
     let mut candidate_ids = BTreeSet::new();
     for candidate in candidates {
@@ -344,7 +345,7 @@ pub fn rank_active_tilts(
         proposal_id: request.proposal_id.clone(),
         primitive_id: request.primitive_id.clone(),
         surviving_hypotheses: hypotheses.into_iter().collect(),
-        candidate_library_fingerprint: request.candidate_library_fingerprint.clone(),
+        candidate_library_fingerprint,
         planned_analysis: request.planned_analysis,
         source: request.source.clone(),
         seed: request.seed,
@@ -367,10 +368,6 @@ fn validate_request(request: &ActiveTiltRequest) -> Result<BTreeSet<String>, Pro
     for (name, value) in [
         ("proposal_id", request.proposal_id.as_str()),
         ("primitive_id", request.primitive_id.as_str()),
-        (
-            "candidate_library_fingerprint",
-            request.candidate_library_fingerprint.as_str(),
-        ),
         ("adapter_id", request.source.adapter_id.as_str()),
         ("adapter_revision", request.source.adapter_revision.as_str()),
         ("model_family", request.source.model_family.as_str()),
@@ -427,6 +424,66 @@ fn required_pairs(hypotheses: &BTreeSet<String>) -> BTreeSet<(String, String)> {
         }
     }
     pairs
+}
+
+/// Returns a stable SHA-256 fingerprint of the complete, ordered candidate library.
+///
+/// The binary framing is domain-separated as `mic-active-tilt-candidates-v1` and
+/// includes every string, Boolean, enum payload, pairwise prediction, cost, and
+/// raw IEEE-754 bit pattern. Consequently even candidates later rejected for a
+/// nonfinite number remain bound into the proposal artifact.
+#[must_use]
+pub fn candidate_library_fingerprint(candidates: &[ActiveTiltCandidate]) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"mic-active-tilt-candidates-v1\0");
+    hash_length(&mut digest, candidates.len());
+    for candidate in candidates {
+        hash_string(&mut digest, &candidate.candidate_id);
+        hash_string(&mut digest, &candidate.primitive_id);
+        digest.update([u8::from(candidate.measurable_delivery)]);
+        digest.update([u8::from(candidate.common_support)]);
+        match &candidate.design_eligibility {
+            DesignEligibility::NotRequiredForFourLaw => digest.update([0]),
+            DesignEligibility::ProductOddsVerified { audit_id } => {
+                digest.update([1]);
+                hash_string(&mut digest, audit_id);
+            }
+            DesignEligibility::ReweightedToProduct { plan_id } => {
+                digest.update([2]);
+                hash_string(&mut digest, plan_id);
+            }
+            DesignEligibility::NotEstablished => digest.update([3]),
+        }
+        hash_length(&mut digest, candidate.predicted_pairwise_separations.len());
+        for prediction in &candidate.predicted_pairwise_separations {
+            hash_string(&mut digest, &prediction.first);
+            hash_string(&mut digest, &prediction.second);
+            digest.update(prediction.separation.to_bits().to_be_bytes());
+        }
+        match candidate.cost {
+            Some(cost) => {
+                digest.update([1]);
+                digest.update(cost.to_bits().to_be_bytes());
+            }
+            None => digest.update([0]),
+        }
+    }
+    let bytes = digest.finalize();
+    let mut encoded = String::with_capacity(7 + bytes.len() * 2);
+    encoded.push_str("sha256:");
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}").expect("writing hex into a String cannot fail");
+    }
+    encoded
+}
+
+fn hash_string(digest: &mut Sha256, value: &str) {
+    hash_length(digest, value.len());
+    digest.update(value.as_bytes());
+}
+
+fn hash_length(digest: &mut Sha256, value: usize) {
+    digest.update((value as u64).to_be_bytes());
 }
 
 fn validate_candidate(
@@ -620,7 +677,6 @@ mod tests {
             proposal_id: "parity-followup".into(),
             primitive_id: "replace-target-T".into(),
             surviving_hypotheses: vec!["T".into(), "P".into()],
-            candidate_library_fingerprint: "sha256:candidates".into(),
             planned_analysis: track,
             source: source(),
             seed: 17,
@@ -774,14 +830,28 @@ mod tests {
     fn empty_design_evidence_reference_is_rejected_on_every_track() {
         let mut candidate = candidate("bad-reference", "replace-target-T", 0.2);
         candidate.design_eligibility = DesignEligibility::ProductOddsVerified {
-            audit_id: "".into(),
+            audit_id: String::new(),
         };
         let proposal = rank_active_tilts(&request(PlannedAnalysis::FourLaw), &[candidate])
             .expect("invalid evidence belongs in an auditable rejection batch");
-        assert_eq!(proposal.rejected[0].code, TiltRejectionCode::EmptyIdentifier);
+        assert_eq!(
+            proposal.rejected[0].code,
+            TiltRejectionCode::EmptyIdentifier
+        );
         assert_eq!(
             proposal.status,
             ProposalStatus::AbstainedNoEligibleCandidate
         );
+    }
+
+    #[test]
+    fn candidate_fingerprint_binds_rejected_and_nonfinite_inputs() {
+        let mut invalid = candidate("invalid", "replace-target-T", f64::NAN);
+        invalid.cost = Some(f64::INFINITY);
+        let first = candidate_library_fingerprint(&[invalid.clone()]);
+        invalid.common_support = false;
+        let second = candidate_library_fingerprint(&[invalid]);
+        assert!(first.starts_with("sha256:"));
+        assert_ne!(first, second);
     }
 }

@@ -1025,6 +1025,468 @@
   }());
 
   /* ----------------------------------------------------------------------
+     Linear algebra used by the partial-design widget.
+
+     Gauss-Jordan with partial pivoting. Only the rank is needed, and the
+     matrices here are at most 8 by 8 with entries in {0, 1, -1}, so the naive
+     implementation is both exact enough and instant.
+     ---------------------------------------------------------------------- */
+
+  function matrixRank(rows, tolerance) {
+    var tol = tolerance === undefined ? 1e-10 : tolerance;
+    var m = rows.map(function (row) { return row.slice(); });
+    var height = m.length;
+    if (!height) { return 0; }
+    var width = m[0].length;
+    var rank = 0;
+
+    for (var col = 0; col < width && rank < height; col += 1) {
+      var pivot = rank;
+      var best = Math.abs(m[rank][col]);
+      for (var i = rank + 1; i < height; i += 1) {
+        if (Math.abs(m[i][col]) > best) { best = Math.abs(m[i][col]); pivot = i; }
+      }
+      if (best <= tol) { continue; }
+
+      var swap = m[rank]; m[rank] = m[pivot]; m[pivot] = swap;
+
+      for (var r = 0; r < height; r += 1) {
+        if (r === rank) { continue; }
+        var factor = m[r][col] / m[rank][col];
+        if (factor === 0) { continue; }
+        for (var c = col; c < width; c += 1) { m[r][c] -= factor * m[rank][c]; }
+      }
+      rank += 1;
+    }
+    return rank;
+  }
+
+  /* ----------------------------------------------------------------------
+     Partial factorial designs
+
+     Reproduces mic-design: main-effects rank over the observed corners, the
+     lack-of-fit dimension left over, every fully observed square face, and
+     whether the square contrasts span the whole testable space. The six-corner
+     cube is the case worth staring at: no complete square face survives, and
+     two flatness restrictions remain regardless.
+     ---------------------------------------------------------------------- */
+
+  (function partialDesigns() {
+    var host = $("cornerToggles");
+    var svg = $("vizCube");
+    if (!host || !svg) { return; }
+
+    var FACTORS = 3;
+    var corners = [];
+    for (var index = 0; index < (1 << FACTORS); index += 1) {
+      var bits = [];
+      for (var bit = 0; bit < FACTORS; bit += 1) { bits.push((index >> (FACTORS - 1 - bit)) & 1); }
+      corners.push({ bits: bits, label: bits.join("") });
+    }
+
+    var position = corners.map(function (corner) {
+      return {
+        x: 80 + corner.bits[0] * 180 + corner.bits[2] * 95,
+        y: 258 - corner.bits[1] * 150 - corner.bits[2] * 70
+      };
+    });
+
+    /* Every (j, k) pair, at every setting of the remaining coordinates. */
+    var faces = [];
+    for (var j = 0; j < FACTORS; j += 1) {
+      for (var k = j + 1; k < FACTORS; k += 1) {
+        for (var base = 0; base < (1 << FACTORS); base += 1) {
+          if (((base >> (FACTORS - 1 - j)) & 1) || ((base >> (FACTORS - 1 - k)) & 1)) { continue; }
+          var bitJ = 1 << (FACTORS - 1 - j);
+          var bitK = 1 << (FACTORS - 1 - k);
+          faces.push({ j: j, k: k, corners: [base, base | bitJ, base | bitJ | bitK, base | bitK] });
+        }
+      }
+    }
+
+    var boxes = corners.map(function (corner, cornerIndex) {
+      var label = doc.createElement("label");
+      label.className = "corner-toggle";
+      var box = doc.createElement("input");
+      box.type = "checkbox";
+      box.checked = true;
+      box.id = "corner-" + corner.label;
+      var text = doc.createElement("span");
+      text.textContent = corner.label;
+      label.appendChild(box);
+      label.appendChild(text);
+      host.appendChild(label);
+      box.addEventListener("change", function () { setPresetLabel("custom selection"); render(); });
+      return box;
+    });
+
+    function setPresetLabel(text) {
+      var node = $("cubePreset");
+      if (node) { node.textContent = text; }
+    }
+
+    function finding(kind, code, message) {
+      var node = doc.createElement("div");
+      node.className = "finding " + kind;
+      var codeNode = doc.createElement("code");
+      codeNode.textContent = code;
+      var text = doc.createElement("p");
+      text.textContent = message;
+      node.appendChild(codeNode);
+      node.appendChild(text);
+      return node;
+    }
+
+    function analyse() {
+      var observed = [];
+      boxes.forEach(function (box, cornerIndex) { if (box.checked) { observed.push(cornerIndex); } });
+
+      var slot = {};
+      observed.forEach(function (cornerIndex, row) { slot[cornerIndex] = row; });
+
+      /* Main-effects design matrix: an intercept plus one column per factor. */
+      var mainRows = observed.map(function (cornerIndex) {
+        return [1].concat(corners[cornerIndex].bits);
+      });
+      var mainRank = matrixRank(mainRows);
+      var lackOfFit = observed.length - mainRank;
+
+      var completeFaces = faces.filter(function (face) {
+        return face.corners.every(function (cornerIndex) { return slot[cornerIndex] !== undefined; });
+      });
+
+      /* One contrast per complete face, expressed over the observed corners
+         only: +1 at the base and the double flip, -1 at each single flip. */
+      var contrasts = completeFaces.map(function (face) {
+        var vector = new Array(observed.length).fill(0);
+        vector[slot[face.corners[0]]] += 1;
+        vector[slot[face.corners[1]]] -= 1;
+        vector[slot[face.corners[2]]] += 1;
+        vector[slot[face.corners[3]]] -= 1;
+        return vector;
+      });
+      var squareRank = contrasts.length ? matrixRank(contrasts) : 0;
+
+      return {
+        observed: observed,
+        slot: slot,
+        mainRank: mainRank,
+        lackOfFit: lackOfFit,
+        completeFaces: completeFaces,
+        squareRank: squareRank,
+        spans: lackOfFit > 0 && squareRank === lackOfFit
+      };
+    }
+
+    function draw(state) {
+      clear(svg);
+
+      completeFacePolygons(state);
+
+      /* Every cube edge, dimmed unless both endpoints were observed. */
+      corners.forEach(function (corner, a) {
+        for (var bit = 0; bit < FACTORS; bit += 1) {
+          var b = a ^ (1 << (FACTORS - 1 - bit));
+          if (b <= a) { continue; }
+          var live = state.slot[a] !== undefined && state.slot[b] !== undefined;
+          svg.appendChild(el("line", {
+            x1: position[a].x, y1: position[a].y, x2: position[b].x, y2: position[b].y,
+            class: live ? "cube-edge live" : "cube-edge"
+          }));
+        }
+      });
+
+      corners.forEach(function (corner, cornerIndex) {
+        var seen = state.slot[cornerIndex] !== undefined;
+        svg.appendChild(el("circle", {
+          cx: position[cornerIndex].x, cy: position[cornerIndex].y, r: 21,
+          class: seen ? "viz-node" : "cube-missing"
+        }));
+        svg.appendChild(el("text", {
+          x: position[cornerIndex].x, y: position[cornerIndex].y + 5,
+          class: seen ? "viz-node-text" : "cube-missing-text", "font-size": 12.5
+        }, corner.label));
+      });
+
+      svg.appendChild(el("text", { x: 10, y: 20, class: "viz-title" },
+        state.completeFaces.length
+          ? state.completeFaces.length + " complete square face" + (state.completeFaces.length === 1 ? "" : "s")
+          : "no complete square face survives"));
+      svg.appendChild(el("text", { x: 10, y: 300, class: "viz-tick" },
+        "lack of fit " + state.lackOfFit + "   square contrast rank " + state.squareRank));
+    }
+
+    function completeFacePolygons(state) {
+      state.completeFaces.forEach(function (face) {
+        var points = face.corners.map(function (cornerIndex) {
+          return position[cornerIndex].x + "," + position[cornerIndex].y;
+        }).join(" ");
+        svg.appendChild(el("polygon", { points: points, class: "cube-face" }));
+      });
+    }
+
+    function render() {
+      var state = analyse();
+
+      $("cubeCorners").textContent = String(state.observed.length);
+      $("cubeRank").textContent = String(state.mainRank);
+      $("cubeLof").textContent = String(state.lackOfFit);
+      $("cubeFaces").textContent = String(state.completeFaces.length);
+      $("cubeSpan").textContent = state.lackOfFit === 0 ? "n/a" : (state.spans ? "yes" : "no");
+
+      setClassState($("cubeLof"), state.lackOfFit > 0 ? "flat" : "curve");
+      setClassState($("cubeSpan"), state.lackOfFit === 0 ? "curve" : (state.spans ? "flat" : "curve"));
+
+      var box = $("cubeFindings");
+      box.textContent = "";
+
+      if (state.lackOfFit === 0) {
+        setVerdict($("cubeVerdict"), "curve", "nothing testable");
+        box.appendChild(finding("warn", "no_testable_flatness",
+          "The observed design has no lack-of-fit degree of freedom beyond main effects. There is no flatness contrast to test."));
+      } else if (!state.spans) {
+        setVerdict($("cubeVerdict"), "curve", "squares insufficient");
+        box.appendChild(finding("warn", "non_square_contrasts_required",
+          "Observed square contrasts do not span the full testable lack-of-fit space. " +
+          state.lackOfFit + " flatness restriction" + (state.lackOfFit === 1 ? "" : "s") +
+          " remain, and " + state.squareRank + " of them can be written as a complete square."));
+      } else {
+        setVerdict($("cubeVerdict"), "flat", "fully testable");
+        box.appendChild(finding("ok", "square_contrast_rank",
+          "The complete square faces span the whole lack-of-fit space, so square flatness is the entire testable content of this design."));
+      }
+
+      draw(state);
+    }
+
+    function preset(indices, label) {
+      boxes.forEach(function (box, cornerIndex) { box.checked = indices.indexOf(cornerIndex) !== -1; });
+      setPresetLabel(label);
+      render();
+    }
+
+    var full = $("presetFull");
+    var six = $("presetSixCorner");
+    var one = $("presetOneFace");
+    if (full) { full.addEventListener("click", function () { preset([0, 1, 2, 3, 4, 5, 6, 7], "full cube"); }); }
+    if (six) {
+      /* Everything except 000 and 111. */
+      six.addEventListener("click", function () { preset([1, 2, 3, 4, 5, 6], "six-corner counterexample"); });
+    }
+    if (one) {
+      /* The face on which the third factor is held at zero. */
+      one.addEventListener("click", function () { preset([0, 2, 4, 6], "single square"); });
+    }
+
+    render();
+  }());
+
+  /* ----------------------------------------------------------------------
+     Estimator lens battery
+
+     Reproduces mic_engine::audit_lens_battery. Each pairwise gap is scaled by
+     the root sum of squared standard errors, and the largest scaled gap is
+     compared with the policy tolerance. The gate is asymmetric on purpose:
+     disagreement blocks certification, agreement is recorded as information.
+     Degenerate input fails closed and writes nothing to the ledger.
+     ---------------------------------------------------------------------- */
+
+  (function lensBattery() {
+    var host = $("lensInputs");
+    var svg = $("vizLens");
+    var tolSlider = $("lensTol");
+    if (!host || !svg || !tolSlider) { return; }
+
+    var families = [
+      { name: "four_law_ratio", estimate: 0.042, se: 0.011 },
+      { name: "gcm_linear", estimate: 0.038, se: 0.013 },
+      { name: "gcm_forest", estimate: 0.047, se: 0.012 }
+    ];
+
+    var headings = doc.createElement("div");
+    headings.className = "lens-row";
+    ["family", "estimate", "std. error"].forEach(function (text, position) {
+      var cell = doc.createElement("span");
+      cell.textContent = text;
+      if (position) { cell.className = "lens-head"; }
+      else { cell.className = "lens-head"; cell.style.textAlign = "left"; }
+      headings.appendChild(cell);
+    });
+    host.appendChild(headings);
+
+    var rows = families.map(function (family, index) {
+      var row = doc.createElement("div");
+      row.className = "lens-row";
+
+      var name = doc.createElement("span");
+      name.textContent = family.name;
+
+      var estimate = doc.createElement("input");
+      estimate.type = "number";
+      estimate.step = "0.001";
+      estimate.value = String(family.estimate);
+      estimate.id = "lensEst" + index;
+      estimate.setAttribute("aria-label", family.name + " estimate");
+
+      var error = doc.createElement("input");
+      error.type = "number";
+      error.step = "0.001";
+      error.min = "0";
+      error.value = String(family.se);
+      error.id = "lensSe" + index;
+      error.setAttribute("aria-label", family.name + " standard error");
+
+      row.appendChild(name);
+      row.appendChild(estimate);
+      row.appendChild(error);
+      host.appendChild(row);
+
+      estimate.addEventListener("input", render);
+      error.addEventListener("input", render);
+      return { name: family.name, estimate: estimate, error: error };
+    });
+
+    function finding(kind, code, message) {
+      var node = doc.createElement("div");
+      node.className = "finding " + kind;
+      var codeNode = doc.createElement("code");
+      codeNode.textContent = code;
+      var text = doc.createElement("p");
+      text.textContent = message;
+      node.appendChild(codeNode);
+      node.appendChild(text);
+      return node;
+    }
+
+    function draw(values, tolerance, worst) {
+      clear(svg);
+
+      var lo = Infinity;
+      var hi = -Infinity;
+      values.forEach(function (value) {
+        lo = Math.min(lo, value.estimate - 2.2 * Math.max(value.se, 0));
+        hi = Math.max(hi, value.estimate + 2.2 * Math.max(value.se, 0));
+      });
+      if (!isFinite(lo) || !isFinite(hi) || hi - lo < 1e-9) { lo -= 0.01; hi += 0.01; }
+
+      var box = makeBox(520, 260, { left: 118, right: 24, top: 34, bottom: 46 });
+      box.xScale = function (v) { return box.left + (v - lo) / (hi - lo) * box.width; };
+
+      var ticks = [lo, lo + (hi - lo) / 2, hi];
+      plotFrame(svg, box, {
+        xTicks: ticks,
+        xFormat: function (v) { return v.toFixed(3); }
+      });
+
+      values.forEach(function (value, index) {
+        var y = box.top + 18 + (box.height - 26) * (index + 0.5) / values.length;
+        var involved = worst && (worst[0] === value.name || worst[1] === value.name);
+        var cls = value.valid ? (involved && !worst.agrees ? "block" : "flat") : "block";
+
+        svg.appendChild(el("text", { x: box.left - 12, y: y + 4, class: "viz-label", "text-anchor": "end", "font-size": 11 }, value.name));
+
+        if (value.valid) {
+          svg.appendChild(el("line", {
+            x1: box.xScale(value.estimate - value.se), y1: y,
+            x2: box.xScale(value.estimate + value.se), y2: y,
+            class: "viz-interval " + cls
+          }));
+          [value.estimate - value.se, value.estimate + value.se].forEach(function (end) {
+            svg.appendChild(el("line", { x1: box.xScale(end), y1: y - 6, x2: box.xScale(end), y2: y + 6, class: "viz-interval " + cls }));
+          });
+        }
+        svg.appendChild(el("circle", { cx: box.xScale(value.estimate), cy: y, r: 5, class: "viz-bar " + cls }));
+      });
+
+      svg.appendChild(el("text", {
+        x: box.left + box.width / 2, y: box.top + box.height + 32, class: "viz-label", "text-anchor": "middle"
+      }, "projected curvature estimate"));
+      svg.appendChild(el("text", { x: 10, y: 20, class: "viz-title" },
+        "scaled gap tolerance " + tolerance.toFixed(1)));
+    }
+
+    function render() {
+      var tolerance = Number(tolSlider.value);
+      $("lensTolOut").value = tolerance.toFixed(1);
+
+      var values = rows.map(function (row) {
+        var estimate = Number(row.estimate.value);
+        var se = Number(row.error.value);
+        return {
+          name: row.name,
+          estimate: estimate,
+          se: se,
+          valid: isFinite(estimate) && isFinite(se) && se > 0
+        };
+      });
+
+      var invalid = values.filter(function (value) { return !value.valid; });
+      var box = $("lensFindings");
+      box.textContent = "";
+
+      if (invalid.length) {
+        /* InvalidLensBattery: the audit refuses to run and, deliberately,
+           writes no finding to the ledger at all. */
+        setVerdict($("lensStatus"), "block", "REJECTED");
+        $("lensGap").textContent = "--";
+        setClassState($("lensGap"), "block");
+        $("lensPair").textContent = invalid.map(function (value) { return value.name; }).join(", ");
+        box.appendChild(finding("error", "InvalidLensBattery",
+          "Every standard error must be finite and strictly positive. The battery is rejected before any comparison is attempted, and nothing is written to the evidence ledger."));
+        draw(values, tolerance, null);
+        return;
+      }
+
+      var maxGap = 0;
+      var worst = [values[0].name, values[1].name];
+      for (var i = 0; i < values.length; i += 1) {
+        for (var k = i + 1; k < values.length; k += 1) {
+          var gap = Math.abs(values[i].estimate - values[k].estimate) /
+            Math.hypot(values[i].se, values[k].se);
+          if (gap > maxGap) { maxGap = gap; worst = [values[i].name, values[k].name]; }
+        }
+      }
+
+      var agrees = maxGap <= tolerance;
+      worst.agrees = agrees;
+
+      $("lensGap").textContent = fmt(maxGap, 6);
+      setClassState($("lensGap"), agrees ? "flat" : "block");
+      $("lensPair").textContent = worst[0] + " vs " + worst[1];
+      setVerdict($("lensStatus"), agrees ? "flat" : "block", agrees ? "AGREES" : "DISAGREES");
+
+      if (agrees) {
+        box.appendChild(finding("ok", "estimator_family_agreement",
+          "Estimator families agree within the preregistered sensitivity tolerance. Agreement is diagnostic, not certifying, and on its own it establishes nothing."));
+      } else {
+        box.appendChild(finding("error", "estimator_family_disagreement",
+          "Estimator families disagree beyond tolerance. The projection is learner-dependent and cannot be certified."));
+      }
+
+      draw(values, tolerance, worst);
+    }
+
+    tolSlider.addEventListener("input", render);
+
+    function preset(triples) {
+      rows.forEach(function (row, index) {
+        row.estimate.value = String(triples[index][0]);
+        row.error.value = String(triples[index][1]);
+      });
+      render();
+    }
+
+    var agree = $("presetAgree");
+    var disagree = $("presetDisagree");
+    var degenerate = $("presetDegenerate");
+    if (agree) { agree.addEventListener("click", function () { preset([[0.042, 0.011], [0.038, 0.013], [0.047, 0.012]]); }); }
+    if (disagree) { disagree.addEventListener("click", function () { preset([[0.042, 0.011], [0.140, 0.013], [0.047, 0.012]]); }); }
+    if (degenerate) { degenerate.addEventListener("click", function () { preset([[0.042, 0.011], [0.038, 0], [0.047, 0.012]]); }); }
+
+    render();
+  }());
+
+  /* ----------------------------------------------------------------------
      Design auditor
 
      Mirrors the eligibility logic of the preflight stage: a residual-product
@@ -1038,6 +1500,7 @@
     var trackSelect = $("trackSelect");
     var selectionSelect = $("selectionSelect");
     var strictBox = $("strictMode");
+    var acceptBox = $("acceptSelection");
     var findingsBox = $("auditFindings");
     if (inputs.some(function (node) { return !node; }) || !trackSelect || !findingsBox) { return; }
 
@@ -1066,9 +1529,14 @@
       var logOdds = Math.log((rho[3] * rho[0]) / (rho[1] * rho[2]));
       var isProduct = Math.abs(logOdds) <= PRODUCT_TOLERANCE;
 
+      /* The selection gate has four branches, and a declared selection model is
+         not by itself sufficient: without the policy flag it is an error, and
+         with the flag it downgrades to a warning that still owes diagnostic
+         evidence. This mirrors selection_gate in mic-engine. */
       var selection = selectionSelect.value;
-      var selectionOk = selection === "state_independent_within_regime" || selection === "modeled";
-      var fourLawOk = selectionOk;
+      var acceptModel = acceptBox ? acceptBox.checked : false;
+      var fourLawOk = selection === "state_independent_within_regime" ||
+        (selection === "modeled" && acceptModel);
 
       var track = trackSelect.value;
       var wantsGcm = track === "product_factorial" || track === "both";
@@ -1090,15 +1558,22 @@
 
       if (selection === "unknown") {
         blocking += 1;
-        findings.push(finding("error", "selection_model_unvalidated",
-          "Within-regime selection is unknown, so neither track has a defensible estimand. Model the selection or restrict the analysis to a subpopulation where it is known."));
+        findings.push(finding("error", "state_dependent_selection",
+          "Within-regime state dependence of inclusion is unknown, so neither track has a defensible estimand."));
       } else if (selection === "state_dependent_unmodeled") {
         blocking += 1;
         findings.push(finding("error", "state_dependent_selection",
-          "State-dependent selection inside a regime invalidates both inference modes unless it is modeled. Curvature and selection are not separable here."));
+          "Inclusion depends on state within regime and is not modeled. Curvature and selection cannot be separated here."));
+      } else if (selection === "modeled" && !acceptModel) {
+        blocking += 1;
+        findings.push(finding("error", "selection_model_unvalidated",
+          "A selection model was declared but no validated selection evidence is attached. Attach the evidence, or pass --allow-unvalidated-selection-model to proceed on policy."));
+      } else if (selection === "modeled") {
+        findings.push(finding("warn", "selection_model_unvalidated",
+          "A modeled selection process is accepted by policy but still requires diagnostic evidence before any result leaves the run."));
       } else {
         findings.push(finding("ok", "selection_contract_accepted",
-          "Selection is " + selection + ". Known state-independent corner quotas are permitted by the four-law track."));
+          "Inclusion is state-independent within regime, so the four-law track tolerates arbitrary known corner quotas."));
       }
 
       if (isProduct) {
@@ -1152,6 +1627,7 @@
     trackSelect.addEventListener("change", render);
     if (selectionSelect) { selectionSelect.addEventListener("change", render); }
     if (strictBox) { strictBox.addEventListener("change", render); }
+    if (acceptBox) { acceptBox.addEventListener("change", render); }
 
     function preset(values) {
       inputs.forEach(function (node, index) { node.value = String(values[index]); });

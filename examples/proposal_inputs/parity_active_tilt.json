@@ -7,7 +7,6 @@
       "P",
       "T"
     ],
-    "candidate_library_fingerprint": "sha256:parity-library-v1",
     "planned_analysis": "four_law",
     "source": {
       "adapter_id": "parity-oracle",

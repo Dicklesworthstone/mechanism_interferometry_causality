@@ -7,6 +7,7 @@ import json
 import math
 import os
 import re
+import struct
 import subprocess
 import sys
 import tomllib
@@ -47,6 +48,54 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def active_tilt_candidate_fingerprint(candidates: list[object]) -> str:
+    """Mirror mic-proposal's exact, order-sensitive candidate-library framing."""
+    digest = hashlib.sha256()
+    digest.update(b"mic-active-tilt-candidates-v1\0")
+
+    def add_length(value: int) -> None:
+        digest.update(value.to_bytes(8, "big"))
+
+    def add_string(value: object) -> None:
+        encoded = str(value).encode("utf-8")
+        add_length(len(encoded))
+        digest.update(encoded)
+
+    add_length(len(candidates))
+    for item in candidates:
+        if not isinstance(item, dict):
+            continue
+        add_string(item.get("candidate_id", ""))
+        add_string(item.get("primitive_id", ""))
+        digest.update(bytes([bool(item.get("measurable_delivery"))]))
+        digest.update(bytes([bool(item.get("common_support"))]))
+        eligibility = item.get("design_eligibility", {})
+        status = eligibility.get("status") if isinstance(eligibility, dict) else None
+        if status == "not_required_for_four_law":
+            digest.update(b"\x00")
+        elif status == "product_odds_verified":
+            digest.update(b"\x01")
+            add_string(eligibility.get("audit_id", ""))
+        elif status == "reweighted_to_product":
+            digest.update(b"\x02")
+            add_string(eligibility.get("plan_id", ""))
+        else:
+            digest.update(b"\x03")
+        predictions = item.get("predicted_pairwise_separations", [])
+        add_length(len(predictions))
+        for prediction in predictions:
+            add_string(prediction.get("first", ""))
+            add_string(prediction.get("second", ""))
+            digest.update(struct.pack(">d", float(prediction.get("separation", math.nan))))
+        cost = item.get("cost")
+        if cost is None:
+            digest.update(b"\x00")
+        else:
+            digest.update(b"\x01")
+            digest.update(struct.pack(">d", float(cost)))
+    return f"sha256:{digest.hexdigest()}"
+
+
 def required_files() -> None:
     paths = [
         "README.md",
@@ -63,7 +112,9 @@ def required_files() -> None:
         "schemas/experiment_manifest.schema.json",
         "schemas/evidence_finding.schema.json",
         "schemas/audit_report.schema.json",
+        "schemas/active_tilt_input.schema.json",
         "schemas/proposal_batch.schema.json",
+        "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
         "crates/mic-proposal/Cargo.toml",
         "crates/mic-proposal/src/lib.rs",
@@ -96,7 +147,28 @@ def validate_schemas_and_manifests() -> None:
         schemas[path.name] = document
 
     manifest_schema = schemas.get("experiment_manifest.schema.json")
+    proposal_input_schema = schemas.get("active_tilt_input.schema.json")
     proposal_schema = schemas.get("proposal_batch.schema.json")
+    check(proposal_input_schema is not None, "active-tilt input schema was not loaded")
+    if proposal_input_schema is not None:
+        input_validator = Draft202012Validator(proposal_input_schema)
+        for path in sorted((ROOT / "examples" / "proposal_inputs").glob("*.json")):
+            proposal_input = load_json(path)
+            errors = sorted(input_validator.iter_errors(proposal_input), key=lambda error: list(error.path))
+            for error in errors:
+                location = ".".join(str(part) for part in error.path) or "<root>"
+                fail(f"{path.relative_to(ROOT)} proposal-input schema violation at {location}: {error.message}")
+            if not isinstance(proposal_input, dict):
+                continue
+            request = proposal_input.get("request", {})
+            candidates = proposal_input.get("candidates", [])
+            if not isinstance(request, dict) or not isinstance(candidates, list):
+                continue
+            feature_flags = request.get("source", {}).get("feature_flags", [])
+            check(feature_flags == sorted(set(feature_flags)), f"{path.name} input feature flags are not canonicalized")
+            candidate_ids = [candidate.get("candidate_id") for candidate in candidates if isinstance(candidate, dict)]
+            check(len(candidate_ids) == len(set(candidate_ids)), f"{path.name} input repeats a candidate identifier")
+
     check(proposal_schema is not None, "proposal batch schema was not loaded")
     if proposal_schema is not None:
         proposal_validator = Draft202012Validator(proposal_schema)
@@ -109,6 +181,8 @@ def validate_schemas_and_manifests() -> None:
             if not isinstance(proposal, dict):
                 continue
             check(proposal.get("authority") == "proposal_only", f"{path.name} grants proposal artifact certificate authority")
+            fingerprint = str(proposal.get("candidate_library_fingerprint", ""))
+            check(bool(re.fullmatch(r"sha256:[0-9a-f]{64}", fingerprint)), f"{path.name} has an invalid candidate-library fingerprint")
             hypotheses = proposal.get("surviving_hypotheses", [])
             check(hypotheses == sorted(hypotheses), f"{path.name} hypotheses are not canonicalized")
             expected_pairs = {
@@ -153,11 +227,36 @@ def validate_schemas_and_manifests() -> None:
                 selected = proposal.get("selected_candidate_id")
                 expected = rankings[0].get("candidate_id") if rankings and isinstance(rankings[0], dict) else None
                 check(selected == expected, f"{path.name} selected candidate does not match rank one")
+                expected_status = "recommended" if rankings else "abstained_no_eligible_candidate"
+                check(proposal.get("status") == expected_status, f"{path.name} proposal status does not match eligibility")
                 rejected = proposal.get("rejected", [])
                 rejected_ids = {item.get("candidate_id") for item in rejected if isinstance(item, dict)}
                 check(not rejected_ids.intersection(candidate_ids), f"{path.name} both ranks and rejects a candidate")
             semantics = str(proposal.get("score_semantics", "")).lower()
             check("not probability or confidence" in semantics, f"{path.name} does not quarantine proposal score semantics")
+            ranking_policy = str(proposal.get("ranking_policy", "")).lower()
+            check("candidate_id" in ranking_policy and "cost" in ranking_policy, f"{path.name} does not freeze deterministic tie-breaking")
+
+            input_path = ROOT / "examples" / "proposal_inputs" / path.name
+            if input_path.is_file():
+                proposal_input = load_json(input_path)
+                if isinstance(proposal_input, dict):
+                    request = proposal_input.get("request", {})
+                    candidates = proposal_input.get("candidates", [])
+                    if isinstance(request, dict) and isinstance(candidates, list):
+                        for field in ["schema_version", "proposal_id", "primitive_id", "planned_analysis", "source", "seed"]:
+                            check(proposal.get(field) == request.get(field), f"{path.name} output drifted from input field {field}")
+                        check(proposal.get("surviving_hypotheses") == sorted(request.get("surviving_hypotheses", [])), f"{path.name} output hypotheses drifted from input")
+                        input_ids = {item.get("candidate_id") for item in candidates if isinstance(item, dict)}
+                        output_ids = {
+                            item.get("candidate_id")
+                            for collection in [proposal.get("rankings", []), proposal.get("rejected", [])]
+                            for item in collection
+                            if isinstance(item, dict)
+                        }
+                        check(input_ids == output_ids, f"{path.name} does not account for every input candidate")
+                        expected_fingerprint = active_tilt_candidate_fingerprint(candidates)
+                        check(proposal.get("candidate_library_fingerprint") == expected_fingerprint, f"{path.name} candidate-library fingerprint drifted from input")
 
     check(manifest_schema is not None, "experiment manifest schema was not loaded")
     if manifest_schema is None:

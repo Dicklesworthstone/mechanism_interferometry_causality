@@ -26,7 +26,6 @@
         "proposal_id",
         "primitive_id",
         "surviving_hypotheses",
-        "candidate_library_fingerprint",
         "planned_analysis",
         "source",
         "seed"
@@ -41,7 +40,6 @@
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/nonempty" }
         },
-        "candidate_library_fingerprint": { "$ref": "#/$defs/nonempty" },
         "planned_analysis": {
           "enum": ["four_law", "product_factorial"]
         },
