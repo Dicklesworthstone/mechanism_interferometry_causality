@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T20:55:22Z",
+  "generated_at_utc": "2026-08-12T20:56:28Z",
   "hash_algorithm": "sha256",
-  "file_count": 127,
-  "aggregate_sha256": "e56dad92f2d9aa033915279fd2ea0d4eea78c8e5f004540012caa08563f866dd",
+  "file_count": 128,
+  "aggregate_sha256": "ba869a99d3a5ba920e7b38debeaaead7b977ad93d61bde843a756d2c8a880089",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -43,13 +43,13 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 58541,
-      "sha256": "64497a95464a8fa11c47d45037b9bf3f7ffd095d841236a184e06fd01fdcd982"
+      "bytes": 59045,
+      "sha256": "6b8505e16013fdc00c06d59e4592cb922852940ada18f57c01f2e73b4800457b"
     },
     {
       "path": "Cargo.toml",
-      "bytes": 2449,
-      "sha256": "8a2ddb14d53ef9fbff700adc336e5b334e0d25e0f70166613f2416db8cdb7aa1"
+      "bytes": 2470,
+      "sha256": "95b1c9d3fa29395ee9709d2a62dea16367eedec5bc17744b8c3f73b4d7221376"
     },
     {
       "path": "LICENSE",
@@ -222,14 +222,19 @@
       "sha256": "af98e2dd6efc6da8c3dca2b544343c66bf6166da4687632c6c47c1ccaf7053d2"
     },
     {
+      "path": "crates/mic-wasm/src/lib.rs",
+      "bytes": 12664,
+      "sha256": "7545589909410d246d27a2ec30fec6238dd1de946ebefa9120fec4ec0a2b2078"
+    },
+    {
       "path": "docs/AUTONOMOUS_MODE.md",
       "bytes": 11306,
       "sha256": "6d3a3f7b77e41260cb4b68ac6b27526fcf281bff8ffd6e5e64acc1184a8b001f"
     },
     {
       "path": "docs/DATASET_ELIGIBILITY.md",
-      "bytes": 7240,
-      "sha256": "fe4d1a24c3011455b63406fc27ee42d47b0ffdc4f8cdb055e2f7454ba4d4f3a1"
+      "bytes": 7266,
+      "sha256": "90a4f5d2f0d5d7446bb4ce298de1ad8c9f04c98bf91c2aa399ded56133f8222b"
     },
     {
       "path": "docs/EXPERIMENTAL_PROTOCOL.md",
