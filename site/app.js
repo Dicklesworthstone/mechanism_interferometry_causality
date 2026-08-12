@@ -1038,6 +1038,401 @@
   }());
 
   /* ----------------------------------------------------------------------
+     The audit module
+
+     The figures below used to reimplement four audits in JavaScript so they
+     could be interactive, which meant four things that could drift from the
+     Rust. One of them did. Everything that has a Rust implementation now calls
+     it, and the JavaScript that remains is drawing.
+
+     The module is loaded on demand rather than at startup: it is 122 KB gzip
+     and the page is readable without it, so paying for it before the reader
+     asks would be a tax on the prose. Every caller goes through ensureModule(),
+     which is idempotent and reports its state to the page.
+     ---------------------------------------------------------------------- */
+
+  /* The four manifests from examples/configs, inlined because connect-src
+     forbids fetching them and a drifting copy would be worse than none.
+     They are the same files mic preflight reads. */
+  var MANIFEST_PRESETS = [
+    {
+      "id": "running_example",
+      "label": "Running example",
+      "manifest": {
+        "schema_version": "1.0.0",
+        "experiment_id": "multiplicative-running-example",
+        "strict": true,
+        "inference_track": "both",
+        "selection": "state_independent_within_regime",
+        "cluster_column": "cluster_id",
+        "regime_column": "regime",
+        "state_columns": [
+          "x1",
+          "x2",
+          "y"
+        ],
+        "candidate_state_blocks": [],
+        "regimes": [
+          {
+            "id": "control",
+            "design": {
+              "bits": [
+                false,
+                false
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": []
+          },
+          {
+            "id": "tilt-x1",
+            "design": {
+              "bits": [
+                true,
+                false
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": [
+              "tilt_x1"
+            ]
+          },
+          {
+            "id": "tilt-x2",
+            "design": {
+              "bits": [
+                false,
+                true
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": [
+              "tilt_x2"
+            ]
+          },
+          {
+            "id": "tilt-x1-x2",
+            "design": {
+              "bits": [
+                true,
+                true
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": [
+              "tilt_x1",
+              "tilt_x2"
+            ]
+          }
+        ],
+        "data": {
+          "format": "csv",
+          "path": "examples/data/running_example.csv"
+        },
+        "seed": 20260812
+      }
+    },
+    {
+      "id": "feature_flag_pilot",
+      "label": "Feature-flag pilot",
+      "manifest": {
+        "schema_version": "1.0.0",
+        "experiment_id": "feature-flag-pilot-a-b",
+        "strict": true,
+        "inference_track": "both",
+        "selection": "state_independent_within_regime",
+        "cluster_column": "deployment_id",
+        "regime_column": "regime",
+        "state_columns": [
+          "demand",
+          "module_a_output",
+          "module_b_output",
+          "queue_depth",
+          "p95_latency_ms"
+        ],
+        "candidate_state_blocks": [
+          [
+            "shared_resource_pressure"
+          ]
+        ],
+        "regimes": [
+          {
+            "id": "control",
+            "design": {
+              "bits": [
+                false,
+                false
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": []
+          },
+          {
+            "id": "flag-a",
+            "design": {
+              "bits": [
+                true,
+                false
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": [
+              "flag_a"
+            ]
+          },
+          {
+            "id": "flag-b",
+            "design": {
+              "bits": [
+                false,
+                true
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": [
+              "flag_b"
+            ]
+          },
+          {
+            "id": "flag-a-b",
+            "design": {
+              "bits": [
+                true,
+                true
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": [
+              "flag_a",
+              "flag_b"
+            ]
+          }
+        ],
+        "data": {
+          "format": "csv",
+          "path": "examples/data/feature_flag_pilot.csv"
+        },
+        "seed": 19051988
+      }
+    },
+    {
+      "id": "nonproduct_sampling_demo",
+      "label": "Non-product quotas",
+      "manifest": {
+        "schema_version": "1.0.0",
+        "experiment_id": "nonproduct-corner-quota-demo",
+        "strict": true,
+        "inference_track": "both",
+        "selection": "state_independent_within_regime",
+        "cluster_column": "cluster_id",
+        "regime_column": "regime",
+        "state_columns": [
+          "x1",
+          "x2",
+          "y"
+        ],
+        "candidate_state_blocks": [],
+        "regimes": [
+          {
+            "id": "control",
+            "design": {
+              "bits": [
+                false,
+                false
+              ]
+            },
+            "sampling_proportion": 0.1,
+            "perturbations": []
+          },
+          {
+            "id": "tilt-x1",
+            "design": {
+              "bits": [
+                true,
+                false
+              ]
+            },
+            "sampling_proportion": 0.2,
+            "perturbations": [
+              "tilt_x1"
+            ]
+          },
+          {
+            "id": "tilt-x2",
+            "design": {
+              "bits": [
+                false,
+                true
+              ]
+            },
+            "sampling_proportion": 0.3,
+            "perturbations": [
+              "tilt_x2"
+            ]
+          },
+          {
+            "id": "tilt-x1-x2",
+            "design": {
+              "bits": [
+                true,
+                true
+              ]
+            },
+            "sampling_proportion": 0.4,
+            "perturbations": [
+              "tilt_x1",
+              "tilt_x2"
+            ]
+          }
+        ],
+        "data": {
+          "format": "csv",
+          "path": "examples/data/running_example.csv"
+        },
+        "seed": 20260812
+      }
+    },
+    {
+      "id": "perturbseq_pair",
+      "label": "Perturb-seq pair",
+      "manifest": {
+        "schema_version": "1.0.0",
+        "experiment_id": "perturbseq-gene-a-gene-b",
+        "strict": true,
+        "inference_track": "both",
+        "selection": "state_independent_within_regime",
+        "cluster_column": "replicate_id",
+        "regime_column": "regime",
+        "state_columns": [
+          "expr_g1",
+          "expr_g2",
+          "expr_g3",
+          "expr_g4"
+        ],
+        "candidate_state_blocks": [
+          [
+            "guide_efficiency"
+          ],
+          [
+            "latent_cell_state_proxy"
+          ],
+          [
+            "guide_efficiency",
+            "latent_cell_state_proxy"
+          ]
+        ],
+        "regimes": [
+          {
+            "id": "control",
+            "design": {
+              "bits": [
+                false,
+                false
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": []
+          },
+          {
+            "id": "gene-a",
+            "design": {
+              "bits": [
+                true,
+                false
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": [
+              "gene_a"
+            ]
+          },
+          {
+            "id": "gene-b",
+            "design": {
+              "bits": [
+                false,
+                true
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": [
+              "gene_b"
+            ]
+          },
+          {
+            "id": "gene-a-b",
+            "design": {
+              "bits": [
+                true,
+                true
+              ]
+            },
+            "sampling_proportion": 0.25,
+            "perturbations": [
+              "gene_a",
+              "gene_b"
+            ]
+          }
+        ],
+        "data": {
+          "format": "csv",
+          "path": "examples/data/perturbseq_pair.csv"
+        },
+        "seed": 31415926
+      }
+    }
+  ];
+
+  var audit = (function () {
+    var modulePromise = null;
+    var loaded = null;
+    var listeners = [];
+
+    function announce(state, detail) {
+      listeners.forEach(function (fn) { fn(state, detail); });
+    }
+
+    function ensureModule() {
+      if (modulePromise) { return modulePromise; }
+      announce("loading", null);
+      modulePromise = import("./pkg/mic.js")
+        .then(function (mod) {
+          return mod.default().then(function () {
+            loaded = mod;
+            announce("ready", mod.version());
+            return mod;
+          });
+        })
+        .catch(function (error) {
+          /* A module that will not load must degrade to the drawn-only page
+             rather than taking the section down with it. */
+          announce("failed", String(error && error.message ? error.message : error));
+          modulePromise = null;
+          throw error;
+        });
+      return modulePromise;
+    }
+
+    /* wasm-bindgen rejects with the boundary's JSON error string, which names
+       the stage that refused. Turn it back into an object for display. */
+    function describeError(error) {
+      var text = String(error && error.message ? error.message : error);
+      try {
+        var parsed = JSON.parse(text);
+        if (parsed && parsed.stage) { return parsed; }
+      } catch (ignored) { /* not a boundary error */ }
+      return { stage: "module", message: text };
+    }
+
+    return {
+      ensure: ensureModule,
+      module: function () { return loaded; },
+      onState: function (fn) { listeners.push(fn); },
+      describeError: describeError
+    };
+  }());
+
+  /* ----------------------------------------------------------------------
      Linear algebra used by the partial-design widget.
 
      Gauss-Jordan with partial pivoting. Only the rank is needed, and the
@@ -1764,6 +2159,133 @@
     if (nonProduct) { nonProduct.addEventListener("click", function () { preset([0.10, 0.20, 0.30, 0.40]); }); }
 
     render();
+  }());
+
+
+  /* ----------------------------------------------------------------------
+     Live preflight
+
+     The reader supplies a manifest and the real engine answers. Nothing here
+     decides anything: it marshals JSON in, renders the report and the ledger
+     back out, and reports refusals exactly as the engine phrased them.
+     ---------------------------------------------------------------------- */
+
+  (function livePreflight() {
+    var select = $("runPreset");
+    var editor = $("runManifest");
+    var runButton = $("runPreflight");
+    var statusChip = $("runStatus");
+    var output = $("runOutput");
+    var findingsBox = $("runFindings");
+    var engineChip = $("engineState");
+    if (!select || !editor || !runButton || !output) { return; }
+
+    MANIFEST_PRESETS.forEach(function (preset, index) {
+      var option = doc.createElement("option");
+      option.value = String(index);
+      option.textContent = preset.label;
+      select.appendChild(option);
+    });
+
+    function loadPreset() {
+      var preset = MANIFEST_PRESETS[Number(select.value) || 0];
+      editor.value = JSON.stringify(preset.manifest, null, 2);
+    }
+
+    audit.onState(function (state, detail) {
+      if (!engineChip) { return; }
+      if (state === "loading") { setVerdict(engineChip, "muted", "loading module"); }
+      else if (state === "ready") { setVerdict(engineChip, "flat", "mic-wasm " + detail); }
+      else { setVerdict(engineChip, "block", "module unavailable"); }
+    });
+
+    function row(label, value, kind) {
+      var line = doc.createElement("div");
+      line.className = "readout";
+      var name = doc.createElement("span");
+      name.textContent = label;
+      var strong = doc.createElement("strong");
+      strong.textContent = value;
+      if (kind) { strong.className = "is-" + kind; }
+      line.appendChild(name);
+      line.appendChild(strong);
+      return line;
+    }
+
+    function finding(severity, code, message) {
+      var kind = severity === "error" ? "error" : (severity === "warning" ? "warn" : "ok");
+      var node = doc.createElement("div");
+      node.className = "finding " + kind;
+      var codeNode = doc.createElement("code");
+      codeNode.textContent = code;
+      var text = doc.createElement("p");
+      text.textContent = message;
+      node.appendChild(codeNode);
+      node.appendChild(text);
+      return node;
+    }
+
+    function render(report) {
+      output.textContent = "";
+      findingsBox.textContent = "";
+
+      var statusKind = report.status === "ready" ? "flat"
+        : (report.status === "blocked" ? "block" : "curve");
+      setVerdict(statusChip, statusKind, String(report.status).toUpperCase());
+
+      output.appendChild(row("Experiment", report.experiment_id));
+      output.appendChild(row("Requested track", String(report.requested_track)));
+      output.appendChild(row("Observed corners", String(report.design.corner_count)));
+      output.appendChild(row("Main-effects rank", String(report.design.main_effects_rank)));
+      output.appendChild(row("Lack-of-fit dimension", String(report.design.lack_of_fit_dimension),
+        report.design.lack_of_fit_dimension > 0 ? "flat" : "curve"));
+      output.appendChild(row("Complete square faces", String(report.design.square_faces.length)));
+      output.appendChild(row("Four-law eligible", report.four_law_eligible ? "yes" : "no",
+        report.four_law_eligible ? "flat" : "block"));
+      output.appendChild(row("Product-factorial eligible", report.product_factorial_eligible ? "yes" : "no",
+        report.product_factorial_eligible ? "flat" : "block"));
+
+      (report.face_sampling || []).forEach(function (face) {
+        output.appendChild(row(
+          "Face " + face.base + " pooled log-odds",
+          signed(face.sampling.log_odds_ratio, 6),
+          face.sampling.is_product ? "flat" : "curve"
+        ));
+      });
+
+      var findings = (report.ledger && report.ledger.findings) || [];
+      if (!findings.length) {
+        findingsBox.appendChild(finding("info", "no_findings",
+          "The engine raised nothing on this manifest."));
+      }
+      findings.forEach(function (item) {
+        findingsBox.appendChild(finding(item.severity, item.code, item.message));
+      });
+    }
+
+    function showError(error) {
+      var described = audit.describeError(error);
+      output.textContent = "";
+      findingsBox.textContent = "";
+      setVerdict(statusChip, "block", "REFUSED");
+      findingsBox.appendChild(finding("error", described.stage, described.message));
+    }
+
+    function run() {
+      runButton.disabled = true;
+      setVerdict(statusChip, "muted", "running");
+      audit.ensure()
+        .then(function (mod) {
+          var report = JSON.parse(mod.preflight(editor.value, ""));
+          render(report);
+        })
+        .catch(showError)
+        .then(function () { runButton.disabled = false; });
+    }
+
+    select.addEventListener("change", loadPreset);
+    runButton.addEventListener("click", run);
+    loadPreset();
   }());
 
 }());

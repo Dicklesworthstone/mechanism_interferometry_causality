@@ -35,6 +35,7 @@
     <a href="#inference">Inference</a>
     <a href="#eligible">Use it</a>
     <a href="#evidence">Evidence</a>
+    <a href="#run">Run it</a>
     <a href="#software">Software</a>
   </nav>
 
@@ -1517,6 +1518,79 @@
         <li>Negative controls show implementation curvature above threshold.</li>
         <li>A data-adaptive proposal reuses its discovery observations as confirmatory evidence.</li>
       </ol>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Live preflight, running the real engine
+       ================================================================== -->
+  <section id="run" class="band">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">The audit system, in this tab</p>
+        <h2>Hand it a manifest. <em class="accent">Watch it refuse.</em></h2>
+        <p class="lede">
+          Everything in this section is the actual Rust, compiled to WebAssembly and running in
+          your browser. Not a JavaScript imitation of it, and not a recording of a run made
+          somewhere else. Edit the manifest, press the button, and the same
+          <code>run_preflight</code> the command line calls decides what it will and will not
+          certify. Nothing is uploaded, and the module cannot reach the network.
+        </p>
+      </div>
+
+      <div class="bench bench--wide-controls reveal">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Experiment manifest</h3>
+            <span class="verdict muted" id="engineState">module not loaded</span>
+          </div>
+          <div class="panel-body">
+            <div class="field">
+              <span>Start from</span>
+              <select class="field-input" id="runPreset"></select>
+            </div>
+            <label class="field">
+              <span>Manifest JSON</span>
+              <textarea id="runManifest" class="code-editor" spellcheck="false" rows="18"
+                aria-label="Experiment manifest JSON"></textarea>
+            </label>
+            <p class="chips">
+              <button class="btn primary" id="runPreflight" type="button">Run preflight</button>
+            </p>
+            <p class="micro mt">
+              Break the JSON, delete a corner, set <code>selection</code> to <code>unknown</code>,
+              or request <code>product_factorial</code> against the non-product quotas. Every
+              refusal you can provoke here is the engine's own, phrased in its own words.
+            </p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Preflight report</h3>
+            <span class="verdict muted" id="runStatus">not run</span>
+          </div>
+          <div class="panel-body">
+            <div class="readouts readouts--flush" id="runOutput" aria-live="polite"></div>
+            <div class="findings" id="runFindings" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout info reveal mt">
+        <span class="callout-mark" aria-hidden="true">&#9670;</span>
+        <div>
+          <p>
+            <b>Why this is more than a demonstration.</b> Several figures on this page used to
+            reimplement the audits in JavaScript so that they could be interactive: the design
+            audit, the aliasing split, the preflight gates, the lens battery. Four parallel
+            implementations are four things that can drift from the Rust, and one of them did,
+            reporting <code>READY</code> for an hour after the engine had begun reporting
+            <code>diagnostic_only</code> for the same input. Running the real module deletes that
+            whole class of error.
+          </p>
+        </div>
+      </div>
     </div>
   </section>
 
