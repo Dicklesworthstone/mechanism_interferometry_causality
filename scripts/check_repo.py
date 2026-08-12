@@ -16,6 +16,12 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 from lxml import html
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+# The checker and the generator must agree exactly on which paths belong in the manifest.
+# Importing the one implementation makes disagreement impossible; two hand-synced copies
+# drifted three separate times and each drift failed every clone but the author's.
+from generate_repository_manifest import manifest_paths  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 ERRORS: list[str] = []
 CHECKS = 0
@@ -330,31 +336,6 @@ def validate_schemas_and_manifests() -> None:
 
 
 
-# Must match scripts/generate_repository_manifest.py exactly. If the two lists diverge,
-# the generator and the checker disagree about what belongs in the manifest and the
-# path-set check fails on a tree that is actually correct.
-IGNORED_DIRECTORIES = {
-    ".git", "_renders", "target", "__pycache__", ".venv", "venv", "dist",
-    ".wrangler", ".beads", ".ee", ".ntm", ".bv", ".claude",
-}
-
-
-def manifest_included(path: Path) -> bool:
-    relative = path.relative_to(ROOT)
-    ignored_directories = IGNORED_DIRECTORIES
-    ignored_suffixes = {
-        ".aux", ".bbl", ".bcf", ".blg", ".fdb_latexmk", ".fls",
-        ".log", ".out", ".pyc", ".run.xml", ".toc",
-    }
-    if any(part in ignored_directories for part in relative.parts):
-        return False
-    if path.name == "REPOSITORY_MANIFEST.json":
-        return False
-    if path.name.endswith(tuple(ignored_suffixes)):
-        return False
-    return path.is_file()
-
-
 def validate_repository_manifest() -> None:
     path = ROOT / "REPOSITORY_MANIFEST.json"
     if not path.is_file():
@@ -384,7 +365,7 @@ def validate_repository_manifest() -> None:
         if target.is_file():
             check(item.get("bytes") == target.stat().st_size, f"repository manifest byte count drift: {relative}")
             check(item.get("sha256") == sha256(target), f"repository manifest hash drift: {relative}")
-    actual = {path.relative_to(ROOT).as_posix() for path in ROOT.rglob("*") if manifest_included(path)}
+    actual = {path.relative_to(ROOT).as_posix() for path in manifest_paths()}
     declared = set(entries)
     check(actual == declared, f"repository manifest path set drift: missing={sorted(actual - declared)}, extra={sorted(declared - actual)}")
     check(document.get("file_count") == len(files), "repository manifest file_count drift")

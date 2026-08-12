@@ -5,14 +5,14 @@ import argparse
 import hashlib
 import json
 import os
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "REPOSITORY_MANIFEST.json"
-# Must stay a superset of the ephemeral directories in .gitignore. A directory that is
-# gitignored but not listed here gets hashed into the manifest and then goes missing in a
-# clean checkout, which fails the manifest path-set check for everyone but the author.
+# Only consulted by the no-git fallback below. Git is the authority when it is available,
+# so this list does not need to track .gitignore and must not be relied on to.
 IGNORED_DIRECTORIES = {
     ".git", "_renders", "target", "__pycache__", ".venv", "venv", "dist",
     ".wrangler", ".beads", ".ee", ".ntm", ".bv", ".claude",
@@ -61,11 +61,46 @@ def included(path: Path) -> bool:
     return path.is_file()
 
 
+def git_index_paths() -> list[Path] | None:
+    """Every path in the git index, or None when this is not a usable git checkout.
+
+    `--cached` covers tracked files plus anything already staged, which is exactly the
+    set a fresh clone of the next commit will contain.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "-z", "--cached"],
+            capture_output=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    names = result.stdout.decode("utf-8").split("\0")
+    return [ROOT / name for name in names if name]
+
+
+def manifest_paths() -> list[Path]:
+    """The manifest's authoritative path set, shared by the generator and the checker.
+
+    Sourced from the git index, so an untracked or gitignored file cannot enter the
+    inventory no matter what is lying around the working tree. That failure mode is not
+    hypothetical: `.wrangler` caches, a stray hypothesis document, and a directory of
+    pilot scripts each got hashed in as required content this way, and each broke every
+    clone but the author's. Enumerating from git removes the class rather than adding
+    another name to an ignore list.
+
+    Falls back to a filesystem walk filtered by `IGNORED_DIRECTORIES` when git is absent,
+    so an extracted source tarball still verifies.
+    """
+    candidates = git_index_paths()
+    if candidates is None:
+        candidates = sorted(ROOT.rglob("*"))
+    return sorted({path for path in candidates if included(path)})
+
+
 def build_manifest() -> dict[str, object]:
     files = []
-    for path in sorted(ROOT.rglob("*")):
-        if not included(path):
-            continue
+    for path in manifest_paths():
         relative = path.relative_to(ROOT).as_posix()
         files.append({"path": relative, "bytes": path.stat().st_size, "sha256": sha256(path)})
     aggregate = hashlib.sha256()
