@@ -8,9 +8,11 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 mod table;
+#[cfg(feature = "franken")]
+pub(crate) use table::parse_csv_header_line;
 pub use table::{
     ClusterFold, IngestReport, Observation, RawTable, RegimeCount, TableError, TableFingerprint,
-    fold_for_cluster, load_csv_table, load_raw_csv, resolve_data_path,
+    build_ingest_report, fold_for_cluster, load_csv_table, load_raw_csv, resolve_data_path,
 };
 
 /// Requested inferential track.
@@ -310,18 +312,9 @@ pub enum ManifestError {
     MissingDataPath,
 }
 
-/// FrankenPandas integration marker and future typed reader boundary.
+/// FrankenPandas tabular adapter, behind the `franken` feature.
 #[cfg(feature = "franken")]
-pub mod franken {
-    /// The reviewed sibling revision for audit provenance.
-    pub const REVISION: &str = "a9f8d86c9e52923b9b2082d00a65841862d5ca9a";
-
-    /// Returns the selected tabular backend name.
-    #[must_use]
-    pub const fn backend_name() -> &'static str {
-        "FrankenPandas"
-    }
-}
+pub mod franken;
 
 #[cfg(test)]
 mod tests {

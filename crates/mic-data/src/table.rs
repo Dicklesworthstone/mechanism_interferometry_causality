@@ -168,7 +168,45 @@ pub fn load_csv_table(
     let header_line = lines.next().ok_or(TableError::EmptyTable)?;
     let headers =
         parse_csv_line(header_line).map_err(|message| TableError::Parse { row: 0, message })?;
-    let header_index = column_index(&headers)?;
+    let mut records = Vec::new();
+    for (offset, line) in lines.enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let row_index = offset + 1;
+        records.push(parse_csv_line(line).map_err(|message| TableError::Parse {
+            row: row_index,
+            message,
+        })?);
+    }
+    build_ingest_report(manifest, &path, content_sha256, &headers, &records, n_folds)
+}
+
+/// Builds an [`IngestReport`] from already-tokenized cells.
+///
+/// Every semantic decision lives here: column requirements, regime mapping, row
+/// identity, state parsing, and the cluster-level aggregation that produces
+/// `clusters_spanning_regimes`. A tabular backend supplies header and cell strings
+/// and nothing else.
+///
+/// That division is deliberate and load-bearing. The refusal chain for a
+/// regime-spanning cluster — the `cluster_spans_regimes` finding, the skipped
+/// projection, the abstained certificate — is conditioned entirely on the
+/// `clusters_spanning_regimes` field, and nothing downstream re-derives it. A backend
+/// that computed that field for itself could silently return an empty vector (a
+/// group-by keyed on cluster id with last-write-wins on regime does exactly that), and
+/// the whole chain would evaporate with no error anywhere, leaving cells treated as
+/// independent in violation of the randomization-unit rule. Sharing this function makes
+/// that divergence structurally impossible rather than merely tested for.
+pub fn build_ingest_report(
+    manifest: &ExperimentManifest,
+    path: &Path,
+    content_sha256: String,
+    headers: &[String],
+    records: &[Vec<String>],
+    n_folds: usize,
+) -> Result<IngestReport, TableError> {
+    let header_index = column_index(headers)?;
     let required = required_columns(manifest);
     for column in &required {
         if !header_index.contains_key(column.as_str()) {
@@ -178,15 +216,8 @@ pub fn load_csv_table(
     let regime_lookup = regime_lookup(manifest);
     let mut rows = Vec::new();
     let mut row_ids = BTreeSet::new();
-    for (offset, line) in lines.enumerate() {
-        if line.trim().is_empty() {
-            continue;
-        }
+    for (offset, fields) in records.iter().enumerate() {
         let row_index = offset + 1;
-        let fields = parse_csv_line(line).map_err(|message| TableError::Parse {
-            row: row_index,
-            message,
-        })?;
         if fields.len() != headers.len() {
             return Err(TableError::Parse {
                 row: row_index,
@@ -195,12 +226,12 @@ pub fn load_csv_table(
         }
         let observation = parse_observation(
             manifest,
-            &headers,
+            headers,
             &header_index,
             &regime_lookup,
-            &path,
+            path,
             row_index,
-            &fields,
+            fields,
         )?;
         if !row_ids.insert(observation.row_id.clone()) {
             return Err(TableError::Parse {
@@ -213,7 +244,7 @@ pub fn load_csv_table(
     if rows.is_empty() {
         return Err(TableError::EmptyTable);
     }
-    Ok(summarize(manifest, &path, content_sha256, rows, n_folds))
+    Ok(summarize(manifest, path, content_sha256, rows, n_folds))
 }
 
 /// Untyped CSV used by unsupervised column triage.
@@ -568,6 +599,15 @@ fn parse_flag(raw: &str, row: usize) -> Result<bool, TableError> {
             message: format!("included must be boolean, got {other:?}"),
         }),
     }
+}
+
+/// Tokenizes one CSV line with the standard reader's own rules.
+///
+/// Exposed for the FrankenPandas adapter, which needs header names before it can build a
+/// per-column dtype override. Both readers must agree on what the header names are before
+/// they can be compared on anything else.
+pub(crate) fn parse_csv_header_line(line: &str) -> Result<Vec<String>, String> {
+    parse_csv_line(line)
 }
 
 fn parse_csv_line(line: &str) -> Result<Vec<String>, String> {
