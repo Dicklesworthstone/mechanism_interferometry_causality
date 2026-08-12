@@ -632,42 +632,17 @@ pub fn simultaneous_mean_bounds(
         .collect();
     let standard_errors: Vec<f64> = (0..width)
         .map(|column| {
-            let squares: Vec<f64> = centered.iter().map(|row| row[column] * row[column]).collect();
+            let squares: Vec<f64> = centered
+                .iter()
+                .map(|row| row[column] * row[column])
+                .collect();
             (compensated_sum(&squares) / (count - 1.0) / count).sqrt()
         })
         .collect();
-    let mut generator = SplitMix64::new(seed);
-    let mut max_statistics = Vec::with_capacity(replicates);
-    for _ in 0..replicates {
-        let multipliers: Vec<f64> = (0..clusters)
-            .map(|_| {
-                if generator.next_u64() & 1 == 1 {
-                    1.0
-                } else {
-                    -1.0
-                }
-            })
-            .collect();
-        let mut replicate_max = 0.0_f64;
-        for column in 0..width {
-            if standard_errors[column] <= 0.0 {
-                continue;
-            }
-            let terms: Vec<f64> = centered
-                .iter()
-                .zip(&multipliers)
-                .map(|(row, &multiplier)| multiplier * row[column])
-                .collect();
-            let perturbed = compensated_sum(&terms) / count;
-            replicate_max = replicate_max.max(perturbed.abs() / standard_errors[column]);
-        }
-        max_statistics.push(replicate_max);
-    }
+    let mut max_statistics =
+        multiplier_max_statistics(&centered, &standard_errors, replicates, seed);
     max_statistics.sort_by(f64::total_cmp);
-    let rank = ((confidence * replicates as f64).ceil() as usize)
-        .clamp(1, replicates)
-        .saturating_sub(1);
-    let critical_value = max_statistics[rank];
+    let critical_value = max_statistics[quantile_rank(confidence, replicates)];
     let lower: Vec<f64> = means
         .iter()
         .zip(&standard_errors)
@@ -688,6 +663,53 @@ pub fn simultaneous_mean_bounds(
         confidence,
         seed,
     })
+}
+
+/// One max-over-coordinates Rademacher multiplier statistic per replicate.
+fn multiplier_max_statistics(
+    centered: &[Vec<f64>],
+    standard_errors: &[f64],
+    replicates: usize,
+    seed: u64,
+) -> Vec<f64> {
+    let clusters = centered.len();
+    let count = clusters as f64;
+    let mut generator = SplitMix64::new(seed);
+    let mut max_statistics = Vec::with_capacity(replicates);
+    for _ in 0..replicates {
+        let multipliers: Vec<f64> = (0..clusters)
+            .map(|_| {
+                if generator.next_u64() & 1 == 1 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            })
+            .collect();
+        let mut replicate_max = 0.0_f64;
+        for (column, &standard_error) in standard_errors.iter().enumerate() {
+            if standard_error <= 0.0 {
+                continue;
+            }
+            let terms: Vec<f64> = centered
+                .iter()
+                .zip(&multipliers)
+                .map(|(row, &multiplier)| multiplier * row[column])
+                .collect();
+            let perturbed = compensated_sum(&terms) / count;
+            replicate_max = replicate_max.max(perturbed.abs() / standard_error);
+        }
+        max_statistics.push(replicate_max);
+    }
+    max_statistics
+}
+
+/// Zero-based index of the empirical `confidence` quantile among `replicates` sorted values.
+fn quantile_rank(confidence: f64, replicates: usize) -> usize {
+    // The ceiling is bounded above by `replicates`, so the cast cannot truncate.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let rank = (confidence * replicates as f64).ceil() as usize;
+    rank.clamp(1, replicates) - 1
 }
 
 fn validate_matrix_pair(left: &[Vec<f64>], right: &[Vec<f64>]) -> Result<(), StatsError> {
@@ -852,9 +874,7 @@ mod tests {
                 .unwrap();
         assert_eq!(
             unique,
-            OrientationOutcome::UniqueTarget {
-                target: "t".into()
-            }
+            OrientationOutcome::UniqueTarget { target: "t".into() }
         );
 
         let parity = orient_from_deletions(&[invariant("P"), invariant("T")], 1.0, 0.1).unwrap();
@@ -871,8 +891,7 @@ mod tests {
         let weak = orient_from_deletions(&[invariant("t"), changed("p")], 0.05, 0.1).unwrap();
         assert_eq!(weak, OrientationOutcome::Underpowered);
 
-        let blocked =
-            orient_from_deletions(&[invariant("t"), unresolved("p")], 1.0, 0.1).unwrap();
+        let blocked = orient_from_deletions(&[invariant("t"), unresolved("p")], 1.0, 0.1).unwrap();
         assert_eq!(
             blocked,
             OrientationOutcome::Undetermined {
@@ -889,8 +908,8 @@ mod tests {
                 vec![0.1 + 0.01 * x, 0.5 - 0.02 * x]
             })
             .collect();
-        let first = simultaneous_mean_bounds(&contributions, 500, 0.95, 20260812).unwrap();
-        let second = simultaneous_mean_bounds(&contributions, 500, 0.95, 20260812).unwrap();
+        let first = simultaneous_mean_bounds(&contributions, 500, 0.95, 20_260_812).unwrap();
+        let second = simultaneous_mean_bounds(&contributions, 500, 0.95, 20_260_812).unwrap();
         assert_eq!(first, second);
         for column in 0..2 {
             assert!(first.lower[column] <= first.means[column]);

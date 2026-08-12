@@ -138,11 +138,8 @@ pub fn audit_orientation(
     stage: &str,
     ledger: &mut EvidenceLedger,
 ) -> Result<OrientationAudit, EngineError> {
-    let outcome = mic_stats::orient_from_deletions(
-        deletions,
-        full_discrepancy,
-        min_full_discrepancy,
-    )?;
+    let outcome =
+        mic_stats::orient_from_deletions(deletions, full_discrepancy, min_full_discrepancy)?;
     let mut context = BTreeMap::new();
     context.insert("deletion_count".into(), deletions.len().to_string());
     context.insert("full_discrepancy".into(), format!("{full_discrepancy:.6}"));
@@ -758,9 +755,7 @@ mod tests {
         let audit = audit_orientation(&deletions, 1.0, 0.1, "orientation", &mut ledger).unwrap();
         assert_eq!(
             audit.outcome,
-            mic_stats::OrientationOutcome::UniqueTarget {
-                target: "t".into()
-            }
+            mic_stats::OrientationOutcome::UniqueTarget { target: "t".into() }
         );
         assert!(!ledger.has_blocking_error());
     }
@@ -792,8 +787,13 @@ mod tests {
         let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
         let mut weights = vec![0.001; 100];
         weights[0] = 1000.0;
-        let audit =
-            audit_overlap(&weights, &PreflightPolicy::default(), "overlap", &mut ledger).unwrap();
+        let audit = audit_overlap(
+            &weights,
+            &PreflightPolicy::default(),
+            "overlap",
+            &mut ledger,
+        )
+        .unwrap();
         assert!(!audit.adequate);
         assert!(audit.ess_ratio < 0.1);
         assert!(

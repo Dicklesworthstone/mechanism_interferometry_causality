@@ -5,10 +5,10 @@ use mic_audit::{EvidenceLedger, ExecutionMode};
 use mic_data::ExperimentManifest;
 use mic_design::{DesignPoint, audit_design, audit_sampling_odds};
 use mic_engine::{PreflightPolicy, audit_orientation, run_preflight};
-use serde::Deserialize;
 use mic_sim::{
     exact_suite, implementation_inconsistency, latent_conservation, parity_example, running_example,
 };
+use serde::Deserialize;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
