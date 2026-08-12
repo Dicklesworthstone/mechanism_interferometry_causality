@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T19:20:37Z",
+  "generated_at_utc": "2026-08-12T19:22:21Z",
   "hash_algorithm": "sha256",
   "file_count": 125,
-  "aggregate_sha256": "9a17de003719aaf3e8bec24991cb83d395760ebd75d58646d74d4d036503a549",
+  "aggregate_sha256": "b544a2150e158002367a02574337622566218620adc2868d9a739fa8413909ba",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -163,8 +163,8 @@
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 21076,
-      "sha256": "871381ba1f1f2fb1e210a80f8d7c4a63ae74f02640b2ff54c4e99da3d04e9363"
+      "bytes": 21199,
+      "sha256": "deeed9682caf6759448f8e096f176a3ec6bc959514c21fa22ddfcddb6c3544d5"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
@@ -403,8 +403,8 @@
     },
     {
       "path": "experiments/tierb_pilots/detection_floors.py",
-      "bytes": 2262,
-      "sha256": "23589a8bfa0e5c0c6df9a493e3ca955785a9e37031298632bdde8ef83fd71b47"
+      "bytes": 3142,
+      "sha256": "8854a907467cab34d4e0f24be917dbd0948a0254394db19f052791e12929c69e"
     },
     {
       "path": "experiments/tierb_pilots/norman_h001_attack.py",
