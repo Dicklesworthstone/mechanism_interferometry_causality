@@ -1,9 +1,11 @@
 #![forbid(unsafe_code)]
 //! Command-line entry point for simulation, design, manifest, and preflight audits.
 
+use mic_audit::{EvidenceLedger, ExecutionMode};
 use mic_data::ExperimentManifest;
 use mic_design::{DesignPoint, audit_design, audit_sampling_odds};
-use mic_engine::{PreflightPolicy, run_preflight};
+use mic_engine::{PreflightPolicy, audit_orientation, run_preflight};
+use serde::Deserialize;
 use mic_sim::{
     exact_suite, implementation_inconsistency, latent_conservation, parity_example, running_example,
 };
@@ -33,6 +35,7 @@ fn run(args: &[String]) -> Result<(), String> {
         "design" => design(&args[1..]),
         "validate-manifest" => validate_manifest(&args[1..]),
         "preflight" => preflight(&args[1..]),
+        "orient" => orient(&args[1..]),
         "help" | "--help" | "-h" => {
             print_help();
             Ok(())
@@ -128,6 +131,71 @@ fn preflight(args: &[String]) -> Result<(), String> {
     write_json_value(&value, output.as_deref())
 }
 
+/// One raw deletion bound row supplied by the orientation input file.
+#[derive(Debug, Deserialize)]
+struct OrientDeletionInput {
+    variable: String,
+    relative_discrepancy: f64,
+    lower: f64,
+    upper: f64,
+}
+
+/// Input contract for `mic orient`.
+#[derive(Debug, Deserialize)]
+struct OrientInput {
+    epsilon: f64,
+    full_discrepancy: f64,
+    min_full_discrepancy: f64,
+    #[serde(default = "default_strict")]
+    strict: bool,
+    deletions: Vec<OrientDeletionInput>,
+}
+
+fn default_strict() -> bool {
+    true
+}
+
+fn orient(args: &[String]) -> Result<(), String> {
+    let path = args
+        .first()
+        .ok_or("usage: mic orient INPUT.json [--output PATH]")?;
+    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let input: OrientInput = serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    let deletions = input
+        .deletions
+        .iter()
+        .map(|deletion| {
+            mic_stats::classify_deletion(
+                deletion.variable.clone(),
+                deletion.relative_discrepancy,
+                deletion.lower,
+                deletion.upper,
+                input.epsilon,
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    let mode = if input.strict {
+        ExecutionMode::Strict
+    } else {
+        ExecutionMode::Exploratory
+    };
+    let mut ledger = EvidenceLedger::new(mode);
+    ledger.provenance("input_path", path.as_str());
+    ledger.provenance("epsilon", format!("{:.6}", input.epsilon));
+    let audit = audit_orientation(
+        &deletions,
+        input.full_discrepancy,
+        input.min_full_discrepancy,
+        "orientation",
+        &mut ledger,
+    )
+    .map_err(|error| error.to_string())?;
+    let value = serde_json::json!({ "audit": audit, "ledger": ledger });
+    let output = option_value(args, "--output").map(PathBuf::from);
+    write_json_value(&value, output.as_deref())
+}
+
 fn print_json(value: &impl serde::Serialize) -> Result<(), String> {
     println!(
         "{}",
@@ -179,6 +247,7 @@ fn print_help() {
            mic design audit MANIFEST.json\n\
            mic validate-manifest MANIFEST.json\n\
            mic preflight MANIFEST.json [--output PATH]\n\
+           mic orient INPUT.json [--output PATH]\n\
            mic version"
     );
 }

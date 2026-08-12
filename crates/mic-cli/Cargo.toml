@@ -19,6 +19,8 @@ mic-data = { path = "../mic-data" }
 mic-design = { path = "../mic-design" }
 mic-engine = { path = "../mic-engine" }
 mic-sim = { path = "../mic-sim" }
+mic-audit = { path = "../mic-audit" }
+mic-stats = { path = "../mic-stats" }
 
 [lints]
 workspace = true
