@@ -103,28 +103,40 @@ pub struct FourLawFaceAudit {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct TabularAuditReport {
     /// Schema version.
-    pub schema_version: String,
+    schema_version: String,
     /// Experiment identifier.
-    pub experiment_id: String,
+    experiment_id: String,
     /// Conservative certificate status. Histogram four-law never issues `passed`.
     status: CertificateStatus,
     /// Complete typed inputs from which `status` was derived.
     gates: CertificateGates,
     /// Preflight design and sampling gate.
-    pub preflight: PreflightReport,
+    preflight: PreflightReport,
     /// Table fingerprints and realized quotas.
-    pub ingest: TabularIngestSummary,
+    ingest: TabularIngestSummary,
     /// Four-law faces. Empty when ingest or preflight blocked the projection.
-    pub four_law: Vec<FourLawFaceAudit>,
+    four_law: Vec<FourLawFaceAudit>,
     /// Overlap audit on baseline ratio weights, if they could be formed.
-    pub overlap: Option<OverlapAudit>,
+    overlap: Option<OverlapAudit>,
     /// Binning description recorded for reproducibility.
-    pub projection: ProjectionSpec,
+    projection: ProjectionSpec,
     /// Evidence ledger for the whole tabular run.
     ledger: EvidenceLedger,
 }
 
 impl TabularAuditReport {
+    /// Returns the report schema version.
+    #[must_use]
+    pub fn schema_version(&self) -> &str {
+        &self.schema_version
+    }
+
+    /// Returns the experiment identifier.
+    #[must_use]
+    pub fn experiment_id(&self) -> &str {
+        &self.experiment_id
+    }
+
     /// Returns the internally derived certificate status.
     #[must_use]
     pub const fn status(&self) -> CertificateStatus {
@@ -141,6 +153,36 @@ impl TabularAuditReport {
     #[must_use]
     pub const fn ledger(&self) -> &EvidenceLedger {
         &self.ledger
+    }
+
+    /// Returns the immutable preflight report bound to this audit.
+    #[must_use]
+    pub const fn preflight(&self) -> &PreflightReport {
+        &self.preflight
+    }
+
+    /// Returns the table fingerprint and realized-quota summary.
+    #[must_use]
+    pub const fn ingest(&self) -> &TabularIngestSummary {
+        &self.ingest
+    }
+
+    /// Returns the projected four-law faces.
+    #[must_use]
+    pub fn four_law(&self) -> &[FourLawFaceAudit] {
+        &self.four_law
+    }
+
+    /// Returns the overlap summary when ratio weights were available.
+    #[must_use]
+    pub const fn overlap(&self) -> Option<&OverlapAudit> {
+        self.overlap.as_ref()
+    }
+
+    /// Returns the recorded projection definition.
+    #[must_use]
+    pub const fn projection(&self) -> &ProjectionSpec {
+        &self.projection
     }
 
     /// Markdown report that leads with status and abstentions.
@@ -773,7 +815,7 @@ fn record_face(face: &FourLawFaceAudit, ledger: &mut EvidenceLedger) {
         format!("{:.6}", face.omitted_baseline_mass),
     );
     if face.incomplete_cells > 0 || face.omitted_baseline_mass > 1e-12 {
-        let severity = if ledger.mode == ExecutionMode::Strict {
+        let severity = if ledger.mode() == ExecutionMode::Strict {
             Severity::Error
         } else {
             Severity::Warning
@@ -1023,7 +1065,7 @@ mod tests {
         assert!(
             report
                 .ledger
-                .findings
+                .findings()
                 .iter()
                 .any(|finding| finding.code == "cluster_spans_regimes")
         );
@@ -1078,7 +1120,7 @@ mod tests {
         let face = &report.four_law[0];
         assert!(face.incomplete_cells > 0);
         assert!(face.omitted_baseline_mass > 0.0);
-        assert!(report.ledger().findings.iter().any(|finding| {
+        assert!(report.ledger().findings().iter().any(|finding| {
             finding.code == "incomplete_common_support"
                 && finding.severity == Severity::Error
                 && finding.context.contains_key("omitted_baseline_mass")
@@ -1099,7 +1141,7 @@ mod tests {
             assert!(
                 report
                     .ledger
-                    .findings
+                    .findings()
                     .iter()
                     .any(|finding| finding.stage.starts_with(stage)),
                 "missing overlap audit for {stage}"
@@ -1175,13 +1217,13 @@ mod tests {
             first_face.second
         );
         assert!(
-            report.ledger().findings.iter().any(|finding| {
+            report.ledger().findings().iter().any(|finding| {
                 finding.stage == first_prefix && finding.code == "overlap_adequate"
             }),
             "first face must remain an adequate-overlap control"
         );
         assert!(
-            report.ledger().findings.iter().any(|finding| {
+            report.ledger().findings().iter().any(|finding| {
                 finding.code == code::OVERLAP_FAILURE && !finding.stage.starts_with(&first_prefix)
             }),
             "a later face must be able to fail overlap after the first face passed"

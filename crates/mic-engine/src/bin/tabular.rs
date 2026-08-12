@@ -45,14 +45,14 @@ fn run(args: &[String]) -> Result<(), String> {
             .map_err(|error| error.to_string())?;
             let value = match command {
                 "ingest" => {
-                    serde_json::to_value(&report.ingest).map_err(|error| error.to_string())?
+                    serde_json::to_value(report.ingest()).map_err(|error| error.to_string())?
                 }
                 "four-law" => serde_json::to_value(&report).map_err(|error| error.to_string())?,
                 "report" => {
                     let narrative = report.narrative();
                     serde_json::json!({
                         "status": report.status(),
-                        "preflight_status": report.preflight.status,
+                        "preflight_status": report.preflight().status(),
                         "narrative": narrative,
                         "audit": report,
                     })

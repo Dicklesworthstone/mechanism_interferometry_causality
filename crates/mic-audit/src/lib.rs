@@ -161,16 +161,16 @@ impl CertificateGates {
 }
 
 /// Append-only evidence ledger.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct EvidenceLedger {
     /// Schema version.
-    pub schema_version: String,
+    schema_version: String,
     /// Execution policy.
-    pub mode: ExecutionMode,
+    mode: ExecutionMode,
     /// Ordered findings.
-    pub findings: Vec<Finding>,
+    findings: Vec<Finding>,
     /// Arbitrary immutable provenance fields.
-    pub provenance: BTreeMap<String, String>,
+    provenance: BTreeMap<String, String>,
 }
 
 impl EvidenceLedger {
@@ -185,9 +185,60 @@ impl EvidenceLedger {
         }
     }
 
+    /// Returns the ledger schema version.
+    #[must_use]
+    pub fn schema_version(&self) -> &str {
+        &self.schema_version
+    }
+
+    /// Returns the execution policy fixed when the ledger was created.
+    #[must_use]
+    pub const fn mode(&self) -> ExecutionMode {
+        self.mode
+    }
+
+    /// Returns the ordered findings without exposing a mutation path.
+    #[must_use]
+    pub fn findings(&self) -> &[Finding] {
+        &self.findings
+    }
+
     /// Adds a provenance field before report finalization.
+    ///
+    /// Repeating the same key-value pair is idempotent. Attempting to bind an
+    /// existing key to a different value preserves the first value and records
+    /// a blocking finding. This prevents a later stochastic stage from erasing
+    /// an earlier seed, unit, or source fingerprint.
     pub fn provenance(&mut self, key: impl Into<String>, value: impl Into<String>) {
-        self.provenance.insert(key.into(), value.into());
+        let key = key.into();
+        let value = value.into();
+        match self.provenance.get(&key) {
+            None => {
+                self.provenance.insert(key, value);
+            }
+            Some(existing) if existing == &value => {}
+            Some(existing) => {
+                let mut context = BTreeMap::new();
+                context.insert("key".into(), key.clone());
+                context.insert("preserved_value".into(), existing.clone());
+                context.insert("rejected_value".into(), value);
+                self.push(Finding {
+                    code: code::DUPLICATE_PROVENANCE.into(),
+                    message: format!(
+                        "provenance key {key:?} was already bound; the first value was preserved"
+                    ),
+                    severity: Severity::Error,
+                    stage: "evidence_ledger".into(),
+                    context,
+                });
+            }
+        }
+    }
+
+    /// Returns immutable provenance fields in canonical key order.
+    #[must_use]
+    pub const fn provenance_fields(&self) -> &BTreeMap<String, String> {
+        &self.provenance
     }
 
     /// Appends a finding.
@@ -264,6 +315,8 @@ pub enum AuditError {
 
 /// Common strict-mode reason codes.
 pub mod code {
+    /// A later stage tried to overwrite an already-bound provenance field.
+    pub const DUPLICATE_PROVENANCE: &str = "duplicate_provenance";
     /// Sampling odds are not product for a requested GCM test.
     pub const NON_PRODUCT_GCM: &str = "non_product_sampling_for_gcm";
     /// Within-regime selection may depend on state.
@@ -303,6 +356,42 @@ mod tests {
             square_flatness: ImplicationVerdict::Established,
             orientation: OrientationVerdict::Established,
         }
+    }
+
+    #[test]
+    fn conflicting_provenance_preserves_first_value_and_blocks_strict_status() {
+        let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        ledger.provenance("seed", "17");
+        ledger.provenance("seed", "29");
+
+        assert_eq!(
+            ledger.provenance_fields().get("seed").map(String::as_str),
+            Some("17")
+        );
+        let finding = ledger
+            .findings
+            .iter()
+            .find(|finding| finding.code == code::DUPLICATE_PROVENANCE)
+            .expect("conflicting provenance is recorded");
+        assert_eq!(finding.severity, Severity::Error);
+        assert_eq!(
+            finding.context.get("rejected_value").map(String::as_str),
+            Some("29")
+        );
+        assert_eq!(
+            ledger.status(&all_established()),
+            CertificateStatus::Abstained
+        );
+    }
+
+    #[test]
+    fn identical_provenance_is_idempotent() {
+        let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        ledger.provenance("source_sha256", "abc");
+        ledger.provenance("source_sha256", "abc");
+
+        assert_eq!(ledger.provenance_fields().len(), 1);
+        assert!(ledger.findings.is_empty());
     }
 
     #[test]

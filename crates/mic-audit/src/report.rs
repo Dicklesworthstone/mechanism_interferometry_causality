@@ -82,10 +82,10 @@ pub fn render_narrative(
         "This report opens with assumptions and abstentions. It does not open with a table of significance statistics.\n"
     );
     let _ = writeln!(markdown, "## Assumptions\n");
-    if ledger.provenance.is_empty() {
+    if ledger.provenance_fields().is_empty() {
         let _ = writeln!(markdown, "- No provenance fields were recorded.\n");
     } else {
-        for (key, value) in &ledger.provenance {
+        for (key, value) in ledger.provenance_fields() {
             let _ = writeln!(markdown, "- `{key}`: `{value}`");
         }
         markdown.push('\n');
@@ -131,14 +131,14 @@ pub fn render_narrative(
         experiment_id: experiment_id.to_string(),
         status,
         gates: *gates,
-        mode: ledger.mode,
+        mode: ledger.mode(),
         markdown,
     }
 }
 
 fn findings_with(ledger: &EvidenceLedger, severity: Severity) -> Vec<&Finding> {
     ledger
-        .findings
+        .findings()
         .iter()
         .filter(|finding| finding.severity == severity)
         .collect()

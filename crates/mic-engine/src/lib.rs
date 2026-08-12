@@ -77,26 +77,82 @@ pub enum PreflightStatus {
 }
 
 /// Machine-readable preflight result.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct PreflightReport {
     /// Schema version.
-    pub schema_version: String,
+    schema_version: String,
     /// Experiment identifier.
-    pub experiment_id: String,
+    experiment_id: String,
     /// Requested inference track.
-    pub requested_track: InferenceTrack,
+    requested_track: InferenceTrack,
     /// Main-effects and lack-of-fit geometry.
-    pub design: DesignAudit,
+    design: DesignAudit,
     /// Sampling-odds audits for every observed square.
-    pub face_sampling: Vec<FaceSamplingAudit>,
+    face_sampling: Vec<FaceSamplingAudit>,
     /// Whether four-law functionals are permitted by the declared selection contract.
-    pub four_law_eligible: bool,
+    four_law_eligible: bool,
     /// Whether all observed pair faces have product pooled odds.
-    pub product_factorial_eligible: bool,
+    product_factorial_eligible: bool,
     /// Conservative preflight state.
-    pub status: PreflightStatus,
+    status: PreflightStatus,
     /// Evidence and reason codes.
-    pub ledger: EvidenceLedger,
+    ledger: EvidenceLedger,
+}
+
+impl PreflightReport {
+    /// Returns the report schema version.
+    #[must_use]
+    pub fn schema_version(&self) -> &str {
+        &self.schema_version
+    }
+
+    /// Returns the experiment identifier.
+    #[must_use]
+    pub fn experiment_id(&self) -> &str {
+        &self.experiment_id
+    }
+
+    /// Returns the requested inference track.
+    #[must_use]
+    pub const fn requested_track(&self) -> &InferenceTrack {
+        &self.requested_track
+    }
+
+    /// Returns the audited design geometry.
+    #[must_use]
+    pub const fn design(&self) -> &DesignAudit {
+        &self.design
+    }
+
+    /// Returns the per-face sampling-odds audits.
+    #[must_use]
+    pub fn face_sampling(&self) -> &[FaceSamplingAudit] {
+        &self.face_sampling
+    }
+
+    /// Returns whether the declared selection contract permits four-law diagnostics.
+    #[must_use]
+    pub const fn four_law_eligible(&self) -> bool {
+        self.four_law_eligible
+    }
+
+    /// Returns whether every observed square passed the product-odds audit.
+    #[must_use]
+    pub const fn product_factorial_eligible(&self) -> bool {
+        self.product_factorial_eligible
+    }
+
+    /// Returns the internally derived preflight status.
+    #[must_use]
+    pub const fn status(&self) -> PreflightStatus {
+        self.status
+    }
+
+    /// Returns the immutable evidence ledger bound to the preflight result.
+    #[must_use]
+    pub const fn ledger(&self) -> &EvidenceLedger {
+        &self.ledger
+    }
 }
 
 /// Preflight failures that prevent creation of a report.
@@ -656,7 +712,7 @@ fn audit_faces(
 pub fn blocking_codes(report: &PreflightReport) -> BTreeSet<String> {
     report
         .ledger
-        .findings
+        .findings()
         .iter()
         .filter(|finding| finding.severity == Severity::Error)
         .map(|finding| finding.code.clone())
@@ -756,7 +812,7 @@ mod tests {
         assert!(
             report
                 .ledger
-                .findings
+                .findings()
                 .iter()
                 .any(|finding| finding.code == code::SELECTION_MODEL_UNVALIDATED)
         );
@@ -848,8 +904,8 @@ mod tests {
         .unwrap();
         assert!(audit.agrees);
         assert!(!ledger.has_blocking_error());
-        assert_eq!(ledger.findings.len(), 1);
-        assert_eq!(ledger.findings[0].severity, Severity::Info);
+        assert_eq!(ledger.findings().len(), 1);
+        assert_eq!(ledger.findings()[0].severity, Severity::Info);
     }
 
     #[test]
@@ -870,7 +926,7 @@ mod tests {
         assert!(ledger.has_blocking_error());
         assert!(
             ledger
-                .findings
+                .findings()
                 .iter()
                 .any(|finding| finding.code == code::ESTIMATOR_FAMILY_DISAGREEMENT)
         );
@@ -887,7 +943,7 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(error, EngineError::InvalidLensBattery(_)));
-        assert!(ledger.findings.is_empty());
+        assert!(ledger.findings().is_empty());
     }
 
     #[test]
@@ -920,7 +976,7 @@ mod tests {
         assert!(ledger.has_blocking_error());
         assert!(
             ledger
-                .findings
+                .findings()
                 .iter()
                 .any(|finding| finding.code == code::ORIENTATION_UNRESOLVED)
         );
@@ -946,7 +1002,7 @@ mod tests {
         assert!(audit.ess_ratio < 0.1);
         assert!(
             ledger
-                .findings
+                .findings()
                 .iter()
                 .any(|finding| finding.code == code::OVERLAP_FAILURE)
         );
@@ -992,6 +1048,6 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(error, EngineError::InvalidLensBattery(_)));
-        assert!(ledger.findings.is_empty());
+        assert!(ledger.findings().is_empty());
     }
 }

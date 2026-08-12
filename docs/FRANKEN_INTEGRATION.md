@@ -13,7 +13,17 @@ All four projects use Rust 2024, but their current toolchain policies differ: Fr
 
 ## FrankenPandas adapter
 
-The data adapter should:
+The feature-gated adapter now shares the standard reader's semantic validation
+path and independently compares every returned cell with the source token. That
+comparison is load-bearing: at the pinned `a9f8d86` revision, the CSV backend
+parses numeric-looking values before storing them as UTF-8, so identifiers such
+as `00` and `007` are returned as `0` and `7`. This can alias regimes or
+randomization units. The adapter therefore **fails closed on ordinary MIC
+bit-string regimes at this pin**; use the standard-library CSV reader until the
+sibling preserves requested string cells byte-for-byte. `DType::Utf8` alone is
+not evidence of lexical fidelity.
+
+The adapter contract is to:
 
 - read CSV, JSONL, Parquet, Feather/Arrow, and SQL-backed inputs;
 - preserve stable row IDs and declared cluster IDs;
@@ -21,6 +31,10 @@ The data adapter should:
 - expose zero-copy numeric blocks where possible;
 - write every audit table in both JSON and Parquet;
 - use the runtime evidence ledger to record compatibility and hardening decisions.
+
+The current implementation covers guarded CSV ingestion only. JSONL, Parquet,
+Feather/Arrow, SQL inputs, and tabular output remain roadmap items rather than
+available capabilities.
 
 The top-level package exposes a unified `frankenpandas::prelude::*`; production code should still import explicit symbols in library crates to keep API drift visible.
 

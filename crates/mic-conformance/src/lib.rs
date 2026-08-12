@@ -100,7 +100,7 @@ mod tests {
             seed: 9,
         };
         let report = run_preflight(&manifest, PreflightPolicy::default()).unwrap();
-        assert_eq!(report.status, PreflightStatus::Blocked);
+        assert_eq!(report.status(), PreflightStatus::Blocked);
     }
 
     #[test]
@@ -167,7 +167,7 @@ mod tests {
         );
         assert!(
             disagreeing
-                .findings
+                .findings()
                 .iter()
                 .any(|finding| finding.code == code::ESTIMATOR_FAMILY_DISAGREEMENT)
         );
@@ -223,7 +223,7 @@ mod tests {
         );
         assert!(
             ledger
-                .findings
+                .findings()
                 .iter()
                 .any(|finding| finding.code == code::ORIENTATION_UNRESOLVED)
         );
@@ -302,11 +302,11 @@ mod tests {
             Some(&root),
         )
         .unwrap();
-        assert_eq!(report.preflight.status, PreflightStatus::Ready);
-        assert!(report.preflight.four_law_eligible);
-        assert!(!report.preflight.product_factorial_eligible);
+        assert_eq!(report.preflight().status(), PreflightStatus::Ready);
+        assert!(report.preflight().four_law_eligible());
+        assert!(!report.preflight().product_factorial_eligible());
         assert_eq!(report.status(), CertificateStatus::Abstained);
-        assert!(report.four_law[0].max_abs_kappa > 0.8);
+        assert!(report.four_law()[0].max_abs_kappa > 0.8);
         let narrative = report.narrative();
         let markdown = narrative.markdown();
         assert!(markdown.starts_with("# Mechanism Interferometry report"));

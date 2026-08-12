@@ -29,8 +29,10 @@ also in place. The remaining work is the authority-bearing integration below.
 - add content-bound producer contracts for selection, product design, overlap,
   clustering, equivalence calibration, and confirmation-split independence,
   then allow those producers to populate the typed theorem gates;
-- make finalized ledgers append-only, reject duplicate provenance keys, and bind
-  every stochastic stage's seed, randomization unit, folds, and source fingerprint;
+- finish the finalized-ledger type and bind every stochastic stage's seed,
+  randomization unit, folds, and source fingerprint. Provenance keys already
+  preserve their first value and a conflicting rebinding records a blocking
+  `duplicate_provenance` finding;
 - bind preflight product-odds and reweighting audits to the manifest, allocation
   artifact, and analyzed data so a syntactically valid audit reference cannot be
   transplanted to a different projection;
