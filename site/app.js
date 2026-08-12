@@ -1045,6 +1045,38 @@
      implementation is both exact enough and instant.
      ---------------------------------------------------------------------- */
 
+  /* Orthonormal basis of the span of a set of vectors, by modified Gram-Schmidt.
+     Used to project an interaction column onto the main-effects span and onto
+     the span of the observed square contrasts. */
+  function orthonormalBasis(vectors, tolerance) {
+    var tol = tolerance === undefined ? 1e-9 : tolerance;
+    var basis = [];
+    vectors.forEach(function (vector) {
+      var residual = vector.slice();
+      basis.forEach(function (b) {
+        var dot = 0;
+        for (var i = 0; i < residual.length; i += 1) { dot += residual[i] * b[i]; }
+        for (var k = 0; k < residual.length; k += 1) { residual[k] -= dot * b[k]; }
+      });
+      var norm = Math.sqrt(residual.reduce(function (s, v) { return s + v * v; }, 0));
+      if (norm > tol) {
+        basis.push(residual.map(function (v) { return v / norm; }));
+      }
+    });
+    return basis;
+  }
+
+  /* The part of `vector` that no basis direction reaches. */
+  function residualNorm(vector, basis) {
+    var residual = vector.slice();
+    basis.forEach(function (b) {
+      var dot = 0;
+      for (var i = 0; i < residual.length; i += 1) { dot += residual[i] * b[i]; }
+      for (var k = 0; k < residual.length; k += 1) { residual[k] -= dot * b[k]; }
+    });
+    return Math.sqrt(residual.reduce(function (s, v) { return s + v * v; }, 0));
+  }
+
   function matrixRank(rows, tolerance) {
     var tol = tolerance === undefined ? 1e-10 : tolerance;
     var m = rows.map(function (row) { return row.slice(); });
@@ -1180,6 +1212,38 @@
       });
       var squareRank = contrasts.length ? matrixRank(contrasts) : 0;
 
+      /* Per-pair estimability, the way audit_interaction_aliasing classifies it.
+         Take the interaction column for the pair over the observed corners, strip
+         off whatever the main effects already explain, and ask what is left:
+         nothing at all means the pair is indistinguishable from main effects;
+         something the observed squares reach means it is testable as a square;
+         something they do not reach needs a general lack-of-fit contrast. */
+      var mainBasis = orthonormalBasis(
+        [0, 1, 2, 3].map(function (column) {
+          return observed.map(function (cornerIndex) {
+            return column === 0 ? 1 : corners[cornerIndex].bits[column - 1];
+          });
+        })
+      );
+      var squareBasis = orthonormalBasis(contrasts);
+
+      var pairs = [];
+      for (var a = 0; a < FACTORS; a += 1) {
+        for (var b = a + 1; b < FACTORS; b += 1) {
+          var column = observed.map(function (cornerIndex) {
+            var bits = corners[cornerIndex].bits;
+            return (2 * bits[a] - 1) * (2 * bits[b] - 1);
+          });
+          var scale = Math.max(1, Math.sqrt(column.length));
+          var beyondMain = residualNorm(column, mainBasis);
+          var kind;
+          if (beyondMain <= 1e-9 * scale) { kind = "fully_aliased"; }
+          else if (residualNorm(column, mainBasis.concat(squareBasis)) <= 1e-9 * scale) { kind = "testable_via_squares"; }
+          else { kind = "requires_general_contrast"; }
+          pairs.push({ label: "s" + (a + 1) + "\u00d7s" + (b + 1), kind: kind });
+        }
+      }
+
       return {
         observed: observed,
         slot: slot,
@@ -1187,7 +1251,9 @@
         lackOfFit: lackOfFit,
         completeFaces: completeFaces,
         squareRank: squareRank,
-        spans: lackOfFit > 0 && squareRank === lackOfFit
+        spans: lackOfFit > 0 && squareRank === lackOfFit,
+        pairs: pairs,
+        untestedDimension: Math.max(0, lackOfFit - squareRank)
       };
     }
 
@@ -1249,6 +1315,29 @@
 
       setClassState($("cubeLof"), state.lackOfFit > 0 ? "flat" : "curve");
       setClassState($("cubeSpan"), state.lackOfFit === 0 ? "curve" : (state.spans ? "flat" : "curve"));
+
+      $("cubeUntested").textContent = String(state.untestedDimension);
+      setClassState($("cubeUntested"), state.untestedDimension === 0 ? "flat" : "curve");
+
+      var pairBox = $("cubePairs");
+      pairBox.textContent = "";
+      var pairStyle = {
+        fully_aliased: { cls: "block", text: "fully aliased" },
+        testable_via_squares: { cls: "flat", text: "square" },
+        requires_general_contrast: { cls: "curve", text: "general contrast" }
+      };
+      state.pairs.forEach(function (pair) {
+        var row = doc.createElement("div");
+        row.className = "pair-row";
+        var name = doc.createElement("code");
+        name.textContent = pair.label;
+        var tag = doc.createElement("span");
+        tag.className = "verdict " + pairStyle[pair.kind].cls;
+        tag.textContent = pairStyle[pair.kind].text;
+        row.appendChild(name);
+        row.appendChild(tag);
+        pairBox.appendChild(row);
+      });
 
       var box = $("cubeFindings");
       box.textContent = "";
