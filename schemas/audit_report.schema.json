@@ -10,17 +10,29 @@
     "experiment_id",
     "mode",
     "status",
+    "gates",
     "manifest_sha256",
     "dependency_revisions",
     "findings",
     "artifacts"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "2.0.0"},
     "run_id": {"type": "string", "minLength": 1},
     "experiment_id": {"type": "string", "minLength": 1},
     "mode": {"enum": ["strict", "exploratory"]},
     "status": {"enum": ["passed", "failed", "abstained", "diagnostic_only"]},
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locality", "conditional_normalization", "square_flatness", "orientation"],
+      "properties": {
+        "locality": {"enum": ["established", "refuted", "unresolved"]},
+        "conditional_normalization": {"enum": ["established", "refuted", "unresolved"]},
+        "square_flatness": {"enum": ["established", "refuted", "unresolved"]},
+        "orientation": {"enum": ["established", "unresolved"]}
+      }
+    },
     "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "dependency_revisions": {
       "type": "object",
@@ -49,5 +61,113 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"mode": {"const": "exploratory"}}},
+      "then": {"properties": {"status": {"const": "diagnostic_only"}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "diagnostic_only"}}},
+      "then": {"properties": {"mode": {"const": "exploratory"}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "passed"}}},
+      "then": {
+        "properties": {
+          "mode": {"const": "strict"},
+          "gates": {
+            "properties": {
+              "locality": {"const": "established"},
+              "conditional_normalization": {"const": "established"},
+              "square_flatness": {"const": "established"},
+              "orientation": {"const": "established"}
+            }
+          },
+          "findings": {
+            "not": {
+              "contains": {
+                "type": "object",
+                "required": ["severity"],
+                "properties": {"severity": {"const": "error"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "failed"}}},
+      "then": {
+        "properties": {
+          "mode": {"const": "strict"},
+          "findings": {
+            "not": {
+              "contains": {
+                "type": "object",
+                "required": ["severity"],
+                "properties": {"severity": {"const": "error"}}
+              }
+            }
+          }
+        },
+        "anyOf": [
+          {"properties": {"gates": {"properties": {"locality": {"const": "refuted"}}}}},
+          {"properties": {"gates": {"properties": {"conditional_normalization": {"const": "refuted"}}}}},
+          {"properties": {"gates": {"properties": {"square_flatness": {"const": "refuted"}}}}}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "abstained"}}},
+      "then": {
+        "properties": {"mode": {"const": "strict"}},
+        "anyOf": [
+          {
+            "properties": {
+              "findings": {
+                "contains": {
+                  "type": "object",
+                  "required": ["severity"],
+                  "properties": {"severity": {"const": "error"}}
+                }
+              }
+            }
+          },
+          {
+            "allOf": [
+              {
+                "properties": {
+                  "findings": {
+                    "not": {
+                      "contains": {
+                        "type": "object",
+                        "required": ["severity"],
+                        "properties": {"severity": {"const": "error"}}
+                      }
+                    }
+                  },
+                  "gates": {
+                    "properties": {
+                      "locality": {"enum": ["established", "unresolved"]},
+                      "conditional_normalization": {"enum": ["established", "unresolved"]},
+                      "square_flatness": {"enum": ["established", "unresolved"]}
+                    }
+                  }
+                }
+              },
+              {
+                "anyOf": [
+                  {"properties": {"gates": {"properties": {"locality": {"const": "unresolved"}}}}},
+                  {"properties": {"gates": {"properties": {"conditional_normalization": {"const": "unresolved"}}}}},
+                  {"properties": {"gates": {"properties": {"square_flatness": {"const": "unresolved"}}}}},
+                  {"properties": {"gates": {"properties": {"orientation": {"const": "unresolved"}}}}}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

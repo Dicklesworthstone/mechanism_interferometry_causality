@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import copy
 import csv
 import hashlib
 import json
@@ -15,6 +16,7 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 from lxml import html
+from referencing import Registry, Resource
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # The checker and the generator must agree exactly on which paths belong in the manifest.
@@ -158,6 +160,159 @@ def validate_schemas_and_manifests() -> None:
     orientation_schema = schemas.get("orientation_input.schema.json")
     proposal_input_schema = schemas.get("active_tilt_input.schema.json")
     proposal_schema = schemas.get("proposal_batch.schema.json")
+    audit_report_schema = schemas.get("audit_report.schema.json")
+    four_law_report_schema = schemas.get("four_law_report.schema.json")
+    finding_schema = schemas.get("evidence_finding.schema.json")
+
+    check(audit_report_schema is not None, "audit report schema was not loaded")
+    check(four_law_report_schema is not None, "four-law report schema was not loaded")
+    check(finding_schema is not None, "evidence finding schema was not loaded")
+    if audit_report_schema is not None and finding_schema is not None:
+        registry = Registry().with_resource(
+            str(finding_schema["$id"]), Resource.from_contents(finding_schema)
+        )
+        audit_validator = Draft202012Validator(audit_report_schema, registry=registry)
+        established_gates = {
+            "locality": "established",
+            "conditional_normalization": "established",
+            "square_flatness": "established",
+            "orientation": "established",
+        }
+        base_report = {
+            "schema_version": "2.0.0",
+            "run_id": "schema-conformance",
+            "experiment_id": "schema-conformance",
+            "mode": "strict",
+            "status": "passed",
+            "gates": established_gates,
+            "manifest_sha256": "0" * 64,
+            "dependency_revisions": {
+                "frankenpandas": "0" * 40,
+                "franken_numpy": "0" * 40,
+                "frankenscipy": "0" * 40,
+                "frankentorch": "0" * 40,
+            },
+            "findings": [],
+            "artifacts": {},
+        }
+        error_finding = {
+            "code": "invalid_contract",
+            "message": "invalid evidence contract",
+            "severity": "error",
+            "stage": "preflight",
+            "context": {},
+        }
+        valid_reports = [copy.deepcopy(base_report)]
+        failed = copy.deepcopy(base_report)
+        failed["status"] = "failed"
+        failed["gates"]["locality"] = "refuted"
+        valid_reports.append(failed)
+        abstained = copy.deepcopy(base_report)
+        abstained["status"] = "abstained"
+        abstained["gates"]["locality"] = "unresolved"
+        valid_reports.append(abstained)
+        blocked_refutation = copy.deepcopy(failed)
+        blocked_refutation["status"] = "abstained"
+        blocked_refutation["findings"] = [error_finding]
+        valid_reports.append(blocked_refutation)
+        diagnostic = copy.deepcopy(base_report)
+        diagnostic["mode"] = "exploratory"
+        diagnostic["status"] = "diagnostic_only"
+        valid_reports.append(diagnostic)
+        for index, report in enumerate(valid_reports):
+            check(
+                not list(audit_validator.iter_errors(report)),
+                f"valid typed audit report fixture {index} was rejected",
+            )
+
+        invalid_reports: list[dict] = []
+        missing_gate = copy.deepcopy(base_report)
+        del missing_gate["gates"]["locality"]
+        invalid_reports.append(missing_gate)
+        passed_unresolved = copy.deepcopy(base_report)
+        passed_unresolved["gates"]["square_flatness"] = "unresolved"
+        invalid_reports.append(passed_unresolved)
+        passed_with_error = copy.deepcopy(base_report)
+        passed_with_error["findings"] = [error_finding]
+        invalid_reports.append(passed_with_error)
+        exploratory_pass = copy.deepcopy(base_report)
+        exploratory_pass["mode"] = "exploratory"
+        invalid_reports.append(exploratory_pass)
+        failed_without_refutation = copy.deepcopy(base_report)
+        failed_without_refutation["status"] = "failed"
+        invalid_reports.append(failed_without_refutation)
+        failed_with_error = copy.deepcopy(failed)
+        failed_with_error["findings"] = [error_finding]
+        invalid_reports.append(failed_with_error)
+        unexplained_abstention = copy.deepcopy(base_report)
+        unexplained_abstention["status"] = "abstained"
+        invalid_reports.append(unexplained_abstention)
+        clean_refutation_as_abstention = copy.deepcopy(failed)
+        clean_refutation_as_abstention["status"] = "abstained"
+        clean_refutation_as_abstention["gates"]["orientation"] = "unresolved"
+        invalid_reports.append(clean_refutation_as_abstention)
+        for index, report in enumerate(invalid_reports):
+            check(
+                bool(list(audit_validator.iter_errors(report))),
+                f"invalid typed audit report fixture {index} was accepted",
+            )
+
+    if four_law_report_schema is not None:
+        four_law_validator = Draft202012Validator(four_law_report_schema)
+        four_law_report = {
+            "schema_version": "2.0.0",
+            "experiment_id": "schema-conformance",
+            "status": "abstained",
+            "gates": {
+                "locality": "unresolved",
+                "conditional_normalization": "unresolved",
+                "square_flatness": "unresolved",
+                "orientation": "unresolved",
+            },
+            "preflight": {},
+            "ingest": {
+                "fingerprint": {
+                    "content_sha256": "0" * 64,
+                    "cluster_fingerprint": "0" * 64,
+                    "n_rows": 0,
+                    "n_included_clusters": 0,
+                },
+                "regime_counts": [],
+                "clusters_spanning_regimes": [],
+                "missing_regimes": [],
+            },
+            "four_law": [],
+            "projection": {},
+            "ledger": {
+                "schema_version": "1.0.0",
+                "mode": "strict",
+                "findings": [],
+                "provenance": {},
+            },
+        }
+        check(
+            not list(four_law_validator.iter_errors(four_law_report)),
+            "valid non-certifying four-law v2 report was rejected",
+        )
+        invalid_four_law_reports: list[dict] = []
+        passed_four_law = copy.deepcopy(four_law_report)
+        passed_four_law["status"] = "passed"
+        invalid_four_law_reports.append(passed_four_law)
+        established_four_law = copy.deepcopy(four_law_report)
+        established_four_law["gates"]["square_flatness"] = "established"
+        invalid_four_law_reports.append(established_four_law)
+        mismatched_mode = copy.deepcopy(four_law_report)
+        mismatched_mode["ledger"]["mode"] = "exploratory"
+        invalid_four_law_reports.append(mismatched_mode)
+        stale_version = copy.deepcopy(four_law_report)
+        stale_version["schema_version"] = "1.0.0"
+        invalid_four_law_reports.append(stale_version)
+        for index, report in enumerate(invalid_four_law_reports):
+            check(
+                bool(list(four_law_validator.iter_errors(report))),
+                f"invalid four-law report fixture {index} was accepted",
+            )
+
     check(proposal_input_schema is not None, "active-tilt input schema was not loaded")
     if proposal_input_schema is not None:
         input_validator = Draft202012Validator(proposal_input_schema)

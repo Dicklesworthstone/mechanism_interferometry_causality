@@ -924,7 +924,10 @@ mod tests {
                 .iter()
                 .any(|finding| finding.code == code::ORIENTATION_UNRESOLVED)
         );
-        assert_eq!(ledger.status(true), mic_audit::CertificateStatus::Abstained);
+        assert_eq!(
+            ledger.status(&mic_audit::CertificateGates::unresolved()),
+            mic_audit::CertificateStatus::Abstained
+        );
     }
 
     #[test]

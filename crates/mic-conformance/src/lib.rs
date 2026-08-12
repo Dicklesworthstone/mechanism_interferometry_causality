@@ -3,7 +3,7 @@
 
 #[cfg(test)]
 mod tests {
-    use mic_audit::{CertificateStatus, EvidenceLedger, ExecutionMode, code};
+    use mic_audit::{CertificateGates, CertificateStatus, EvidenceLedger, ExecutionMode, code};
     use mic_core::{RatioSquare, covariance, four_law_moment};
     use mic_data::{DataSource, ExperimentManifest, InferenceTrack, RegimeSpec, SelectionContract};
     use mic_design::{DesignPoint, audit_design, audit_sampling_odds};
@@ -161,7 +161,7 @@ mod tests {
         .unwrap();
         assert!(!audit.agrees);
         assert_eq!(
-            disagreeing.status(true),
+            disagreeing.status(&CertificateGates::unresolved()),
             mic_audit::CertificateStatus::Abstained,
             "learner-dependent projections must not certify"
         );
@@ -192,7 +192,11 @@ mod tests {
         )
         .unwrap();
         assert!(audit.agrees);
-        assert_eq!(agreeing.status(true), mic_audit::CertificateStatus::Passed);
+        assert_eq!(
+            agreeing.status(&CertificateGates::unresolved()),
+            mic_audit::CertificateStatus::Abstained,
+            "lens agreement does not establish any population certificate gate"
+        );
     }
 
     #[test]
@@ -213,7 +217,10 @@ mod tests {
                 passes: parity.invariant_deletions.clone()
             }
         );
-        assert_eq!(ledger.status(true), CertificateStatus::Abstained);
+        assert_eq!(
+            ledger.status(&CertificateGates::unresolved()),
+            CertificateStatus::Abstained
+        );
         assert!(
             ledger
                 .findings
@@ -259,7 +266,11 @@ mod tests {
             OrientationOutcome::UniqueTarget { target: "t".into() }
         );
         assert!(!ledger.has_blocking_error());
-        assert_eq!(ledger.status(true), CertificateStatus::Passed);
+        assert_eq!(
+            ledger.status(&CertificateGates::unresolved()),
+            CertificateStatus::Abstained,
+            "unique orientation cannot launder missing locality, normalization, or flatness evidence"
+        );
     }
 
     #[test]
@@ -271,7 +282,10 @@ mod tests {
         let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
         let audit = audit_orientation(&deletions, 0.02, 0.1, "orientation", &mut ledger).unwrap();
         assert_eq!(audit.outcome, OrientationOutcome::Underpowered);
-        assert_eq!(ledger.status(true), CertificateStatus::Abstained);
+        assert_eq!(
+            ledger.status(&CertificateGates::unresolved()),
+            CertificateStatus::Abstained
+        );
     }
 
     #[test]
@@ -291,7 +305,7 @@ mod tests {
         assert_eq!(report.preflight.status, PreflightStatus::Ready);
         assert!(report.preflight.four_law_eligible);
         assert!(!report.preflight.product_factorial_eligible);
-        assert_eq!(report.status, CertificateStatus::Abstained);
+        assert_eq!(report.status(), CertificateStatus::Abstained);
         assert!(report.four_law[0].max_abs_kappa > 0.8);
         let markdown = report.narrative().markdown;
         assert!(markdown.starts_with("# Mechanism Interferometry report"));

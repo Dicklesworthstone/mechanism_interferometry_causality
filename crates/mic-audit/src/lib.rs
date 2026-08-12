@@ -60,6 +60,106 @@ pub enum CertificateStatus {
     DiagnosticOnly,
 }
 
+/// Evidence state for a necessary population implication of modularity.
+///
+/// `Unresolved` includes absent, invalid, underpowered, or otherwise
+/// indeterminate evidence. It is not a synonym for a population refutation.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ImplicationVerdict {
+    /// The implication was established under its declared evidence contract.
+    Established,
+    /// The implication was refuted under its declared evidence contract.
+    Refuted,
+    /// The available evidence does not determine the implication.
+    Unresolved,
+}
+
+/// Evidence state for deletion-based target orientation.
+///
+/// Orientation ambiguity cannot refute modularity, so this type intentionally
+/// has no `Refuted` variant.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum OrientationVerdict {
+    /// Unique orientation and its single-target/deletion-faithfulness premises
+    /// were independently established under the declared evidence contract.
+    Established,
+    /// The pass pattern or any required orientation premise is unresolved.
+    Unresolved,
+}
+
+/// Complete set of load-bearing gates for a strict inferred-target certificate.
+///
+/// There is deliberately no `Default` implementation and no Boolean
+/// conversion: every producer must state every gate explicitly.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct CertificateGates {
+    /// Intervention locality for the proposed target/mechanism assignment.
+    locality: ImplicationVerdict,
+    /// Conditional normalization of every primitive mechanism replacement.
+    conditional_normalization: ImplicationVerdict,
+    /// Vanishing density curvature on every required estimable contrast.
+    square_flatness: ImplicationVerdict,
+    /// Authority-level orientation after both unique deletion equivalence and
+    /// the single-target/deletion-faithfulness premises are established.
+    orientation: OrientationVerdict,
+}
+
+impl CertificateGates {
+    /// Constructs a deliberately non-certifying gate set for diagnostic paths.
+    #[must_use]
+    pub const fn unresolved() -> Self {
+        Self {
+            locality: ImplicationVerdict::Unresolved,
+            conditional_normalization: ImplicationVerdict::Unresolved,
+            square_flatness: ImplicationVerdict::Unresolved,
+            orientation: OrientationVerdict::Unresolved,
+        }
+    }
+
+    /// Returns the locality gate summary.
+    #[must_use]
+    pub const fn locality(self) -> ImplicationVerdict {
+        self.locality
+    }
+
+    /// Returns the conditional-normalization gate summary.
+    #[must_use]
+    pub const fn conditional_normalization(self) -> ImplicationVerdict {
+        self.conditional_normalization
+    }
+
+    /// Returns the square-flatness gate summary.
+    #[must_use]
+    pub const fn square_flatness(self) -> ImplicationVerdict {
+        self.square_flatness
+    }
+
+    /// Returns the authority-level orientation gate summary.
+    #[must_use]
+    pub const fn orientation(self) -> OrientationVerdict {
+        self.orientation
+    }
+
+    fn has_refuted_implication(self) -> bool {
+        [
+            self.locality,
+            self.conditional_normalization,
+            self.square_flatness,
+        ]
+        .contains(&ImplicationVerdict::Refuted)
+    }
+
+    fn establishes_certificate(self) -> bool {
+        self.locality == ImplicationVerdict::Established
+            && self.conditional_normalization == ImplicationVerdict::Established
+            && self.square_flatness == ImplicationVerdict::Established
+            && self.orientation == OrientationVerdict::Established
+    }
+}
+
 /// Append-only evidence ledger.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EvidenceLedger {
@@ -124,17 +224,20 @@ impl EvidenceLedger {
 
     /// Derives a conservative final status.
     #[must_use]
-    pub fn status(&self, certificate_conditions_passed: bool) -> CertificateStatus {
+    pub fn status(&self, gates: &CertificateGates) -> CertificateStatus {
         if self.mode == ExecutionMode::Exploratory {
             return CertificateStatus::DiagnosticOnly;
         }
         if self.has_blocking_error() {
             return CertificateStatus::Abstained;
         }
-        if certificate_conditions_passed {
+        if gates.has_refuted_implication() {
+            return CertificateStatus::Failed;
+        }
+        if gates.establishes_certificate() {
             CertificateStatus::Passed
         } else {
-            CertificateStatus::Failed
+            CertificateStatus::Abstained
         }
     }
 
@@ -193,6 +296,15 @@ pub mod code {
 mod tests {
     use super::*;
 
+    fn all_established() -> CertificateGates {
+        CertificateGates {
+            locality: ImplicationVerdict::Established,
+            conditional_normalization: ImplicationVerdict::Established,
+            square_flatness: ImplicationVerdict::Established,
+            orientation: OrientationVerdict::Established,
+        }
+    }
+
     #[test]
     fn strict_error_abstains() {
         let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
@@ -202,12 +314,168 @@ mod tests {
             code::NON_PRODUCT_GCM,
             "not product",
         );
-        assert_eq!(ledger.status(true), CertificateStatus::Abstained);
+        assert_eq!(
+            ledger.status(&all_established()),
+            CertificateStatus::Abstained
+        );
     }
 
     #[test]
     fn exploratory_never_issues_certificate() {
         let ledger = EvidenceLedger::new(ExecutionMode::Exploratory);
-        assert_eq!(ledger.status(true), CertificateStatus::DiagnosticOnly);
+        assert_eq!(
+            ledger.status(&all_established()),
+            CertificateStatus::DiagnosticOnly
+        );
+    }
+
+    #[test]
+    fn unresolved_or_partial_evidence_abstains() {
+        let ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        assert_eq!(
+            ledger.status(&CertificateGates::unresolved()),
+            CertificateStatus::Abstained
+        );
+
+        let candidates = [
+            CertificateGates {
+                locality: ImplicationVerdict::Established,
+                ..CertificateGates::unresolved()
+            },
+            CertificateGates {
+                conditional_normalization: ImplicationVerdict::Established,
+                ..CertificateGates::unresolved()
+            },
+            CertificateGates {
+                square_flatness: ImplicationVerdict::Established,
+                ..CertificateGates::unresolved()
+            },
+            CertificateGates {
+                orientation: OrientationVerdict::Established,
+                ..CertificateGates::unresolved()
+            },
+            CertificateGates {
+                locality: ImplicationVerdict::Established,
+                conditional_normalization: ImplicationVerdict::Established,
+                square_flatness: ImplicationVerdict::Established,
+                orientation: OrientationVerdict::Unresolved,
+            },
+        ];
+        for gates in candidates {
+            assert_eq!(ledger.status(&gates), CertificateStatus::Abstained);
+        }
+
+        for missing in 0..3 {
+            let mut gates = all_established();
+            match missing {
+                0 => gates.locality = ImplicationVerdict::Unresolved,
+                1 => gates.conditional_normalization = ImplicationVerdict::Unresolved,
+                2 => gates.square_flatness = ImplicationVerdict::Unresolved,
+                _ => unreachable!(),
+            }
+            assert_eq!(ledger.status(&gates), CertificateStatus::Abstained);
+        }
+    }
+
+    #[test]
+    fn only_complete_established_evidence_passes() {
+        let ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        assert_eq!(ledger.status(&all_established()), CertificateStatus::Passed);
+    }
+
+    #[test]
+    fn valid_implication_refutation_fails_even_when_another_gate_is_unresolved() {
+        let ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        for refuted in 0..3 {
+            let mut gates = all_established();
+            match refuted {
+                0 => gates.locality = ImplicationVerdict::Refuted,
+                1 => gates.conditional_normalization = ImplicationVerdict::Refuted,
+                2 => gates.square_flatness = ImplicationVerdict::Refuted,
+                _ => unreachable!(),
+            }
+            assert_eq!(ledger.status(&gates), CertificateStatus::Failed);
+        }
+
+        let gates = CertificateGates {
+            locality: ImplicationVerdict::Refuted,
+            ..CertificateGates::unresolved()
+        };
+        assert_eq!(ledger.status(&gates), CertificateStatus::Failed);
+    }
+
+    #[test]
+    fn invalid_evidence_contract_precedes_a_purported_refutation() {
+        let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        ledger.note(Severity::Error, "selection", "invalid_contract", "invalid");
+        let gates = CertificateGates {
+            locality: ImplicationVerdict::Refuted,
+            ..CertificateGates::unresolved()
+        };
+        assert_eq!(ledger.status(&gates), CertificateStatus::Abstained);
+        assert_eq!(
+            ledger.status(&all_established()),
+            CertificateStatus::Abstained
+        );
+    }
+
+    #[test]
+    fn exploratory_refutation_remains_diagnostic_only() {
+        let ledger = EvidenceLedger::new(ExecutionMode::Exploratory);
+        let gates = CertificateGates {
+            locality: ImplicationVerdict::Refuted,
+            ..CertificateGates::unresolved()
+        };
+        assert_eq!(ledger.status(&gates), CertificateStatus::DiagnosticOnly);
+    }
+
+    #[test]
+    fn gate_json_serializes_the_complete_closed_summary() {
+        let encoded = serde_json::to_string(&all_established()).unwrap();
+        let document: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+        let object = document.as_object().unwrap();
+        assert_eq!(object.len(), 4);
+        assert_eq!(object["locality"], "established");
+        assert_eq!(object["conditional_normalization"], "established");
+        assert_eq!(object["square_flatness"], "established");
+        assert_eq!(object["orientation"], "established");
+    }
+
+    #[test]
+    fn every_gate_state_derives_a_status_without_deserialization_authority() {
+        for locality in [
+            ImplicationVerdict::Established,
+            ImplicationVerdict::Refuted,
+            ImplicationVerdict::Unresolved,
+        ] {
+            for conditional_normalization in [
+                ImplicationVerdict::Established,
+                ImplicationVerdict::Refuted,
+                ImplicationVerdict::Unresolved,
+            ] {
+                for square_flatness in [
+                    ImplicationVerdict::Established,
+                    ImplicationVerdict::Refuted,
+                    ImplicationVerdict::Unresolved,
+                ] {
+                    for orientation in [
+                        OrientationVerdict::Established,
+                        OrientationVerdict::Unresolved,
+                    ] {
+                        let gates = CertificateGates {
+                            locality,
+                            conditional_normalization,
+                            square_flatness,
+                            orientation,
+                        };
+                        let _ = ledger_status_for_truth_table(gates);
+                    }
+                }
+            }
+        }
+    }
+
+    fn ledger_status_for_truth_table(gates: CertificateGates) -> CertificateStatus {
+        EvidenceLedger::new(ExecutionMode::Strict).status(&gates)
     }
 }

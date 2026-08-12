@@ -1,33 +1,58 @@
 #![forbid(unsafe_code)]
 //! Human-readable reports that open with assumptions and abstentions.
 
-use crate::{CertificateStatus, EvidenceLedger, ExecutionMode, Finding, Severity};
-use serde::{Deserialize, Serialize};
+use crate::{
+    CertificateGates, CertificateStatus, EvidenceLedger, ExecutionMode, Finding, Severity,
+};
+use serde::Serialize;
 use std::fmt::Write as _;
 
 /// Markdown + JSON report envelope.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct NarrativeReport {
     /// Schema version.
     pub schema_version: String,
     /// Experiment identifier.
     pub experiment_id: String,
     /// Conservative certificate status.
-    pub status: CertificateStatus,
+    status: CertificateStatus,
+    /// Complete typed inputs from which `status` was derived.
+    gates: CertificateGates,
     /// Execution policy.
-    pub mode: ExecutionMode,
+    mode: ExecutionMode,
     /// Markdown that leads with assumptions and abstentions.
     pub markdown: String,
+}
+
+impl NarrativeReport {
+    /// Returns the internally derived certificate status.
+    #[must_use]
+    pub const fn status(&self) -> CertificateStatus {
+        self.status
+    }
+
+    /// Returns the complete typed gate summary used to derive `status`.
+    #[must_use]
+    pub const fn gates(&self) -> CertificateGates {
+        self.gates
+    }
+
+    /// Returns the execution policy bound to the derived status.
+    #[must_use]
+    pub const fn mode(&self) -> ExecutionMode {
+        self.mode
+    }
 }
 
 /// Renders a ledger-first report. The first heading is always the status.
 #[must_use]
 pub fn render_narrative(
     experiment_id: &str,
-    status: CertificateStatus,
+    gates: &CertificateGates,
     ledger: &EvidenceLedger,
     extra_sections: &[(&str, String)],
 ) -> NarrativeReport {
+    let status = ledger.status(gates);
     let mut markdown = String::new();
     let _ = writeln!(
         markdown,
@@ -84,9 +109,10 @@ pub fn render_narrative(
         markdown.push('\n');
     }
     NarrativeReport {
-        schema_version: "1.0.0".into(),
+        schema_version: "2.0.0".into(),
         experiment_id: experiment_id.to_string(),
         status,
+        gates: *gates,
         mode: ledger.mode,
         markdown,
     }
@@ -125,7 +151,7 @@ fn status_label(status: CertificateStatus) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{EvidenceLedger, ExecutionMode};
+    use crate::{CertificateGates, EvidenceLedger, ExecutionMode};
 
     #[test]
     fn markdown_starts_with_status_and_abstentions() {
@@ -137,7 +163,8 @@ mod tests {
             "orientation_unresolved",
             "multiple deletions are certified invariant",
         );
-        let report = render_narrative("demo", CertificateStatus::Abstained, &ledger, &[]);
+        let gates = CertificateGates::unresolved();
+        let report = render_narrative("demo", &gates, &ledger, &[]);
         let first_heading = report
             .markdown
             .lines()
@@ -150,5 +177,7 @@ mod tests {
                 < report.markdown.find("## Informational findings").unwrap()
         );
         assert!(!report.markdown.to_ascii_lowercase().contains("p-value"));
+        assert_eq!(report.gates(), gates);
+        assert_eq!(report.status(), ledger.status(&gates));
     }
 }

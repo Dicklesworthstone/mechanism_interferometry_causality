@@ -10,7 +10,8 @@ use crate::{
     finding_with_context, run_preflight,
 };
 use mic_audit::{
-    CertificateStatus, EvidenceLedger, ExecutionMode, NarrativeReport, Severity, render_narrative,
+    CertificateGates, CertificateStatus, EvidenceLedger, ExecutionMode, NarrativeReport, Severity,
+    render_narrative,
 };
 use mic_core::DensitySquare;
 use mic_data::{ExperimentManifest, IngestReport, load_csv_table};
@@ -99,7 +100,7 @@ pub struct FourLawFaceAudit {
 }
 
 /// Complete tabular audit: preflight, ingest, four-law projection, overlap.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct TabularAuditReport {
     /// Schema version.
     pub schema_version: String,
@@ -107,6 +108,8 @@ pub struct TabularAuditReport {
     pub experiment_id: String,
     /// Conservative certificate status. Histogram four-law never issues `passed`.
     pub status: CertificateStatus,
+    /// Complete typed inputs from which `status` was derived.
+    gates: CertificateGates,
     /// Preflight design and sampling gate.
     pub preflight: PreflightReport,
     /// Table fingerprints and realized quotas.
@@ -122,6 +125,18 @@ pub struct TabularAuditReport {
 }
 
 impl TabularAuditReport {
+    /// Returns the internally derived certificate status.
+    #[must_use]
+    pub const fn status(&self) -> CertificateStatus {
+        self.status
+    }
+
+    /// Returns the complete typed gate summary used to derive `status`.
+    #[must_use]
+    pub const fn gates(&self) -> CertificateGates {
+        self.gates
+    }
+
     /// Markdown report that leads with status and abstentions.
     #[must_use]
     pub fn narrative(&self) -> NarrativeReport {
@@ -161,7 +176,7 @@ impl TabularAuditReport {
         ));
         render_narrative(
             &self.experiment_id,
-            self.status,
+            &self.gates,
             &self.ledger,
             &extra
                 .iter()
@@ -326,18 +341,15 @@ fn finish(
         "histogram_not_a_certificate",
         "histogram four-law is a projection diagnostic; locality and deletion orientation were not established, so the run abstains from a modularity certificate",
     );
-    // The projection tests no certificate condition, so it has nothing to reject:
-    // `status(false)` would report `Failed` and claim a rejection that never happened.
-    // Pass `true` and downgrade, so a clean run abstains and a blocking finding still
-    // abstains, which is the documented "diagnostic, never a certificate" contract.
-    let mut status = ledger.status(true);
-    if status == CertificateStatus::Passed {
-        status = CertificateStatus::Abstained;
-    }
+    // The histogram projection is diagnostic: it does not establish locality,
+    // conditional normalization, square-flatness inference, or orientation.
+    let gates = CertificateGates::unresolved();
+    let status = ledger.status(&gates);
     TabularAuditReport {
-        schema_version: "1.0.0".into(),
+        schema_version: "2.0.0".into(),
         experiment_id: manifest.experiment_id.clone(),
         status,
+        gates,
         preflight,
         ingest,
         four_law,
@@ -843,6 +855,7 @@ mod tests {
     use crate::PreflightStatus;
     use mic_audit::code;
     use mic_data::{DataSource, InferenceTrack, RegimeSpec, SelectionContract};
+    use std::fmt::Write as _;
     use std::path::PathBuf;
 
     fn workspace_root() -> PathBuf {
@@ -863,7 +876,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.preflight.status, PreflightStatus::Ready);
-        assert_eq!(report.status, CertificateStatus::Abstained);
+        assert_eq!(report.status(), CertificateStatus::Abstained);
         let face = &report.four_law[0];
         assert_eq!(face.cells.len(), 2);
         let kappa0 = face
@@ -910,7 +923,7 @@ mod tests {
         assert!(face.max_abs_kappa.abs() < 1e-12);
         assert!(face.scalar_moment.abs() < 1e-12);
         assert!((face.normalizer_a - 1.0).abs() < 1e-12);
-        assert_eq!(report.status, CertificateStatus::Abstained);
+        assert_eq!(report.status(), CertificateStatus::Abstained);
     }
 
     #[test]
@@ -940,7 +953,7 @@ mod tests {
         assert_eq!(report.preflight.status, PreflightStatus::Blocked);
         assert!(!report.preflight.four_law_eligible);
         assert!(report.four_law.is_empty());
-        assert_eq!(report.status, CertificateStatus::Abstained);
+        assert_eq!(report.status(), CertificateStatus::Abstained);
     }
 
     #[test]
@@ -956,7 +969,7 @@ mod tests {
         .unwrap();
         assert_eq!(report.preflight.status, PreflightStatus::Blocked);
         assert!(!report.four_law.is_empty());
-        assert_eq!(report.status, CertificateStatus::Abstained);
+        assert_eq!(report.status(), CertificateStatus::Abstained);
     }
 
     #[test]
@@ -1065,7 +1078,7 @@ mod tests {
                 && finding.severity == Severity::Error
                 && finding.context.contains_key("omitted_baseline_mass")
         }));
-        assert_eq!(report.status, CertificateStatus::Abstained);
+        assert_eq!(report.status(), CertificateStatus::Abstained);
     }
 
     #[test]
@@ -1099,13 +1112,13 @@ mod tests {
         for regime in balanced {
             for value in [0, 1] {
                 for index in 0..20 {
-                    rows.push_str(&format!("c{regime}{value}{index},{regime},{value},1\n"));
+                    let _ = writeln!(rows, "c{regime}{value}{index},{regime},{value},1");
                 }
             }
         }
         for index in 0..20 {
-            rows.push_str(&format!("c0010{index},001,0,1\n"));
-            rows.push_str(&format!("c1011{index},101,1,1\n"));
+            let _ = writeln!(rows, "c0010{index},001,0,1");
+            let _ = writeln!(rows, "c1011{index},101,1,1");
         }
         rows.push_str("c0011only,001,1,1\n");
         rows.push_str("c1010only,101,0,1\n");
@@ -1168,6 +1181,6 @@ mod tests {
             }),
             "a later face must be able to fail overlap after the first face passed"
         );
-        assert_eq!(report.status, CertificateStatus::Abstained);
+        assert_eq!(report.status(), CertificateStatus::Abstained);
     }
 }
