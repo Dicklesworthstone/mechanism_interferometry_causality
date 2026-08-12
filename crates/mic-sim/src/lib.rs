@@ -89,6 +89,32 @@ pub struct ImplementationExample {
     pub negative_control_curvature: f64,
 }
 
+/// One exact law in the three-node causal-tomography cube.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TomographyLaw {
+    /// Binary replacement design in `A`, `B`, `C` order.
+    pub design: String,
+    /// Joint probabilities in lexicographic `A,B,C` state order.
+    pub probabilities: [f64; 8],
+}
+
+/// Exact multi-environment fixture for discovering an autonomous causal chain.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CausalTomographyExample {
+    /// State order shared by every regime law.
+    pub state_labels: Vec<String>,
+    /// All eight single and combined replacement regimes.
+    pub laws: Vec<TomographyLaw>,
+    /// Exact minimal primitive supports in target order.
+    pub primitive_families: Vec<Vec<String>>,
+    /// Exact primitive targets.
+    pub primitive_targets: Vec<String>,
+    /// Union marginal-response sets for one rich tilt per target.
+    pub response_sets: Vec<Vec<String>>,
+    /// Why this fixture has stronger authority than a fitted benchmark.
+    pub authority: String,
+}
+
 /// Complete exact simulation bundle.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExactSuite {
@@ -164,10 +190,88 @@ pub fn latent_conservation(a: f64) -> LatentConservationExample {
         ra: [1.0 - a, 1.0 + a],
         rb: [1.0 + a, 1.0 - a],
         rab: [1.0, 1.0],
-        curvature: -(1.0 - a * a).ln(),
+        curvature: -(-(a * a)).ln_1p(),
         observed_ratio_covariance: -(a * a),
         hidden_conditional_covariance: a * a,
         locality_scope: "coordinated multi-source tilts; multiplicative flatness only".into(),
+    }
+}
+
+/// Builds an exact three-node `A -> B -> C` replacement cube.
+///
+/// The baseline conditionals are
+/// `P(A=1)=1/2`, `P(B=1|A=0,1)=(1/4,3/4)`, and
+/// `P(C=1|B=0,1)=(1/5,4/5)`. The three primitive replacements set those
+/// conditionals to `3/4`, `(1/2,2/3)`, and `(2/5,2/3)`, respectively.
+/// Every combination reuses the untouched baseline conditionals, so the cube
+/// is pointwise flat by construction while retaining nontrivial propagation.
+#[must_use]
+pub fn causal_tomography_chain() -> CausalTomographyExample {
+    let laws = (0_u8..8)
+        .map(|bits| TomographyLaw {
+            design: format!(
+                "{}{}{}",
+                u8::from(bits & 4 != 0),
+                u8::from(bits & 2 != 0),
+                u8::from(bits & 1 != 0)
+            ),
+            probabilities: chain_law(bits),
+        })
+        .collect();
+    CausalTomographyExample {
+        state_labels: (0_u8..8).map(|bits| format!("{:03b}", bits)).collect(),
+        laws,
+        primitive_families: vec![
+            vec!["A".into()],
+            vec!["A".into(), "B".into()],
+            vec!["B".into(), "C".into()],
+        ],
+        primitive_targets: vec!["A".into(), "B".into(), "C".into()],
+        response_sets: vec![
+            vec!["A".into(), "B".into(), "C".into()],
+            vec!["B".into(), "C".into()],
+            vec!["C".into()],
+        ],
+        authority: "exact structural-equation construction".into(),
+    }
+}
+
+fn chain_law(design: u8) -> [f64; 8] {
+    let mut law = [0.0; 8];
+    for state in 0_u8..8 {
+        let a = state & 4 != 0;
+        let b = state & 2 != 0;
+        let c = state & 1 != 0;
+        let p_a_one = if design & 4 != 0 {
+            3.0 / 4.0
+        } else {
+            1.0 / 2.0
+        };
+        let p_b_one = if design & 2 != 0 {
+            if a { 2.0 / 3.0 } else { 1.0 / 2.0 }
+        } else if a {
+            3.0 / 4.0
+        } else {
+            1.0 / 4.0
+        };
+        let p_c_one = if design & 1 != 0 {
+            if b { 2.0 / 3.0 } else { 2.0 / 5.0 }
+        } else if b {
+            4.0 / 5.0
+        } else {
+            1.0 / 5.0
+        };
+        law[usize::from(state)] =
+            bernoulli_mass(a, p_a_one) * bernoulli_mass(b, p_b_one) * bernoulli_mass(c, p_c_one);
+    }
+    law
+}
+
+fn bernoulli_mass(value: bool, probability_one: f64) -> f64 {
+    if value {
+        probability_one
+    } else {
+        1.0 - probability_one
     }
 }
 
@@ -224,6 +328,20 @@ mod tests {
                 example.invariant_deletions,
                 vec!["P".to_string(), "T".into()]
             );
+        }
+    }
+
+    #[test]
+    fn tomography_cube_contains_eight_normalized_positive_laws() {
+        let example = causal_tomography_chain();
+        assert_eq!(example.laws.len(), 8);
+        for law in example.laws {
+            assert!(
+                law.probabilities
+                    .iter()
+                    .all(|probability| *probability > 0.0)
+            );
+            assert!((law.probabilities.iter().sum::<f64>() - 1.0).abs() < 1e-14);
         }
     }
 }

@@ -4,20 +4,23 @@
 #[cfg(test)]
 mod tests {
     use mic_audit::{CertificateGates, CertificateStatus, EvidenceLedger, ExecutionMode, code};
-    use mic_core::{RatioSquare, covariance, four_law_moment};
+    use mic_core::{DensitySquare, RatioSquare, covariance, four_law_moment};
     use mic_data::{DataSource, ExperimentManifest, InferenceTrack, RegimeSpec, SelectionContract};
-    use mic_design::{DesignPoint, audit_design, audit_sampling_odds};
+    use mic_design::{
+        DesignPoint, PeelingOutcome, audit_design, audit_sampling_odds, peel_families,
+    };
     use mic_engine::{
         FourLawPolicy, LensEstimate, PreflightPolicy, PreflightStatus, SurveyAuthority,
         SurveyPolicy, audit_lens_battery, audit_orientation, run_preflight, run_tabular_audit,
         run_unsupervised_survey,
     };
     use mic_model::PosteriorSquare;
-    use mic_sim::exact_suite;
+    use mic_sim::{causal_tomography_chain, exact_suite};
     use mic_stats::{
         CandidateSupport, OrientationOutcome, classify_deletion, parsimony_frontier,
         simultaneous_mean_bounds,
     };
+    use std::collections::BTreeSet;
     use std::path::PathBuf;
 
     #[test]
@@ -46,6 +49,97 @@ mod tests {
             };
             assert!((square.curvature().unwrap() - example.curvature).abs() < 1e-14);
         }
+    }
+
+    #[test]
+    fn exact_tomography_cube_recovers_chain_families_and_response_order() {
+        let example = causal_tomography_chain();
+        let law = |design: &str| {
+            example
+                .laws
+                .iter()
+                .find(|law| law.design == design)
+                .expect("complete cube contains every design")
+        };
+
+        for first in 0..3 {
+            for second in (first + 1)..3 {
+                let background = 3 - first - second;
+                for background_on in [false, true] {
+                    let mut base = [false; 3];
+                    base[background] = background_on;
+                    let mut first_only = base;
+                    first_only[first] = true;
+                    let mut second_only = base;
+                    second_only[second] = true;
+                    let mut both = first_only;
+                    both[second] = true;
+                    let labels =
+                        [base, first_only, second_only, both].map(|bits| design_label(bits));
+                    for state in 0..8 {
+                        let curvature = DensitySquare {
+                            p0: law(&labels[0]).probabilities[state],
+                            pa: law(&labels[1]).probabilities[state],
+                            pb: law(&labels[2]).probabilities[state],
+                            pab: law(&labels[3]).probabilities[state],
+                        }
+                        .curvature()
+                        .unwrap();
+                        assert!(curvature.abs() < 1e-13);
+                    }
+                }
+            }
+        }
+
+        let families: Vec<BTreeSet<String>> = example
+            .primitive_families
+            .iter()
+            .map(|family| family.iter().cloned().collect())
+            .collect();
+        let PeelingOutcome::Complete { families } = peel_families(&families).unwrap() else {
+            panic!("one exact rich family per node must peel completely");
+        };
+        let recovered_targets: Vec<String> = families
+            .iter()
+            .map(|family| family.target.clone())
+            .collect();
+        assert_eq!(recovered_targets, example.primitive_targets);
+
+        let baseline = law("000");
+        for (design, expected) in [
+            ("100", &example.response_sets[0]),
+            ("010", &example.response_sets[1]),
+            ("001", &example.response_sets[2]),
+        ] {
+            let shifted = law(design);
+            let response: Vec<String> = ["A", "B", "C"]
+                .iter()
+                .enumerate()
+                .filter(|(coordinate, _)| {
+                    (binary_marginal(&shifted.probabilities, *coordinate)
+                        - binary_marginal(&baseline.probabilities, *coordinate))
+                    .abs()
+                        > 1e-14
+                })
+                .map(|(_, name)| (*name).to_string())
+                .collect();
+            assert_eq!(&response, expected);
+        }
+    }
+
+    fn design_label(bits: [bool; 3]) -> String {
+        bits.into_iter()
+            .map(|bit| if bit { '1' } else { '0' })
+            .collect()
+    }
+
+    fn binary_marginal(law: &[f64; 8], coordinate: usize) -> f64 {
+        let mask = 1_usize << (2 - coordinate);
+        law.iter()
+            .enumerate()
+            .filter(|(state, _)| state & mask != 0)
+            .map(|(_, probability)| probability)
+            .sum()
     }
 
     #[test]
