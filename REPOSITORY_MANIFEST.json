@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T18:15:50Z",
+  "generated_at_utc": "2026-08-12T18:17:42Z",
   "hash_algorithm": "sha256",
   "file_count": 95,
-  "aggregate_sha256": "0bd03c6551daeb3b457df41b5826aa3422a569eff8727d036eeb8f7bb38a7073",
+  "aggregate_sha256": "d1a521f140ade71c6cda2925a201c7fae8db1f2ec5bfbb8238480fee16e10fcc",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -43,8 +43,8 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 58469,
-      "sha256": "3c400c6d32115622ecb8254e40eac939a9a5f6a553c4f65921d242fb85b87927"
+      "bytes": 58495,
+      "sha256": "2ecde6bbaf7f63520ccbca7b49c1db8041ad9e5a0df835edc34c973e20778f43"
     },
     {
       "path": "Cargo.toml",
@@ -158,13 +158,13 @@
     },
     {
       "path": "crates/mic-proposal/Cargo.toml",
-      "bytes": 449,
-      "sha256": "1d30f17d7d89b957181477aa9286ce2f00973d140dbc25413c958720e38e7c8a"
+      "bytes": 471,
+      "sha256": "289b440e67a61c36b35c159cc6558af37f6b60892a44d54e24ce1e1b8809132b"
     },
     {
       "path": "crates/mic-proposal/src/lib.rs",
-      "bytes": 30898,
-      "sha256": "a498f3982941cbf1a3eda37bedb57688a92fe2a52b47ef76c65b5de0946cb820"
+      "bytes": 33700,
+      "sha256": "c2b7b9d8d9aa649411c6a486bafa5923ba5f18cacb5e7ad87a95440c0ce8ac09"
     },
     {
       "path": "crates/mic-sim/Cargo.toml",
@@ -278,13 +278,13 @@
     },
     {
       "path": "examples/proposal_inputs/parity_active_tilt.json",
-      "bytes": 2396,
-      "sha256": "73ffc39e3d058cb8e3ef69d01e5e0f395ee9487e6256064dc15a16a0f4277194"
+      "bytes": 2331,
+      "sha256": "6306295d74e1194db55e6718357082768d6be14139d72fb298aed219cdd2b52f"
     },
     {
       "path": "examples/proposals/parity_active_tilt.json",
-      "bytes": 2428,
-      "sha256": "da408f032cc9c8ea9a43fb38045f23571376776d00de1a55d0f43e8e5ebe9034"
+      "bytes": 2475,
+      "sha256": "948f696d251fc03fefef96a9ab5d45cc874c71f63f4721872b0dce23b9e4d315"
     },
     {
       "path": "paper/README.md",
@@ -358,8 +358,8 @@
     },
     {
       "path": "schemas/active_tilt_input.schema.json",
-      "bytes": 5140,
-      "sha256": "03b64111c7f97a02b905107cea513732e3f1c6569cc28c64b5d1c8aa835dbd95"
+      "bytes": 5026,
+      "sha256": "1a9bd6be252df7acbf7c187a4ee5ee4135a5211054b0c0ca4f46209bbfd79aa3"
     },
     {
       "path": "schemas/audit_report.schema.json",
@@ -388,8 +388,8 @@
     },
     {
       "path": "scripts/check_repo.py",
-      "bytes": 22145,
-      "sha256": "a489d70c05e7793f8fc7fad732e5db9660cb9396f275d4a3927c63f9c398f339"
+      "bytes": 28062,
+      "sha256": "521bdc31d5041f8321056075ef660a2388977b8b00aed386260f622ec8952aba"
     },
     {
       "path": "scripts/generate_example_data.py",
@@ -428,8 +428,8 @@
     },
     {
       "path": "site/app.js",
-      "bytes": 49650,
-      "sha256": "aff79c042fdb42d5ffc417291cbb4d7a0a70b2b197d4813bbf9bfb6bc57af2d0"
+      "bytes": 68154,
+      "sha256": "94c55a318ef70344a2b8d19f426587fb67103984ba77880c5ea3b774c518a4a4"
     },
     {
       "path": "site/assets/favicon.svg",
@@ -473,8 +473,8 @@
     },
     {
       "path": "site/styles.css",
-      "bytes": 50424,
-      "sha256": "ed30295c8de0daaae02d69e8c613461c848fad218dc6080412cb091428daf1c0"
+      "bytes": 50905,
+      "sha256": "f648c031a71a06d7c82c6054a69d25f2c1378b0d3b6062df506977cb32574e3f"
     },
     {
       "path": "uv.lock",
