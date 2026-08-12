@@ -24,8 +24,210 @@ pub enum StatsError {
     MatrixShape,
 }
 
+/// Public authority grade attached to GCM design evidence.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProductDesignGrade {
+    /// Corner masses were checked directly and have product pooled odds.
+    ProductOddsVerified,
+    /// Observations reference a completed product-design reweighting audit.
+    ReweightedToProduct,
+    /// Residual-product output has no certificate authority.
+    DiagnosticOnly,
+}
+
+/// Auditable, self-validating design evidence attached to every GCM projection.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(transparent)]
+pub struct ProductDesignEvidence {
+    kind: ProductDesignEvidenceKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "grade", rename_all = "snake_case")]
+enum ProductDesignEvidenceKind {
+    /// Corner masses were checked directly and have product pooled odds.
+    ProductOddsVerified {
+        /// Positive masses in `00, 10, 01, 11` order.
+        probabilities: [f64; 4],
+        /// Sum of the supplied masses.
+        probability_sum: f64,
+        /// Verified pooled log odds ratio.
+        log_odds_ratio: f64,
+        /// Absolute tolerance used for the product-odds decision.
+        tolerance: f64,
+    },
+    /// Observations were reweighted and a completed product-design audit exists.
+    ReweightedToProduct {
+        /// Stable identifier of the completed reweighting audit and diagnostics.
+        audit_id: String,
+    },
+    /// A residual-product diagnostic with no certificate authority.
+    DiagnosticOnly {
+        /// Human-readable reason why product-design eligibility is not claimed.
+        reason: String,
+    },
+}
+
+impl<'de> Deserialize<'de> for ProductDesignEvidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let kind = ProductDesignEvidenceKind::deserialize(deserializer)?;
+        match kind {
+            ProductDesignEvidenceKind::ProductOddsVerified {
+                probabilities,
+                probability_sum,
+                log_odds_ratio,
+                tolerance,
+            } => {
+                let verified = Self::from_corner_odds(probabilities, tolerance)
+                    .map_err(serde::de::Error::custom)?;
+                let ProductDesignEvidenceKind::ProductOddsVerified {
+                    probability_sum: recomputed_sum,
+                    log_odds_ratio: recomputed_log_odds,
+                    ..
+                } = &verified.kind
+                else {
+                    unreachable!("corner-odds constructor returned the wrong evidence kind")
+                };
+                if probability_sum.to_bits() != recomputed_sum.to_bits()
+                    || log_odds_ratio.to_bits() != recomputed_log_odds.to_bits()
+                {
+                    return Err(serde::de::Error::custom(
+                        "serialized product-design diagnostics do not match recomputation",
+                    ));
+                }
+                Ok(verified)
+            }
+            ProductDesignEvidenceKind::ReweightedToProduct { audit_id } => {
+                Self::from_reweighting_audit(audit_id).map_err(serde::de::Error::custom)
+            }
+            ProductDesignEvidenceKind::DiagnosticOnly { reason } => {
+                Self::diagnostic_only(reason).map_err(serde::de::Error::custom)
+            }
+        }
+    }
+}
+
+impl ProductDesignEvidence {
+    /// Recomputes and verifies product pooled odds from four positive corner masses.
+    pub fn from_corner_odds(probabilities: [f64; 4], tolerance: f64) -> Result<Self, StatsError> {
+        if !tolerance.is_finite() || tolerance < 0.0 {
+            return Err(StatsError::Invalid {
+                name: "product-odds tolerance",
+                value: tolerance,
+            });
+        }
+        for probability in probabilities {
+            if !probability.is_finite() || probability <= 0.0 {
+                return Err(StatsError::Invalid {
+                    name: "corner probability",
+                    value: probability,
+                });
+            }
+        }
+        let probability_sum: f64 = probabilities.iter().sum();
+        if !probability_sum.is_finite() {
+            return Err(StatsError::Invalid {
+                name: "corner probability sum",
+                value: probability_sum,
+            });
+        }
+        let [p00, p10, p01, p11] = probabilities;
+        let log_odds_ratio = p11.ln() + p00.ln() - p10.ln() - p01.ln();
+        if log_odds_ratio.abs() > tolerance {
+            return Err(StatsError::Invalid {
+                name: "non-product pooled log odds",
+                value: log_odds_ratio,
+            });
+        }
+        Ok(Self {
+            kind: ProductDesignEvidenceKind::ProductOddsVerified {
+                probabilities,
+                probability_sum,
+                log_odds_ratio,
+                tolerance,
+            },
+        })
+    }
+
+    /// Records a completed reweighting audit that established a product design.
+    pub fn from_reweighting_audit(audit_id: impl Into<String>) -> Result<Self, StatsError> {
+        let audit_id = audit_id.into();
+        let audit_id = audit_id.trim().to_owned();
+        if audit_id.is_empty() {
+            return Err(StatsError::Invalid {
+                name: "reweighting audit identifier",
+                value: f64::NAN,
+            });
+        }
+        Ok(Self {
+            kind: ProductDesignEvidenceKind::ReweightedToProduct { audit_id },
+        })
+    }
+
+    /// Marks an unverified residual-product projection as diagnostic-only.
+    pub fn diagnostic_only(reason: impl Into<String>) -> Result<Self, StatsError> {
+        let reason = reason.into();
+        let reason = reason.trim().to_owned();
+        if reason.is_empty() {
+            return Err(StatsError::Invalid {
+                name: "diagnostic-only reason",
+                value: f64::NAN,
+            });
+        }
+        Ok(Self {
+            kind: ProductDesignEvidenceKind::DiagnosticOnly { reason },
+        })
+    }
+
+    /// Serializable authority grade of this evidence object.
+    #[must_use]
+    pub const fn grade(&self) -> ProductDesignGrade {
+        match &self.kind {
+            ProductDesignEvidenceKind::ProductOddsVerified { .. } => {
+                ProductDesignGrade::ProductOddsVerified
+            }
+            ProductDesignEvidenceKind::ReweightedToProduct { .. } => {
+                ProductDesignGrade::ReweightedToProduct
+            }
+            ProductDesignEvidenceKind::DiagnosticOnly { .. } => ProductDesignGrade::DiagnosticOnly,
+        }
+    }
+
+    /// Verified corner masses and tolerance, when direct product odds were checked.
+    #[must_use]
+    pub const fn verified_corner_odds(&self) -> Option<([f64; 4], f64)> {
+        match &self.kind {
+            ProductDesignEvidenceKind::ProductOddsVerified {
+                probabilities,
+                tolerance,
+                ..
+            } => Some((*probabilities, *tolerance)),
+            _ => None,
+        }
+    }
+
+    /// Completed reweighting-audit identifier, when that route supplied eligibility.
+    #[must_use]
+    pub fn reweighting_audit_id(&self) -> Option<&str> {
+        match &self.kind {
+            ProductDesignEvidenceKind::ReweightedToProduct { audit_id } => Some(audit_id),
+            _ => None,
+        }
+    }
+
+    /// Whether the evidence can support a certificate-grade GCM projection.
+    #[must_use]
+    pub const fn is_certificate_eligible(&self) -> bool {
+        !matches!(self.grade(), ProductDesignGrade::DiagnosticOnly)
+    }
+}
+
 /// Studentized projected generalized covariance estimate.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GcmEstimate {
     /// Mean weighted residual product.
     pub estimate: f64,
@@ -35,10 +237,18 @@ pub struct GcmEstimate {
     pub z_score: f64,
     /// Number of observations.
     pub sample_size: usize,
+    /// Product-design or diagnostic authority attached to this projection.
+    pub design_evidence: ProductDesignEvidence,
 }
 
-/// Computes a cross-fitted weighted residual-product projection.
+/// Computes a cross-fitted weighted residual-product projection with explicit design evidence.
+///
+/// Product-odds evidence is recomputed by [`ProductDesignEvidence::from_corner_odds`].
+/// Reweighted evidence must reference a completed audit, not a future plan. A
+/// diagnostic-only projection remains useful for debugging but is serializably
+/// ineligible for certificate use.
 pub fn gcm_projection(
+    design_evidence: &ProductDesignEvidence,
     a: &[f64],
     b: &[f64],
     mean_a: &[f64],
@@ -83,6 +293,7 @@ pub fn gcm_projection(
         standard_error,
         z_score,
         sample_size: n,
+        design_evidence: design_evidence.clone(),
     })
 }
 
@@ -563,7 +774,7 @@ pub fn orient_from_deletions(
     }
 }
 
-/// Simultaneous confidence bounds for a vector of cluster-mean statistics.
+/// Reference simultaneous multiplier bounds for a vector of cluster-mean statistics.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SimultaneousBounds {
     /// Per-statistic cluster means.
@@ -578,13 +789,13 @@ pub struct SimultaneousBounds {
     pub upper: Vec<f64>,
     /// Number of multiplier replicates.
     pub replicates: usize,
-    /// Simultaneous coverage level in (0, 1).
+    /// Nominal simultaneous coverage level in (0, 1).
     pub confidence: f64,
     /// Deterministic seed recorded for the evidence ledger.
     pub seed: u64,
 }
 
-/// Deterministic Rademacher multiplier bootstrap for simultaneous mean bounds.
+/// Deterministic Rademacher multiplier bootstrap for reference simultaneous mean bounds.
 ///
 /// `contributions` has one row per cluster and one column per statistic; the
 /// randomization unit must be the row unit.  Each replicate flips cluster signs
@@ -592,9 +803,9 @@ pub struct SimultaneousBounds {
 /// standard-error-scaled coordinates forms the replicate statistic, and the
 /// empirical `confidence` quantile becomes one shared critical value, so the
 /// bounds are simultaneous across coordinates.  This reference primitive covers
-/// mean-type discrepancy vectors; degenerate U-statistic corrections remain a
-/// Packet 2 item.  Lower bounds are floored at zero because the intended
-/// consumers are nonnegative discrepancies.
+/// mean-type discrepancy vectors; it is not a finite-sample coverage guarantee,
+/// and degenerate U-statistic corrections remain a Packet 2 item. Lower bounds
+/// are floored at zero because the intended consumers are nonnegative discrepancies.
 pub fn simultaneous_mean_bounds(
     contributions: &[Vec<f64>],
     replicates: usize,
@@ -759,7 +970,9 @@ mod tests {
 
     #[test]
     fn gcm_zero_when_one_residual_is_zero() {
+        let evidence = ProductDesignEvidence::from_corner_odds([0.25; 4], 1e-12).unwrap();
         let estimate = gcm_projection(
+            &evidence,
             &[0.0, 1.0, 0.0, 1.0],
             &[0.0, 0.0, 1.0, 1.0],
             &[0.0, 1.0, 0.0, 1.0],
@@ -768,6 +981,60 @@ mod tests {
         )
         .unwrap();
         assert_eq!(estimate.estimate, 0.0);
+        assert!(estimate.design_evidence.is_certificate_eligible());
+    }
+
+    #[test]
+    fn nonproduct_odds_cannot_create_verified_gcm_evidence() {
+        let error =
+            ProductDesignEvidence::from_corner_odds([0.1, 0.2, 0.3, 0.4], 1e-12).unwrap_err();
+        assert!(matches!(error, StatsError::Invalid { .. }));
+        assert!(
+            ProductDesignEvidence::from_corner_odds([f64::MAX; 4], 1e-12).is_err(),
+            "nonfinite recorded diagnostics must fail closed"
+        );
+    }
+
+    #[test]
+    fn diagnostic_gcm_is_serializably_ineligible() {
+        let evidence =
+            ProductDesignEvidence::diagnostic_only("sampling audit unavailable").unwrap();
+        let estimate = gcm_projection(
+            &evidence,
+            &[0.0, 1.0],
+            &[0.0, 1.0],
+            &[0.5, 0.5],
+            &[0.5, 0.5],
+            &[1.0, 1.0],
+        )
+        .unwrap();
+        assert!(!estimate.design_evidence.is_certificate_eligible());
+        let encoded = serde_json::to_string(&estimate).unwrap();
+        assert!(encoded.contains("diagnostic_only"));
+    }
+
+    #[test]
+    fn completed_reweighting_audit_is_certificate_eligible() {
+        let evidence = ProductDesignEvidence::from_reweighting_audit(" weights-audit-17 ").unwrap();
+        assert!(evidence.is_certificate_eligible());
+        assert_eq!(evidence.grade(), ProductDesignGrade::ReweightedToProduct);
+    }
+
+    #[test]
+    fn deserialization_revalidates_product_odds_and_diagnostics() {
+        let forged_nonproduct = r#"{
+            "grade":"product_odds_verified",
+            "probabilities":[0.1,0.2,0.3,0.4],
+            "probability_sum":1.0,
+            "log_odds_ratio":0.0,
+            "tolerance":1e-12
+        }"#;
+        assert!(serde_json::from_str::<ProductDesignEvidence>(forged_nonproduct).is_err());
+
+        let evidence = ProductDesignEvidence::from_corner_odds([0.25; 4], 1e-12).unwrap();
+        let encoded = serde_json::to_string(&evidence).unwrap();
+        let decoded: ProductDesignEvidence = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, evidence);
     }
 
     #[test]
