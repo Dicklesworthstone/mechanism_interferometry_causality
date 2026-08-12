@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/benchmark_oracle.schema.json",
+  "title": "Sealed Causal Benchmark Oracle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "routing_view_id",
+    "source_table_sha256",
+    "routing_data_sha256",
+    "access",
+    "study_title",
+    "source_url",
+    "source_document_sha256",
+    "use_scope",
+    "expected_routes"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "benchmark_id": {"$ref": "#/$defs/identifier"},
+    "routing_view_id": {"$ref": "#/$defs/identifier"},
+    "source_table_sha256": {"$ref": "#/$defs/sha256"},
+    "routing_data_sha256": {"$ref": "#/$defs/sha256"},
+    "access": {"const": "sealed_until_scoring"},
+    "study_title": {"type": "string", "minLength": 1},
+    "source_url": {"type": "string", "format": "uri", "pattern": "^https://"},
+    "source_document_sha256": {"$ref": "#/$defs/sha256"},
+    "use_scope": {"enum": ["unrestricted", "research_only", "internal_only"]},
+    "expected_routes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/expected_route"}
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "expected_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query_id",
+        "authorized_strategy",
+        "authorized_estimand",
+        "blind_strategy",
+        "blind_estimand",
+        "blind_reason"
+      ],
+      "properties": {
+        "query_id": {"$ref": "#/$defs/identifier"},
+        "authorized_strategy": {
+          "enum": ["recorded_randomization", "instrumental_variable", "regression_discontinuity", "difference_in_differences", "interrupted_time_series", "proximal_bridge"]
+        },
+        "authorized_estimand": {
+          "enum": ["offer_itt", "assignment_itt", "treatment_ate", "complier_late", "local_rd_effect", "cohort_time_effect", "local_dynamic_response", "proximal_effect"]
+        },
+        "blind_strategy": {"const": "undetermined"},
+        "blind_estimand": {"const": "none"},
+        "blind_reason": {"const": "design_authority_withheld"}
+      }
+    }
+  }
+}

@@ -123,9 +123,16 @@ def required_files() -> None:
         "schemas/active_tilt_input.schema.json",
         "schemas/orientation_input.schema.json",
         "schemas/proposal_batch.schema.json",
+        "schemas/benchmark_routing_view.schema.json",
+        "schemas/design_authority_receipt.schema.json",
+        "schemas/benchmark_oracle.schema.json",
         "examples/orientation/parity_demo.json",
         "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
+        "examples/benchmarks/oregon_authority_ablation/routing_view.json",
+        "examples/benchmarks/oregon_authority_ablation/authorized_design_receipt.json",
+        "examples/benchmarks/oregon_authority_ablation/blind_design_receipt.json",
+        "examples/benchmarks/oregon_authority_ablation/oracle.json",
         "crates/mic-proposal/Cargo.toml",
         "crates/mic-proposal/src/lib.rs",
         "scripts/generate_simulations.py",
@@ -163,6 +170,9 @@ def validate_schemas_and_manifests() -> None:
     audit_report_schema = schemas.get("audit_report.schema.json")
     four_law_report_schema = schemas.get("four_law_report.schema.json")
     finding_schema = schemas.get("evidence_finding.schema.json")
+    routing_view_schema = schemas.get("benchmark_routing_view.schema.json")
+    design_receipt_schema = schemas.get("design_authority_receipt.schema.json")
+    benchmark_oracle_schema = schemas.get("benchmark_oracle.schema.json")
 
     check(audit_report_schema is not None, "audit report schema was not loaded")
     check(four_law_report_schema is not None, "four-law report schema was not loaded")
@@ -255,6 +265,112 @@ def validate_schemas_and_manifests() -> None:
             check(
                 bool(list(audit_validator.iter_errors(report))),
                 f"invalid typed audit report fixture {index} was accepted",
+            )
+
+    check(routing_view_schema is not None, "benchmark routing-view schema was not loaded")
+    check(design_receipt_schema is not None, "design-authority receipt schema was not loaded")
+    check(benchmark_oracle_schema is not None, "benchmark oracle schema was not loaded")
+    if (
+        routing_view_schema is not None
+        and design_receipt_schema is not None
+        and benchmark_oracle_schema is not None
+    ):
+        benchmark_dir = ROOT / "examples" / "benchmarks" / "oregon_authority_ablation"
+        routing_view = load_json(benchmark_dir / "routing_view.json")
+        authorized = load_json(benchmark_dir / "authorized_design_receipt.json")
+        blind = load_json(benchmark_dir / "blind_design_receipt.json")
+        oracle = load_json(benchmark_dir / "oracle.json")
+        benchmark_documents = [
+            (routing_view, Draft202012Validator(routing_view_schema), "routing view"),
+            (authorized, Draft202012Validator(design_receipt_schema), "authorized receipt"),
+            (blind, Draft202012Validator(design_receipt_schema), "blind receipt"),
+            (oracle, Draft202012Validator(benchmark_oracle_schema), "oracle"),
+        ]
+        for document, document_validator, label in benchmark_documents:
+            for error in sorted(
+                document_validator.iter_errors(document), key=lambda item: list(item.path)
+            ):
+                location = ".".join(str(part) for part in error.path) or "<root>"
+                fail(f"Oregon {label} schema violation at {location}: {error.message}")
+
+        if all(isinstance(document, dict) for document in [routing_view, authorized, blind, oracle]):
+            binding_fields = [
+                "benchmark_id",
+                "routing_view_id",
+                "source_table_sha256",
+                "routing_data_sha256",
+            ]
+            for field in binding_fields:
+                values = {document.get(field) for document in [routing_view, authorized, blind, oracle]}
+                check(len(values) == 1, f"Oregon authority-ablation binding drift in {field}")
+
+            check(routing_view.get("authority") == "proposal_only", "routing view grants causal authority")
+            sealed_context = routing_view.get("sealed_context", {})
+            if isinstance(sealed_context, dict):
+                check(
+                    sealed_context and not any(sealed_context.values()),
+                    "routing view exposes sealed benchmark context",
+                )
+            query_ids = {
+                query.get("query_id")
+                for query in routing_view.get("queries", [])
+                if isinstance(query, dict)
+            }
+            authorization_ids = {
+                item.get("query_id")
+                for item in authorized.get("estimand_authorizations", [])
+                if isinstance(item, dict)
+            }
+            oracle_ids = {
+                item.get("query_id")
+                for item in oracle.get("expected_routes", [])
+                if isinstance(item, dict)
+            }
+            check(
+                query_ids == authorization_ids == oracle_ids,
+                "Oregon authority ablation does not bind every frozen query",
+            )
+            check(authorized.get("status") == "supplied", "authorized receipt is not supplied")
+            check(blind.get("status") == "withheld", "blind receipt does not withhold authority")
+            check(
+                not {"assignment", "estimand_authorizations", "use_scope"}.intersection(blind),
+                "blind receipt leaks design authority",
+            )
+
+            authorizations = {
+                item.get("query_id"): item
+                for item in authorized.get("estimand_authorizations", [])
+                if isinstance(item, dict)
+            }
+            coverage = authorizations.get("q_coverage", {})
+            coverage_premises = {
+                item.get("name")
+                for item in coverage.get("required_premises", [])
+                if isinstance(item, dict)
+            }
+            check(
+                coverage.get("estimand") == "complier_late",
+                "coverage query is not estimand-specific IV/LATE",
+            )
+            check(
+                {"relevance", "exclusion", "independence", "monotonicity"}
+                <= coverage_premises,
+                "coverage LATE omits a load-bearing IV premise",
+            )
+
+            invalid_blind = copy.deepcopy(blind)
+            invalid_blind["estimand_authorizations"] = authorized.get(
+                "estimand_authorizations", []
+            )
+            check(
+                bool(
+                    list(
+                        Draft202012Validator(design_receipt_schema).iter_errors(
+                            invalid_blind
+                        )
+                    )
+                ),
+                "withheld design receipt can smuggle estimand authority",
             )
 
     if four_law_report_schema is not None:

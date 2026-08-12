@@ -4,5 +4,13 @@
 - `evidence_finding.schema.json` defines stable reason-coded findings.
 - `audit_report.schema.json` defines the final content-addressed report envelope.
 - `four_law_report.schema.json` defines the histogram four-law tabular diagnostic (never a certificate).
+- `benchmark_routing_view.schema.json` defines the neutral, proposal-only view visible to a strategy router.
+- `design_authority_receipt.schema.json` defines the separately supplied or explicitly withheld assignment/design authority.
+- `benchmark_oracle.schema.json` defines study identity and expected routes that remain sealed until scoring.
 
 JSON Schema cannot enforce that corner sampling proportions sum to one or that all design points share one dimension. Both constraints are checked by `scripts/check_repo.py` and `mic-data`.
+
+The benchmark schemas deliberately use three files. Combining them would let a
+router recover the study, strategy, or published result from the same artifact
+that it is supposed to analyze blindly. `scripts/check_repo.py` checks their
+content bindings and the identical-byte authorized/blind ablation.

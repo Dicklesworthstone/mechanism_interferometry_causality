@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/benchmark_routing_view.schema.json",
+  "title": "Blind Causal-Opportunity Routing View",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "routing_view_id",
+    "source_table_sha256",
+    "routing_data_sha256",
+    "transformation_sha256",
+    "discovery_unit_sha256",
+    "confirmation_unit_sha256",
+    "authority",
+    "neutral_columns",
+    "queries",
+    "sealed_context"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "benchmark_id": {"$ref": "#/$defs/identifier"},
+    "routing_view_id": {"$ref": "#/$defs/identifier"},
+    "source_table_sha256": {"$ref": "#/$defs/sha256"},
+    "routing_data_sha256": {"$ref": "#/$defs/sha256"},
+    "transformation_sha256": {"$ref": "#/$defs/sha256"},
+    "discovery_unit_sha256": {"$ref": "#/$defs/sha256"},
+    "confirmation_unit_sha256": {"$ref": "#/$defs/sha256"},
+    "authority": {"const": "proposal_only"},
+    "neutral_columns": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/neutral_column"}
+    },
+    "queries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/query"}
+    },
+    "sealed_context": {"$ref": "#/$defs/sealed_context"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "neutral_column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["column_id", "storage_type", "candidate_roles"],
+      "properties": {
+        "column_id": {"$ref": "#/$defs/identifier"},
+        "storage_type": {
+          "enum": ["boolean", "integer", "number", "categorical", "timestamp"]
+        },
+        "candidate_roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "unit",
+              "action",
+              "environment",
+              "outcome",
+              "time",
+              "running_variable",
+              "instrument",
+              "negative_control",
+              "covariate"
+            ]
+          }
+        }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["query_id", "exposure_column", "outcome_column", "effect_scale"],
+      "properties": {
+        "query_id": {"$ref": "#/$defs/identifier"},
+        "exposure_column": {"$ref": "#/$defs/identifier"},
+        "outcome_column": {"$ref": "#/$defs/identifier"},
+        "effect_scale": {
+          "enum": ["mean_difference", "risk_difference", "risk_ratio", "odds_ratio"]
+        }
+      }
+    },
+    "sealed_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_url_visible",
+        "study_title_visible",
+        "file_names_visible",
+        "codebook_labels_visible",
+        "paper_visible",
+        "replication_scripts_visible",
+        "published_results_visible",
+        "network_access"
+      ],
+      "properties": {
+        "source_url_visible": {"const": false},
+        "study_title_visible": {"const": false},
+        "file_names_visible": {"const": false},
+        "codebook_labels_visible": {"const": false},
+        "paper_visible": {"const": false},
+        "replication_scripts_visible": {"const": false},
+        "published_results_visible": {"const": false},
+        "network_access": {"const": false}
+      }
+    }
+  }
+}

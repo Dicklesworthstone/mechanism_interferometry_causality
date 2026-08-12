@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/design_authority_receipt.schema.json",
+  "title": "Sealed Design-Authority Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "routing_view_id",
+    "receipt_id",
+    "source_table_sha256",
+    "routing_data_sha256",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "benchmark_id": {"$ref": "#/$defs/identifier"},
+    "routing_view_id": {"$ref": "#/$defs/identifier"},
+    "receipt_id": {"$ref": "#/$defs/identifier"},
+    "source_table_sha256": {"$ref": "#/$defs/sha256"},
+    "routing_data_sha256": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["supplied", "withheld"]},
+    "use_scope": {"enum": ["unrestricted", "research_only", "internal_only"]},
+    "assignment": {"$ref": "#/$defs/assignment"},
+    "estimand_authorizations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/estimand_authorization"}
+    },
+    "withheld_reason": {"const": "design_authority_withheld"}
+  },
+  "oneOf": [
+    {
+      "properties": {"status": {"const": "supplied"}},
+      "required": ["use_scope", "assignment", "estimand_authorizations"],
+      "not": {"required": ["withheld_reason"]}
+    },
+    {
+      "properties": {"status": {"const": "withheld"}},
+      "required": ["withheld_reason"],
+      "not": {
+        "anyOf": [
+          {"required": ["use_scope"]},
+          {"required": ["assignment"]},
+          {"required": ["estimand_authorizations"]}
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "assignment_column",
+        "assignment_unit_column",
+        "probability_contract",
+        "timing_contract",
+        "authority_source_sha256"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "randomized_offer",
+            "randomized_encouragement",
+            "randomized_treatment",
+            "regression_discontinuity",
+            "staggered_adoption",
+            "interrupted_time_series",
+            "proximal_proxy_design"
+          ]
+        },
+        "assignment_column": {"$ref": "#/$defs/identifier"},
+        "assignment_unit_column": {"$ref": "#/$defs/identifier"},
+        "probability_contract": {
+          "enum": [
+            "externally_documented_constant",
+            "externally_documented_by_stratum",
+            "not_applicable"
+          ]
+        },
+        "timing_contract": {
+          "enum": ["pre_exposure_and_outcome", "cutoff_precedes_outcome", "policy_time_precedes_outcome"]
+        },
+        "authority_source_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "premise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "evidence_ref"],
+      "properties": {
+        "name": {
+          "enum": [
+            "assignment_integrity",
+            "correct_unit",
+            "consistency",
+            "positivity",
+            "relevance",
+            "exclusion",
+            "independence",
+            "monotonicity",
+            "continuity",
+            "no_precise_manipulation",
+            "parallel_counterfactual_trends",
+            "no_anticipation",
+            "no_spillovers",
+            "proxy_exclusion",
+            "proxy_completeness"
+          ]
+        },
+        "status": {"const": "externally_asserted_not_empirically_proved"},
+        "evidence_ref": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "estimand_authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["query_id", "estimand", "required_premises"],
+      "properties": {
+        "query_id": {"$ref": "#/$defs/identifier"},
+        "estimand": {
+          "enum": [
+            "offer_itt",
+            "assignment_itt",
+            "treatment_ate",
+            "complier_late",
+            "local_rd_effect",
+            "cohort_time_effect",
+            "local_dynamic_response",
+            "proximal_effect"
+          ]
+        },
+        "required_premises": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/premise"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0.0",
+  "benchmark_id": "oregon_authority_ablation",
+  "routing_view_id": "oregon_neutral_v1",
+  "source_table_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "routing_data_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "transformation_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "discovery_unit_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "confirmation_unit_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "authority": "proposal_only",
+  "neutral_columns": [
+    {
+      "column_id": "u_001",
+      "storage_type": "categorical",
+      "candidate_roles": ["unit"]
+    },
+    {
+      "column_id": "x_001",
+      "storage_type": "boolean",
+      "candidate_roles": ["action", "instrument"]
+    },
+    {
+      "column_id": "x_002",
+      "storage_type": "boolean",
+      "candidate_roles": ["action"]
+    },
+    {
+      "column_id": "w_001",
+      "storage_type": "integer",
+      "candidate_roles": ["covariate"]
+    },
+    {
+      "column_id": "y_001",
+      "storage_type": "number",
+      "candidate_roles": ["outcome"]
+    }
+  ],
+  "queries": [
+    {
+      "query_id": "q_offer",
+      "exposure_column": "x_001",
+      "outcome_column": "y_001",
+      "effect_scale": "mean_difference"
+    },
+    {
+      "query_id": "q_coverage",
+      "exposure_column": "x_002",
+      "outcome_column": "y_001",
+      "effect_scale": "mean_difference"
+    }
+  ],
+  "sealed_context": {
+    "source_url_visible": false,
+    "study_title_visible": false,
+    "file_names_visible": false,
+    "codebook_labels_visible": false,
+    "paper_visible": false,
+    "replication_scripts_visible": false,
+    "published_results_visible": false,
+    "network_access": false
+  }
+}
