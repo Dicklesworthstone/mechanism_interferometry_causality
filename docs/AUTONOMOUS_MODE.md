@@ -13,6 +13,8 @@ The certificate machinery consumes regimes. Raw data does not arrive with declar
 3. **Randomization units** can be conservatively guessed (identifier columns, temporal blocks) and every audit run at the coarsest plausible clustering; ambiguity is recorded and the worst-case grade prevails.
 4. **State-independent selection cannot be established from the data alone.** No pattern in observed rows proves that inclusion did not depend on state within regime. This is the permanent wall between autonomous surveying and certification, and the system says so on every artifact.
 
+The fourth obstruction is an observational nonidentifiability result, not merely a conservative policy. For a binary state with selected law `Q=(1/2,1/2)` and even a known overall inclusion rate `2/3`, both of the following source/selection pairs produce the same selected masses `(1/3,1/3)`: `P=(1/2,1/2)` with state-independent inclusion probabilities `(2/3,2/3)`, and `P'=(2/3,1/3)` with state-dependent probabilities `(1/2,1)`. Applying the construction within each regime leaves the selected rows and inclusion rates observationally identical. Distinguishing the two requires an additional source-law or selection assumption, external sampling records, or measurements on nonselected units; no row-only classifier can upgrade this ambiguity into evidence of state-independent selection.
+
 Consequently every autonomous output carries one of three authority tiers:
 
 | Tier | Name | Requirements | Serialized as |

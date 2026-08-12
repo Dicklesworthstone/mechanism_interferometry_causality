@@ -36,11 +36,35 @@ Advance only if ≥ 2.
 | ID | Claim | Falsifier | Expected evidence | Origin | Score | State |
 |---|---|---|---|---|---|---|
 | H-001 | Stage 0–1 survey + histogram four-law + a *declared* selection contract + confirmation-cluster orientation is enough to name a UNIQUE_TARGET on a real Norman pair. | On a held-out-guide Norman extract with known linear-pathway biology, pass-count ≠ 1 after confirmation, or κ of the full state is indistinguishable from a negative-control pair. | `UNIQUE_TARGET` on confirmation clusters; negative-control pair stays `NO_PASS` or curved for the wrong reason. | proposed | 8.0 | active |
-| H-002 | Unsupervised *certification* is impossible. Selection is the permanent wall. The honest product is a testability atlas + contract requests, never a DAG. | A procedure, using only rows, that establishes state-independent inclusion at the randomization unit, with a detection floor, on a table whose inclusion *does* depend on X. | `examples/configs/selection_dependent.json` is the constructed lie: declared `state_dependent_unmodeled` blocks four-law. The same CSV under a false `state_independent` declaration is undetectable from rows. | proposed | 20.0 | active |
+| H-002 | Unsupervised *certification* is impossible. Selection is the permanent wall. The honest product is a testability atlas + contract requests, never a DAG. | An additional observable or identifying assumption that recovers the source law *or* the selection mechanism from selected rows plus a known inclusion rate, distinguishing Model I from Model II below. A row-only classifier that “establishes state-independent inclusion” on Model II is a **false positive**, not a refuter. | Exact observational-equivalence witness below. `selection_dependent.json` only tests the *declared* contract gate. `--allow-unvalidated-selection-model` is DiagnosticOnly, never Ready. | RoseLark 9304 | 20.0 | **proposition** |
 | H-003 | The binding constraint is **missing corners**, not inference. Most piles are not squares. The high-EV product is a missing-corner / same-target-tilt recommender. | On the next three public extracts (Norman, ALMANAC, one RCT), survey finds complete squares for the scientifically interesting pairs without imputation. | Atlas dominated by incomplete designs and design-extension proposals. | **third_alternative** | 15.0 | active |
 
 H-002 and H-003 can both be true. H-001 can be true for the rare complete square
 and still leave H-003 as the product strategy.
+
+## H-002 observational-equivalence witness (proposition)
+
+The previous falsifier was backwards. A procedure that, using only selected
+rows, “establishes state-independent inclusion” on a table whose inclusion
+*does* depend on \(X\) is an unsound false positive. It does not refute
+impossibility.
+
+**Witness** (binary \(X\), observed selected law \(Q=(1/2,1/2)\), known
+overall inclusion rate \(2/3\)):
+
+| Model | Source \(P\) | Selection \(\pi\) | Selected masses \(P(X=x,S=1)\) | Inclusion |
+|---|---|---|---|---|
+| I (state-independent) | \((1/2,1/2)\) | \((2/3,2/3)\) | \((1/3,1/3)\) | \(2/3\) |
+| II (state-dependent) | \((2/3,1/3)\) | \((1/2,1)\) | \((1/3,1/3)\) | \(2/3\) |
+
+Selected rows plus the inclusion rate are identical. Rows alone cannot
+distinguish the models without a source-law or selection assumption.
+
+A genuine escape hatch is extra information that identifies \(P\) or \(\pi\):
+a known source law, a randomized encouragement of inclusion, or an instrument
+for selection. Declaring `state_independent_within_regime` is that assumption,
+not a discovery. The software may *gate* on the declaration; it may not
+*infer* it from the table.
 
 ## Evidence classes (do not launder)
 

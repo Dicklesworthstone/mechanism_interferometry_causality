@@ -78,6 +78,8 @@ pub struct FourLawFaceAudit {
     pub cells: Vec<CellCurvature>,
     /// Cells occupied by at least one corner but missing another.
     pub incomplete_cells: usize,
+    /// Baseline cluster mass on cells that were dropped for incomplete support.
+    pub omitted_baseline_mass: f64,
     /// `E_0[r_A]` on common support. Must be reported raw, never silently renormalized away.
     pub normalizer_a: f64,
     /// `E_0[r_B]` on common support.
@@ -275,10 +277,28 @@ pub fn run_tabular_audit(
             }
             Err(error) => return Err(error),
         };
-        if overlap.is_none()
-            && let Some(weights) = baseline_ratio_weights(&labeled, &ingest, &audit, &corners[0])
-        {
-            overlap = Some(audit_overlap(&weights, &preflight, "overlap", &mut ledger)?);
+        if overlap.is_none() {
+            for (name, pick) in [
+                (
+                    "r_A",
+                    (|cell: &CellCurvature| cell.ra) as fn(&CellCurvature) -> f64,
+                ),
+                ("r_B", |cell| cell.rb),
+                ("r_AB", |cell| cell.rab),
+            ] {
+                if let Some(weights) = primitive_ratio_weights(&labeled, &audit, &corners[0], pick)
+                {
+                    let face_overlap = audit_overlap(
+                        &weights,
+                        &preflight,
+                        &format!("overlap_{name}"),
+                        &mut ledger,
+                    )?;
+                    if overlap.is_none() {
+                        overlap = Some(face_overlap);
+                    }
+                }
+            }
         }
         record_face(&audit, &mut ledger);
         faces.push(audit);
@@ -602,12 +622,14 @@ fn audit_face(
             .collect::<Vec<_>>(),
         &p0,
     );
+    let omitted_baseline_mass = (1.0 - p0.iter().sum::<f64>()).max(0.0);
     let _ = ingest;
     Ok(FourLawFaceAudit {
         corners: corners.each_ref().map(DesignPoint::bit_string),
         regime_ids,
         cells,
         incomplete_cells,
+        omitted_baseline_mass,
         normalizer_a,
         normalizer_b,
         normalizer_ab,
@@ -643,13 +665,12 @@ fn weighted_mean(values: &[f64], weights: &[f64]) -> f64 {
     }
 }
 
-fn baseline_ratio_weights(
+fn primitive_ratio_weights(
     labeled: &[(ObservationLabel, Vec<usize>)],
-    ingest: &IngestReport,
     face: &FourLawFaceAudit,
     baseline: &DesignPoint,
+    pick: fn(&CellCurvature) -> f64,
 ) -> Option<Vec<f64>> {
-    let _ = ingest;
     let baseline_id = face.regime_ids[0].clone();
     if baseline.bit_string() != face.corners[0] {
         return None;
@@ -669,7 +690,7 @@ fn baseline_ratio_weights(
             let entry = cluster_weights
                 .entry(label.cluster_id.clone())
                 .or_insert((0.0, 0.0));
-            entry.0 += cell.ra;
+            entry.0 += pick(cell);
             entry.1 += 1.0;
         }
     }
@@ -703,6 +724,20 @@ fn record_face(face: &FourLawFaceAudit, ledger: &mut EvidenceLedger) {
         format!("{:.6}", face.normalizer_a - 1.0),
     );
     context.insert("scalar_moment".into(), format!("{:.6}", face.scalar_moment));
+    context.insert("incomplete_cells".into(), face.incomplete_cells.to_string());
+    context.insert(
+        "omitted_baseline_mass".into(),
+        format!("{:.6}", face.omitted_baseline_mass),
+    );
+    if face.incomplete_cells > 0 || face.omitted_baseline_mass > 1e-12 {
+        ledger.push(finding_with_context(
+            Severity::Warning,
+            "four_law",
+            "incomplete_common_support",
+            "some histogram cells lack all four corners; moments are renormalized onto the surviving common-support mass and do not represent omitted cells",
+            context.clone(),
+        ));
+    }
     ledger.push(finding_with_context(
         Severity::Info,
         "four_law",
@@ -943,5 +978,82 @@ mod tests {
                 .iter()
                 .any(|finding| finding.code == "cluster_spans_regimes")
         );
+    }
+
+    #[test]
+    fn incomplete_common_support_is_ledgers_and_not_renormalized_away() {
+        let dir = std::env::temp_dir().join("mic-engine-incomplete-support");
+        std::fs::create_dir_all(&dir).unwrap();
+        let csv = dir.join("incomplete.csv");
+        std::fs::write(
+            &csv,
+            "cluster_id,regime,x,included\n\
+             c00a,00,0,1\nc00b,00,0,1\nc00c,00,1,1\n\
+             c10a,10,0,1\nc10b,10,0,1\nc10c,10,1,1\n\
+             c01a,01,0,1\nc01b,01,0,1\n\
+             c11a,11,0,1\nc11b,11,0,1\n",
+        )
+        .unwrap();
+        let manifest = ExperimentManifest {
+            schema_version: "1.0.0".into(),
+            experiment_id: "incomplete-support".into(),
+            strict: true,
+            inference_track: InferenceTrack::FourLaw,
+            selection: SelectionContract::StateIndependentWithinRegime,
+            cluster_column: "cluster_id".into(),
+            regime_column: "regime".into(),
+            state_columns: vec!["x".into()],
+            candidate_state_blocks: Vec::new(),
+            regimes: ["00", "10", "01", "11"]
+                .iter()
+                .map(|label| RegimeSpec {
+                    id: (*label).into(),
+                    design: DesignPoint::parse(label).unwrap(),
+                    sampling_proportion: 0.25,
+                    perturbations: Vec::new(),
+                })
+                .collect(),
+            data: DataSource {
+                format: "csv".into(),
+                path: csv,
+            },
+            seed: 3,
+        };
+        let report = run_tabular_audit(
+            &manifest,
+            FourLawPolicy::default(),
+            PreflightPolicy::default(),
+            None,
+        )
+        .unwrap();
+        let face = &report.four_law[0];
+        assert!(face.incomplete_cells > 0);
+        assert!(face.omitted_baseline_mass > 0.0);
+        assert!(report.ledger.findings.iter().any(|finding| {
+            finding.code == "incomplete_common_support"
+                && finding.context.contains_key("omitted_baseline_mass")
+        }));
+        assert_eq!(report.status, CertificateStatus::Abstained);
+    }
+
+    #[test]
+    fn overlap_audits_all_three_primitive_ratios() {
+        let report = run_tabular_audit(
+            &load("examples/configs/four_law_discrete.json"),
+            FourLawPolicy::default(),
+            PreflightPolicy::default(),
+            Some(&workspace_root()),
+        )
+        .unwrap();
+        for stage in ["overlap_r_A", "overlap_r_B", "overlap_r_AB"] {
+            assert!(
+                report
+                    .ledger
+                    .findings
+                    .iter()
+                    .any(|finding| finding.stage == stage),
+                "missing overlap audit for {stage}"
+            );
+        }
     }
 }

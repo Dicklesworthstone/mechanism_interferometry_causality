@@ -68,10 +68,13 @@ pub struct LogDensitySquare {
 }
 
 impl LogDensitySquare {
-    /// Returns the gauge-invariant square curvature.
-    #[must_use]
-    pub fn curvature(self) -> f64 {
-        self.log_pab + self.log_p0 - self.log_pa - self.log_pb
+    /// Returns the gauge-invariant square curvature after rejecting nonfinite inputs.
+    pub fn curvature(self) -> Result<f64, CoreError> {
+        finite("log_p0", self.log_p0)?;
+        finite("log_pa", self.log_pa)?;
+        finite("log_pb", self.log_pb)?;
+        finite("log_pab", self.log_pab)?;
+        Ok((self.log_pab - self.log_pa) + (self.log_p0 - self.log_pb))
     }
 }
 
@@ -95,7 +98,7 @@ impl DensitySquare {
         positive("pa", self.pa)?;
         positive("pb", self.pb)?;
         positive("pab", self.pab)?;
-        Ok((self.pab * self.p0 / (self.pa * self.pb)).ln())
+        Ok((self.pab.ln() - self.pa.ln()) + (self.p0.ln() - self.pb.ln()))
     }
 }
 
@@ -116,7 +119,7 @@ impl RatioSquare {
         positive("ra", self.ra)?;
         positive("rb", self.rb)?;
         positive("rab", self.rab)?;
-        Ok((self.rab / (self.ra * self.rb)).ln())
+        Ok((self.rab.ln() - self.ra.ln()) - self.rb.ln())
     }
 
     /// Returns the pointwise curvature-balance integrand `r_a r_b (exp(kappa)-1)`.
@@ -334,6 +337,48 @@ mod tests {
         let expected = (1.2_f64).ln();
         assert!((density.curvature().unwrap() - expected).abs() < 1e-14);
         assert!((ratio.curvature().unwrap() - expected).abs() < 1e-14);
+    }
+
+    #[test]
+    fn log_contrasts_avoid_density_underflow_and_ratio_overflow() {
+        let density = DensitySquare {
+            p0: 1e-300,
+            pa: 1e-300,
+            pb: 1e-300,
+            pab: 1e-300,
+        };
+        assert_eq!(density.curvature().unwrap(), 0.0);
+
+        let ratio = RatioSquare {
+            ra: 1e200,
+            rb: 1e200,
+            rab: 1e300,
+        };
+        let expected = (1e-100_f64).ln();
+        assert!((ratio.curvature().unwrap() - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn log_density_curvature_rejects_nonfinite_inputs() {
+        let valid = LogDensitySquare {
+            log_p0: -3.0,
+            log_pa: -2.0,
+            log_pb: -4.0,
+            log_pab: -3.0,
+        };
+        assert_eq!(valid.curvature().unwrap(), 0.0);
+
+        let invalid = LogDensitySquare {
+            log_pab: f64::INFINITY,
+            ..valid
+        };
+        assert!(matches!(
+            invalid.curvature(),
+            Err(CoreError::NonFinite {
+                name: "log_pab",
+                ..
+            })
+        ));
     }
 
     #[test]

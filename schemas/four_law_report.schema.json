@@ -17,7 +17,10 @@
   "properties": {
     "schema_version": {"const": "1.0.0"},
     "experiment_id": {"type": "string", "minLength": 1},
-    "status": {"enum": ["passed", "failed", "abstained", "diagnostic_only"]},
+    "status": {
+      "enum": ["abstained", "diagnostic_only"],
+      "description": "Histogram four-law never issues passed or failed. A Passed value would launder a projection into a certificate."
+    },
     "preflight": {"type": "object"},
     "ingest": {
       "type": "object",

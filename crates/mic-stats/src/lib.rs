@@ -28,9 +28,21 @@ pub enum StatsError {
         /// Name of the malformed reference.
         name: &'static str,
     },
+    /// A resampled statistic had no estimable sampling scale.
+    #[error(
+        "statistic column {column} has a nonpositive or nonfinite standard error; degenerate columns cannot certify equivalence"
+    )]
+    DegenerateColumn {
+        /// Zero-based statistic column.
+        column: usize,
+    },
 }
 
-/// Public authority grade attached to GCM design evidence.
+/// Serialized route claimed by a GCM design-evidence reference.
+///
+/// A non-diagnostic value is not certificate authority by itself. The engine
+/// must resolve the referenced audit identifier and fingerprint against its
+/// evidence ledger before a projection can contribute to a certificate.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProductDesignGrade {
@@ -42,7 +54,11 @@ pub enum ProductDesignGrade {
     DiagnosticOnly,
 }
 
-/// Auditable, self-validating design evidence attached to every GCM projection.
+/// Syntax- and arithmetic-validating design-evidence reference for a GCM projection.
+///
+/// This value deliberately cannot establish that the named audit exists. The
+/// engine remains responsible for resolving the identifier and fingerprint
+/// against the evidence ledger before any certificate use.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(transparent)]
 pub struct ProductDesignEvidence {
@@ -133,10 +149,21 @@ impl<'de> Deserialize<'de> for ProductDesignEvidence {
 }
 
 impl ProductDesignEvidence {
+    /// Largest caller-supplied log-odds tolerance that may support the verified route.
+    ///
+    /// Callers may tighten this threshold but cannot loosen it. This prevents a
+    /// permissive configuration value from laundering non-product sampling odds
+    /// into `product_odds_verified` evidence.
+    pub const MAX_PRODUCT_ODDS_TOLERANCE: f64 = 1e-6;
+
     /// Records a completed sampling-odds audit and rechecks its product pooled odds.
     ///
     /// The audit identifier and source fingerprint are required because product-looking
-    /// empirical corner counts do not establish a product assignment contract.
+    /// empirical corner counts do not establish a product assignment contract. The
+    /// four inputs are positive corner masses; they need not be self-normalized because
+    /// the odds ratio is scale invariant, and their raw sum is retained in the artifact.
+    /// The supplied tolerance may tighten but never exceed
+    /// [`Self::MAX_PRODUCT_ODDS_TOLERANCE`].
     pub fn from_sampling_odds_audit(
         audit_id: impl Into<String>,
         source_fingerprint: impl Into<String>,
@@ -148,7 +175,8 @@ impl ProductDesignEvidence {
         let source_fingerprint = source_fingerprint.into();
         let source_fingerprint =
             validate_sha256_fingerprint(&source_fingerprint, "sampling-odds source fingerprint")?;
-        if !tolerance.is_finite() || tolerance < 0.0 {
+        if !tolerance.is_finite() || !(0.0..=Self::MAX_PRODUCT_ODDS_TOLERANCE).contains(&tolerance)
+        {
             return Err(StatsError::Invalid {
                 name: "product-odds tolerance",
                 value: tolerance,
@@ -281,12 +309,6 @@ impl ProductDesignEvidence {
             ProductDesignEvidenceKind::DiagnosticOnly { .. } => None,
         }
     }
-
-    /// Whether the evidence can support a certificate-grade GCM projection.
-    #[must_use]
-    pub const fn is_certificate_eligible(&self) -> bool {
-        !matches!(self.grade(), ProductDesignGrade::DiagnosticOnly)
-    }
 }
 
 fn validate_audit_id(value: &str, name: &'static str) -> Result<String, StatsError> {
@@ -323,17 +345,21 @@ pub struct GcmEstimate {
     pub z_score: f64,
     /// Number of observations.
     pub sample_size: usize,
-    /// Product-design or diagnostic authority attached to this projection.
+    /// Product-design audit reference or diagnostic-only reason.
+    ///
+    /// A non-diagnostic grade still requires engine-side evidence-ledger
+    /// resolution before this projection has certificate authority.
     pub design_evidence: ProductDesignEvidence,
 }
 
 /// Computes a cross-fitted weighted residual-product projection with explicit design evidence.
 ///
-/// Product-odds evidence is recomputed by
-/// [`ProductDesignEvidence::from_sampling_odds_audit`] and bound to the completed
-/// audit plus its source artifact. Reweighted evidence has the same provenance
-/// requirement. A diagnostic-only projection remains useful for debugging but
-/// is serializably ineligible for certificate use.
+/// Product-odds arithmetic is recomputed by
+/// [`ProductDesignEvidence::from_sampling_odds_audit`]. The resulting audit id
+/// and fingerprint are unresolved references: the engine must match them to its
+/// evidence ledger and the projection's data provenance before certificate use.
+/// Reweighted evidence has the same requirement. A diagnostic-only projection
+/// remains useful for debugging but is serializably ineligible for certificate use.
 pub fn gcm_projection(
     design_evidence: &ProductDesignEvidence,
     a: &[f64],
@@ -406,7 +432,12 @@ pub fn effective_sample_size(weights: &[f64]) -> Result<f64, StatsError> {
     })
 }
 
-/// Unbiased squared maximum mean discrepancy using an RBF kernel.
+/// Signed unbiased estimator of squared maximum mean discrepancy using an RBF kernel.
+///
+/// Although population MMD squared is nonnegative, this finite-sample U-statistic
+/// can be negative. Do not pass its raw value to [`relative_discrepancy`]; use it
+/// inside a calibrated resampling procedure or use [`mmd2_biased`] when a
+/// nonnegative point discrepancy is required.
 pub fn mmd2_unbiased(
     left: &[Vec<f64>],
     right: &[Vec<f64>],
@@ -448,6 +479,47 @@ pub fn mmd2_unbiased(
         }
     }
     Ok(xx / (n * (n - 1)) as f64 + yy / (m * (m - 1)) as f64 - 2.0 * xy / (n * m) as f64)
+}
+
+/// Nonnegative biased squared maximum mean discrepancy using an RBF kernel.
+///
+/// This V-statistic includes kernel diagonals and is the reference nonnegative
+/// MMD point discrepancy for relative deletion ratios. Inferential bounds must
+/// still account for shared samples, clustering, and selection.
+pub fn mmd2_biased(
+    left: &[Vec<f64>],
+    right: &[Vec<f64>],
+    bandwidth: f64,
+) -> Result<f64, StatsError> {
+    validate_matrix_pair(left, right)?;
+    if !bandwidth.is_finite() || bandwidth <= 0.0 {
+        return Err(StatsError::Invalid {
+            name: "bandwidth",
+            value: bandwidth,
+        });
+    }
+    let n = left.len();
+    let m = right.len();
+    let gamma = 1.0 / (2.0 * bandwidth * bandwidth);
+    let xx = left
+        .iter()
+        .flat_map(|x| left.iter().map(move |y| (x, y)))
+        .map(|(x, y)| (-gamma * squared_distance(x, y)).exp())
+        .sum::<f64>()
+        / (n * n) as f64;
+    let yy = right
+        .iter()
+        .flat_map(|x| right.iter().map(move |y| (x, y)))
+        .map(|(x, y)| (-gamma * squared_distance(x, y)).exp())
+        .sum::<f64>()
+        / (m * m) as f64;
+    let xy = left
+        .iter()
+        .flat_map(|x| right.iter().map(move |y| (x, y)))
+        .map(|(x, y)| (-gamma * squared_distance(x, y)).exp())
+        .sum::<f64>()
+        / (n * m) as f64;
+    Ok((xx + yy - 2.0 * xy).max(0.0))
 }
 
 /// Sample energy distance between two multivariate samples.
@@ -891,8 +963,10 @@ pub struct SimultaneousBounds {
 /// empirical `confidence` quantile becomes one shared critical value, so the
 /// bounds are simultaneous across coordinates.  This reference primitive covers
 /// mean-type discrepancy vectors; it is not a finite-sample coverage guarantee,
-/// and degenerate U-statistic corrections remain a Packet 2 item. Lower bounds
-/// are floored at zero because the intended consumers are nonnegative discrepancies.
+/// and degenerate U-statistic corrections remain a Packet 2 item. A column with
+/// zero or nonfinite estimated scale fails closed rather than receiving a
+/// zero-width equivalence interval. Lower bounds are floored at zero because the
+/// intended consumers are nonnegative discrepancies.
 pub fn simultaneous_mean_bounds(
     contributions: &[Vec<f64>],
     replicates: usize,
@@ -948,6 +1022,12 @@ pub fn simultaneous_mean_bounds(
             (compensated_sum(&squares) / (count - 1.0) / count).sqrt()
         })
         .collect();
+    if let Some(column) = standard_errors
+        .iter()
+        .position(|standard_error| !standard_error.is_finite() || *standard_error <= 0.0)
+    {
+        return Err(StatsError::DegenerateColumn { column });
+    }
     let mut max_statistics =
         multiplier_max_statistics(&centered, &standard_errors, replicates, seed);
     max_statistics.sort_by(f64::total_cmp);
@@ -997,9 +1077,6 @@ fn multiplier_max_statistics(
             .collect();
         let mut replicate_max = 0.0_f64;
         for (column, &standard_error) in standard_errors.iter().enumerate() {
-            if standard_error <= 0.0 {
-                continue;
-            }
             let terms: Vec<f64> = centered
                 .iter()
                 .zip(&multipliers)
@@ -1077,7 +1154,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(estimate.estimate, 0.0);
-        assert!(estimate.design_evidence.is_certificate_eligible());
+        assert_eq!(
+            estimate.design_evidence.grade(),
+            ProductDesignGrade::ProductOddsVerified
+        );
     }
 
     #[test]
@@ -1100,6 +1180,26 @@ mod tests {
             .is_err(),
             "nonfinite recorded diagnostics must fail closed"
         );
+        assert!(matches!(
+            ProductDesignEvidence::from_sampling_odds_audit(
+                "sampling-audit-1",
+                SOURCE_FINGERPRINT,
+                [0.1, 0.2, 0.3, 0.4],
+                0.5,
+            )
+            .unwrap_err(),
+            StatsError::Invalid { .. }
+        ));
+        assert!(matches!(
+            ProductDesignEvidence::from_sampling_odds_audit(
+                "sampling-audit-1",
+                SOURCE_FINGERPRINT,
+                [0.25; 4],
+                ProductDesignEvidence::MAX_PRODUCT_ODDS_TOLERANCE * 2.0,
+            )
+            .unwrap_err(),
+            StatsError::Invalid { .. }
+        ));
     }
 
     #[test]
@@ -1139,17 +1239,19 @@ mod tests {
             &[1.0, 1.0],
         )
         .unwrap();
-        assert!(!estimate.design_evidence.is_certificate_eligible());
+        assert_eq!(
+            estimate.design_evidence.grade(),
+            ProductDesignGrade::DiagnosticOnly
+        );
         let encoded = serde_json::to_string(&estimate).unwrap();
         assert!(encoded.contains("diagnostic_only"));
     }
 
     #[test]
-    fn completed_reweighting_audit_is_certificate_eligible() {
+    fn completed_reweighting_audit_reference_preserves_provenance() {
         let evidence =
             ProductDesignEvidence::from_reweighting_audit(" weights-audit-17 ", SOURCE_FINGERPRINT)
                 .unwrap();
-        assert!(evidence.is_certificate_eligible());
         assert_eq!(evidence.grade(), ProductDesignGrade::ReweightedToProduct);
         assert_eq!(evidence.reweighting_audit_id(), Some("weights-audit-17"));
         assert_eq!(evidence.source_fingerprint(), Some(SOURCE_FINGERPRINT));
@@ -1196,6 +1298,16 @@ mod tests {
     fn identical_samples_have_zero_energy_distance() {
         let sample = vec![vec![0.0], vec![1.0], vec![2.0]];
         assert!(energy_distance(&sample, &sample).unwrap().abs() < 1e-14);
+    }
+
+    #[test]
+    fn unbiased_mmd_can_be_negative_but_biased_point_discrepancy_is_nonnegative() {
+        let left = vec![vec![0.0], vec![1.0]];
+        assert!(mmd2_unbiased(&left, &left, 1.0).unwrap() < 0.0);
+        assert_eq!(mmd2_biased(&left, &left, 1.0).unwrap(), 0.0);
+
+        let right = vec![vec![2.0], vec![3.0]];
+        assert!(mmd2_biased(&left, &right, 1.0).unwrap() >= 0.0);
     }
 
     #[test]
@@ -1365,11 +1477,9 @@ mod tests {
     }
 
     #[test]
-    fn multiplier_bounds_handle_constant_columns() {
+    fn multiplier_bounds_reject_constant_columns() {
         let contributions = vec![vec![0.3, 1.0], vec![0.3, 2.0], vec![0.3, 3.0]];
-        let bounds = simultaneous_mean_bounds(&contributions, 200, 0.9, 5).unwrap();
-        assert_eq!(bounds.standard_errors[0], 0.0);
-        assert_eq!(bounds.lower[0], bounds.means[0]);
-        assert_eq!(bounds.upper[0], bounds.means[0]);
+        let error = simultaneous_mean_bounds(&contributions, 200, 0.9, 5).unwrap_err();
+        assert_eq!(error, StatsError::DegenerateColumn { column: 0 });
     }
 }

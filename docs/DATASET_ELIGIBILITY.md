@@ -27,6 +27,14 @@ public data whose corner quotas are known but not balanced. GCM remains
 illegal until `mic design odds` reports product sampling or an explicit
 reweighting plan exists.
 
+**Selection wall (H-002, now a proposition).** Selected rows plus a known
+inclusion rate do not identify whether inclusion is state-independent.
+Binary witness: source \(P=(1/2,1/2)\) with \(\pi=(2/3,2/3)\) and source
+\(P'=(2/3,1/3)\) with \(\pi'=(1/2,1)\) both produce selected masses
+\((1/3,1/3)\) and inclusion \(2/3\). A false `state_independent` declaration
+is undetectable from the table. `--allow-unvalidated-selection-model` is
+DiagnosticOnly, never Ready.
+
 The std-CSV reader (`mic_data::load_csv_table`, `mic-tabular`) is **not**
 Packet 1 FrankenPandas ingest. Packet 1 should attach to the same
 `IngestReport` / fingerprint types.

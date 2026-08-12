@@ -3,7 +3,7 @@
 
 use mic_design::DesignPoint;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -104,7 +104,6 @@ impl ExperimentManifest {
     /// Validates structural contracts independent of loading the dataset.
     pub fn validate(&self) -> Result<(), ManifestError> {
         const FORMATS: [&str; 6] = ["csv", "jsonl", "parquet", "arrow", "feather", "synthetic"];
-
         if self.schema_version != "1.0.0" {
             return Err(ManifestError::UnsupportedSchemaVersion(
                 self.schema_version.clone(),
@@ -113,19 +112,40 @@ impl ExperimentManifest {
         if self.experiment_id.trim().is_empty() {
             return Err(ManifestError::MissingExperimentId);
         }
-        if self.regimes.is_empty() {
-            return Err(ManifestError::NoRegimes);
+        self.validate_columns()?;
+        self.validate_regimes()?;
+        if !FORMATS.contains(&self.data.format.as_str()) {
+            return Err(ManifestError::UnsupportedDataFormat(
+                self.data.format.clone(),
+            ));
         }
+        if self.data.path.as_os_str().is_empty() {
+            return Err(ManifestError::MissingDataPath);
+        }
+        Ok(())
+    }
+
+    fn validate_columns(&self) -> Result<(), ManifestError> {
         if self.state_columns.is_empty() {
             return Err(ManifestError::NoStateColumns);
         }
         if self.cluster_column.trim().is_empty() || self.regime_column.trim().is_empty() {
             return Err(ManifestError::MissingColumnRole);
         }
+        if self.cluster_column == self.regime_column {
+            return Err(ManifestError::ColumnRoleCollision(
+                self.cluster_column.clone(),
+            ));
+        }
+        let semantic_columns =
+            BTreeSet::from([self.cluster_column.as_str(), self.regime_column.as_str()]);
         let mut state_columns = BTreeSet::new();
         for column in &self.state_columns {
             if column.trim().is_empty() {
                 return Err(ManifestError::EmptyStateColumn);
+            }
+            if semantic_columns.contains(column.as_str()) {
+                return Err(ManifestError::ColumnRoleCollision(column.clone()));
             }
             if !state_columns.insert(column.as_str()) {
                 return Err(ManifestError::DuplicateStateColumn(column.clone()));
@@ -143,18 +163,20 @@ impl ExperimentManifest {
                 if !block_columns.insert(column.as_str()) {
                     return Err(ManifestError::DuplicateCandidateColumn(column.clone()));
                 }
+                if semantic_columns.contains(column.as_str()) {
+                    return Err(ManifestError::ColumnRoleCollision(column.clone()));
+                }
                 if state_columns.contains(column.as_str()) {
                     return Err(ManifestError::CandidateAlreadyInState(column.clone()));
                 }
             }
         }
-        if !FORMATS.contains(&self.data.format.as_str()) {
-            return Err(ManifestError::UnsupportedDataFormat(
-                self.data.format.clone(),
-            ));
-        }
-        if self.data.path.as_os_str().is_empty() {
-            return Err(ManifestError::MissingDataPath);
+        Ok(())
+    }
+
+    fn validate_regimes(&self) -> Result<(), ManifestError> {
+        if self.regimes.is_empty() {
+            return Err(ManifestError::NoRegimes);
         }
         let dimension = self.regimes[0].design.dimension();
         if dimension == 0 {
@@ -162,6 +184,7 @@ impl ExperimentManifest {
         }
         let mut ids = BTreeSet::new();
         let mut corners = BTreeSet::new();
+        let mut label_owners = BTreeMap::new();
         let mut probability_sum = 0.0;
         for regime in &self.regimes {
             if regime.id.trim().is_empty() {
@@ -172,6 +195,13 @@ impl ExperimentManifest {
             }
             if !corners.insert(regime.design.clone()) {
                 return Err(ManifestError::DuplicateCorner(regime.design.bit_string()));
+            }
+            for label in [regime.id.clone(), regime.design.bit_string()] {
+                if let Some(owner) = label_owners.insert(label.clone(), regime.id.clone())
+                    && owner != regime.id
+                {
+                    return Err(ManifestError::AmbiguousRegimeLabel(label));
+                }
             }
             if regime.design.dimension() != dimension {
                 return Err(ManifestError::DimensionMismatch);
@@ -237,6 +267,9 @@ pub enum ManifestError {
     /// A required semantic column name is empty.
     #[error("cluster_column and regime_column must be nonempty")]
     MissingColumnRole,
+    /// One physical column was assigned incompatible semantic roles.
+    #[error("column {0} is assigned more than one semantic role")]
+    ColumnRoleCollision(String),
     /// A regime identifier is empty.
     #[error("regime id must be nonempty")]
     EmptyRegimeId,
@@ -246,6 +279,9 @@ pub enum ManifestError {
     /// Duplicate design corner.
     #[error("duplicate design corner {0}")]
     DuplicateCorner(String),
+    /// A regime identifier aliases another regime's design bit string.
+    #[error("regime label {0} is ambiguous between an id and a design bit string")]
+    AmbiguousRegimeLabel(String),
     /// A design point contains no coordinates.
     #[error("regime design points must contain at least one bit")]
     EmptyDesignPoint,
@@ -291,9 +327,8 @@ pub mod franken {
 mod tests {
     use super::*;
 
-    #[test]
-    fn validates_minimal_manifest() {
-        let manifest = ExperimentManifest {
+    fn minimal_manifest() -> ExperimentManifest {
+        ExperimentManifest {
             schema_version: "1.0.0".into(),
             experiment_id: "test".into(),
             strict: true,
@@ -322,7 +357,44 @@ mod tests {
                 path: "none".into(),
             },
             seed: 7,
-        };
+        }
+    }
+
+    #[test]
+    fn validates_minimal_manifest() {
+        let manifest = minimal_manifest();
         manifest.validate().unwrap();
+    }
+
+    #[test]
+    fn rejects_colliding_semantic_column_roles() {
+        for mutate in [
+            ("cluster/regime", 0_u8),
+            ("cluster/state", 1_u8),
+            ("regime/candidate", 2_u8),
+        ] {
+            let mut manifest = minimal_manifest();
+            match mutate.1 {
+                0 => manifest.cluster_column = manifest.regime_column.clone(),
+                1 => manifest.state_columns = vec![manifest.cluster_column.clone()],
+                2 => manifest.candidate_state_blocks = vec![vec![manifest.regime_column.clone()]],
+                _ => unreachable!(),
+            }
+            let error = manifest.validate().unwrap_err();
+            assert!(
+                matches!(error, ManifestError::ColumnRoleCollision(_)),
+                "{} unexpectedly produced {error}",
+                mutate.0
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_cross_namespace_regime_label_aliases() {
+        let mut manifest = minimal_manifest();
+        manifest.regimes[0].id = "1".into();
+        manifest.regimes[1].id = "0".into();
+        let error = manifest.validate().unwrap_err();
+        assert!(matches!(error, ManifestError::AmbiguousRegimeLabel(_)));
     }
 }

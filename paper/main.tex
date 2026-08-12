@@ -86,7 +86,7 @@
 \begin{abstract}
 We study a system observed under a reference regime, primitive perturbations, and combinations of those perturbations.  For common-support soft interventions, autonomous causal mechanisms impose a rigid algebra on the family of regime distributions.  A primitive intervention that replaces one conditional mechanism has a likelihood ratio local to the target and its parents.  The ratio conditionally normalizes over the target.  Distinct mechanism replacements compose multiplicatively, so mixed finite differences of regime log densities vanish on every square of the factorial design.
 
-These facts yield a finite biconditional certificate.  Relative to a proposed directed acyclic graph and target assignment, locality, targetwise conditional normalization, and zero square curvature on every observed face are necessary and sufficient for the existence of a context-invariant modular soft-intervention representation.  A master identity,
+These facts yield a finite biconditional certificate on a complete factorial cube (or complete subcube).  Relative to a proposed directed acyclic graph and target assignment, locality, targetwise conditional normalization, and zero square curvature on every face are necessary and sufficient for the existence of a context-invariant modular soft-intervention representation.  On an irregular partial design, observed squares suffice only when their contrasts span the full lack-of-fit space; in general the certificate instead tests every contrast in the null space of the observed main-effects design.  A master identity,
 \[
 \E_0[r_e(X)\mid X_A]=\frac{p_e(X_A)}{p_0(X_A)},
 \]
@@ -96,7 +96,7 @@ For two perturbations we define the gauge-invariant mechanism-curvature field
 \[
 \kappa_{AB}(x)=\log\frac{p_{AB}(x)p_0(x)}{p_A(x)p_B(x)}.
 \]
-It is the conditional design log-odds ratio after subtracting the known sampling-design odds.  Full-state modularity means \(\kappa\equiv0\).  Marginalization can create curvature even when the complete mechanisms compose flatly.  We derive the exact identity
+It is the conditional design log-odds ratio after subtracting the known sampling-design odds.  Full-state modularity implies \(\kappa\equiv0\); the converse additionally requires the certificate's locality and conditional-normalization conditions.  Marginalization can create curvature even when the complete mechanisms compose flatly.  We derive the exact identity
 \[
 e^{\kappa_{AB}(x)}-1=
 \frac{\Cov_0(L_A,L_B\mid X=x)}{
@@ -133,7 +133,7 @@ The closest ingredients are classical or already present in neighboring literatu
 The paper makes eight main contributions.
 
 \begin{enumerate}
-\item \textbf{A finite biconditional certificate.}  For common-support soft interventions with proposed distinct targets, locality, conditional normalization, and zero curvature on every two-dimensional design face are necessary and sufficient for a modular causal representation.  Pairwise square flatness suffices; all higher Boolean-lattice curvatures then vanish automatically.
+\item \textbf{A finite biconditional certificate.}  For a complete factorial family of common-support soft interventions with proposed distinct targets, locality, conditional normalization, and zero curvature on every two-dimensional design face are necessary and sufficient for a modular causal representation.  Pairwise square flatness then suffices and all higher Boolean-lattice curvatures vanish automatically; irregular partial designs require the full estimable lack-of-fit contrast space.
 
 \item \textbf{Ratio-free orientation.}  The identity \(\E_0[r_e\mid X_A]=p_e(X_A)/p_0(X_A)\) converts target orientation into low-dimensional two-sample equivalence tests.  It also pins the otherwise unidentified additive constant of an unnormalized discriminative log-ratio score.
 
@@ -305,7 +305,7 @@ Equation \eqref{eq:sampling-odds-anchor} survives arbitrary known state-independ
 
 \begin{theorem}[Finite modular soft-intervention certificate]
 \label{thm:certificate}
-Assume that \(p_0\) factorizes over a proposed DAG \(G\), all regimes have common support, and primitive perturbations are assigned distinct proposed targets \(t_1,\ldots,t_K\).  Let
+Assume that the complete factorial family \(\{p_s:s\in\{0,1\}^K\}\) is observed, \(p_0\) factorizes over a proposed DAG \(G\), all regimes have common support, and primitive perturbations are assigned distinct proposed targets \(t_1,\ldots,t_K\).  Let
 \begin{equation}
 r_j(x)=\frac{p_{e_j}(x)}{p_0(x)}.
 \end{equation}
@@ -529,7 +529,7 @@ These are inexpensive necessary conditions, but they are not complete.  The exac
 \end{equation}
 The scalar moment test estimates a signed average of \(e^\kappa-1\) under the ratio-tilted measure proportional to \(r_A r_B\,dP_0\).  Its blind spot is quantitative: sign-varying curvature can integrate to zero.
 
-For any bounded witness \(w\), define
+Suppose \(r_A r_B\in L^1(P_0)\).  For any bounded witness \(w\), define
 \begin{equation}
 M_w
 =
@@ -552,7 +552,7 @@ The scalar battery is the special case \(w\equiv1\).
 
 \subsection{Latent-factor conservation}
 
-Let the complete state be \(Z=(X,U)\), with baseline density \(q_0\).  Suppose the complete-state regime factors satisfy
+Let the complete state be \(Z=(X,U)\), with baseline density \(q_0\).  Suppose \(L_A,L_B\in L^2(P_0)\) and the complete-state regime factors satisfy
 \begin{equation}
 q_A=q_0L_A,
 \qquad
@@ -714,7 +714,7 @@ which reproduces \eqref{eq:tanh-curvature} through \eqref{eq:latent-covariance}.
 
 \section{Infinitesimal curvature and missing Fisher information}
 
-Let \(q_{\alpha,\beta}(z)\) be a smooth complete-state intervention family, and let
+Let \(q_{\alpha,\beta}(z)\) be a smooth complete-state intervention family, and assume the usual dominated regularity conditions that justify differentiating twice under the integral and taking the displayed conditional moments.  Let
 \begin{equation}
 p_{\alpha,\beta}(x)=\int q_{\alpha,\beta}(x,u)\,du.
 \end{equation}
@@ -724,14 +724,14 @@ S_A(z)=\left.\partial_\alpha\log q_{\alpha,\beta}(z)\right|_{0,0},
 \qquad
 S_B(z)=\left.\partial_\beta\log q_{\alpha,\beta}(z)\right|_{0,0}.
 \end{equation}
-Differentiating under the integral gives
+Differentiating under the integral and evaluating at the reference parameter gives
 \begin{align}
-\partial_{\alpha\beta}^2\log p_{\alpha,\beta}(x)
+\left.\partial_{\alpha\beta}^2\log p_{\alpha,\beta}(x)\right|_{0,0}
 ={}&
-\E\left[\partial_{\alpha\beta}^2\log q_{\alpha,\beta}(Z)\mid X=x\right]
+\E_0\left[\left.\partial_{\alpha\beta}^2\log q_{\alpha,\beta}(Z)\right|_{0,0}\middle| X=x\right]
 \notag\\
 &+
-\Cov(S_A,S_B\mid X=x).
+\Cov_0(S_A,S_B\mid X=x).
 \label{eq:louis-general}
 \end{align}
 If the complete-state intervention model has no cross derivative, then
@@ -769,7 +769,7 @@ and define curvature at each observation level through \eqref{eq:latent-covarian
 \end{align}
 
 \begin{proposition}[State-expansion conservation]
-Equation \eqref{eq:nested-state} holds whenever the complete-state factors satisfy \eqref{eq:latent-flat}.  If \(W\) supplies the missing separator so that \(\kappa_{XW}=0\), then
+Equation \eqref{eq:nested-state} holds whenever the square-integrable complete-state factors satisfy \eqref{eq:latent-flat}.  If \(W\) supplies the missing separator so that \(\kappa_{XW}=0\), then
 \begin{equation}
 r_A^Xr_B^X(e^{\kappa_X}-1)
 =
@@ -856,7 +856,7 @@ Therefore \(c(x)\equiv0\) characterizes
 \begin{equation}
 \kappa(x)\equiv-\log\OR(\rho),
 \end{equation}
-not \(\kappa\equiv0\), unless \(\OR(\rho)=1\).  Equal-corner balancing, \(\rho_{ab}=1/4\), is safe when it follows from the sampling contract; equal empirical counts alone do not establish product assignment.  Arbitrary per-corner quotas are not safe.  The implementation must either verify product sampling from the declared design, reweight observations to a chosen product design, or use Track I.  Accordingly, every software GCM projection carries serialized design evidence: a completed sampling-odds audit identifier and fingerprint of its declared allocation source, a completed product-design reweighting audit and artifact fingerprint, or an explicit diagnostic-only grade that cannot support certification.
+not \(\kappa\equiv0\), unless \(\OR(\rho)=1\).  Equal-corner balancing, \(\rho_{ab}=1/4\), is safe when it follows from the sampling contract; equal empirical counts alone do not establish product assignment.  Arbitrary per-corner quotas are not safe.  The implementation must either verify product sampling from the declared design, reweight observations to a chosen product design, or use Track I.  Accordingly, every software GCM projection carries a serialized design-evidence reference: a sampling-odds audit identifier and fingerprint of its declared allocation source, a completed product-design reweighting audit and artifact fingerprint, or an explicit diagnostic-only grade.  Identifiers and fingerprints are not self-authenticating; the engine must resolve them against the content-bound manifest, allocation artifact, analyzed data, and evidence ledger before a projection can support certification.
 
 This is the precise correspondence:
 \begin{center}
@@ -924,7 +924,7 @@ An ensemble alternative to the greedy path exploits the parsimony corollary dire
 
 \subsection{Orientation requires equivalence inference}
 
-Failure to reject equality is not evidence for invariance.  Choose a nonnegative marginal discrepancy \(D\), such as MMD \citep{gretton2012mmd} or energy distance \citep{szekely2013energy}.  For each deletion,
+Failure to reject equality is not evidence for invariance.  Choose a nonnegative marginal discrepancy \(D\), such as MMD \citep{gretton2012mmd} or energy distance \citep{szekely2013energy}.  Population squared MMD is nonnegative, but its unbiased finite-sample U-statistic can be negative under the null; that signed estimator belongs inside a calibrated resampling procedure, not directly in the nonnegative relative ratio below.  A biased MMD V-statistic is one admissible nonnegative point discrepancy.  For each deletion,
 \begin{equation}
 D_v=D(P_e^{X_{S\setminus\{v\}}},P_0^{X_{S\setminus\{v\}}}),
 \end{equation}

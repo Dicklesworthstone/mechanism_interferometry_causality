@@ -221,17 +221,23 @@ fn triage_columns(table: &RawTable, policy: SurveyPolicy) -> Vec<ColumnTriage> {
                     "values are equal-length bit strings; candidate encoded factorial design"
                         .into(),
                 )
+            } else if !token_shaped {
+                (
+                    ColumnRole::StateCandidate,
+                    "numeric column; treated as state unless a human declares it as context. A 0/1 measurement can be an outcome or collider, not an assigned factor".into(),
+                )
             } else if n_unique >= policy.min_context_uniques
                 && n_unique <= policy.max_context_uniques
+                && n_unique < table.rows.len()
             {
                 (
                     ColumnRole::ContextCandidate,
-                    format!("{n_unique} distinct values; candidate assigned context factor"),
+                    format!("{n_unique} repeating token values; candidate assigned context factor"),
                 )
             } else {
                 (
                     ColumnRole::StateCandidate,
-                    "high-cardinality or numeric-looking remainder; treated as state".into(),
+                    "high-cardinality remainder; treated as state".into(),
                 )
             };
             ColumnTriage {
@@ -608,11 +614,46 @@ mod tests {
             .iter()
             .find(|column| column.column == "outcome")
             .unwrap();
-        assert_ne!(
+        assert_eq!(
             outcome.role,
-            ColumnRole::ClusterCandidate,
-            "a unique numeric outcome must not be inferred as the randomization unit"
+            ColumnRole::StateCandidate,
+            "numeric columns are state unless declared as context"
         );
         assert_ne!(report.inferred_cluster_column.as_deref(), Some("outcome"));
+    }
+
+    #[test]
+    fn binary_numeric_column_is_not_an_interferometer_factor() {
+        let dir = std::env::temp_dir().join("mic-survey-binary-numeric");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("binary.csv");
+        std::fs::write(
+            &path,
+            "cluster_id,regime,y\n\
+             c0,00,0\n\
+             c1,00,1\n\
+             c2,10,0\n\
+             c3,10,1\n\
+             c4,01,0\n\
+             c5,01,1\n\
+             c6,11,0\n\
+             c7,11,1\n",
+        )
+        .unwrap();
+        let report =
+            run_unsupervised_survey(&path, None, Some("cluster_id"), SurveyPolicy::default())
+                .unwrap();
+        let y = report
+            .columns
+            .iter()
+            .find(|column| column.column == "y")
+            .unwrap();
+        assert_eq!(y.role, ColumnRole::StateCandidate);
+        assert!(
+            report
+                .interferometers
+                .iter()
+                .all(|item| !item.context_columns.iter().any(|column| column == "y"))
+        );
     }
 }

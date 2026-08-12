@@ -158,7 +158,7 @@ pub fn audit_sampling_odds(
         }
     }
     let [p00, p10, p01, p11] = probabilities;
-    let log_or = (p11 * p00 / (p10 * p01)).ln();
+    let log_or = (p11.ln() - p10.ln()) + (p00.ln() - p01.ln());
     Ok(SamplingOddsAudit {
         probabilities,
         probability_sum: probabilities.iter().sum(),
@@ -905,6 +905,15 @@ mod tests {
         assert!(audit.is_product);
         assert_eq!(audit.log_odds_ratio, 0.0);
         assert_eq!(audit.probability_sum, 1.0);
+    }
+
+    #[test]
+    fn tiny_equal_corner_masses_are_product_without_underflow() {
+        let audit = audit_sampling_odds([1e-300; 4], 1e-12).unwrap();
+        assert!(audit.is_product);
+        assert_eq!(audit.log_odds_ratio, 0.0);
+        assert!(audit.probability_sum.is_finite());
+        assert!(audit.probability_sum > 0.0);
     }
 
     #[test]

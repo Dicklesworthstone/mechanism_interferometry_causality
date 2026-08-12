@@ -126,6 +126,28 @@ pub enum EngineError {
     /// The histogram four-law projection rejected its inputs.
     #[error("tabular four-law audit is invalid: {0}")]
     InvalidTabular(String),
+    /// A numerical policy value would loosen a load-bearing gate.
+    #[error("preflight policy is invalid: {0}")]
+    InvalidPolicy(String),
+}
+
+impl PreflightPolicy {
+    /// Product-odds tolerance after the hard ceiling.
+    ///
+    /// Callers may tighten [`Self::product_odds_tolerance`] but cannot loosen it
+    /// past [`mic_stats::ProductDesignEvidence::MAX_PRODUCT_ODDS_TOLERANCE`].
+    /// A large finite slack (for example `0.5`) would otherwise stamp a 2:3
+    /// odds ratio as product and defeat AGENTS.md rule 2.
+    pub fn bounded_product_odds_tolerance(&self) -> Result<f64, EngineError> {
+        let ceiling = mic_stats::ProductDesignEvidence::MAX_PRODUCT_ODDS_TOLERANCE;
+        let requested = self.product_odds_tolerance;
+        if !requested.is_finite() || !(0.0..=ceiling).contains(&requested) {
+            return Err(EngineError::InvalidPolicy(format!(
+                "product_odds_tolerance must lie in [0, {ceiling}], got {requested}"
+            )));
+        }
+        Ok(requested)
+    }
 }
 
 /// Serializable result of the deletion-orientation audit.
@@ -451,6 +473,12 @@ pub fn run_preflight(
     ledger.provenance("experiment_id", &manifest.experiment_id);
     ledger.provenance("schema_version", &manifest.schema_version);
     ledger.provenance("requested_track", format!("{:?}", manifest.inference_track));
+    let product_odds_tolerance = policy.bounded_product_odds_tolerance()?;
+    ledger.provenance("product_odds_tolerance", product_odds_tolerance.to_string());
+    ledger.provenance(
+        "product_odds_tolerance_ceiling",
+        mic_stats::ProductDesignEvidence::MAX_PRODUCT_ODDS_TOLERANCE.to_string(),
+    );
 
     let points: Vec<DesignPoint> = manifest
         .regimes
@@ -458,33 +486,17 @@ pub fn run_preflight(
         .map(|regime| regime.design.clone())
         .collect();
     let design = audit_design(&points, policy.rank_tolerance)?;
-    if design.lack_of_fit_dimension == 0 {
-        ledger.note(
-            Severity::Warning,
-            "design",
-            code::NO_TESTABLE_FLATNESS,
-            "the observed design has no lack-of-fit degree of freedom beyond main effects",
-        );
-    } else if !design.squares_span_lack_of_fit {
-        ledger.note(
-            Severity::Warning,
-            "design",
-            code::NON_SQUARE_CONTRASTS_REQUIRED,
-            "observed square contrasts do not span the full testable lack-of-fit space",
-        );
-    }
+    record_design_geometry(manifest.inference_track, &design, &mut ledger);
 
-    let four_law_eligible = selection_gate(manifest.selection, &policy, &mut ledger);
+    let selection_ok = selection_gate(manifest.selection, &policy, &mut ledger);
+    let four_law_geometry_ok = !design.square_faces.is_empty();
+    let four_law_eligible = selection_ok && four_law_geometry_ok;
     let proportions: BTreeMap<DesignPoint, f64> = manifest
         .regimes
         .iter()
         .map(|regime| (regime.design.clone(), regime.sampling_proportion))
         .collect();
-    let face_sampling = audit_faces(
-        &design.square_faces,
-        &proportions,
-        policy.product_odds_tolerance,
-    )?;
+    let face_sampling = audit_faces(&design.square_faces, &proportions, product_odds_tolerance)?;
     let product_factorial_eligible = !face_sampling.is_empty()
         && face_sampling.iter().all(|face| face.sampling.is_product)
         && four_law_eligible;
@@ -507,7 +519,11 @@ pub fn run_preflight(
         InferenceTrack::ProductFactorial => product_factorial_eligible,
         InferenceTrack::Both => four_law_eligible && product_factorial_eligible,
     };
-    let status = if manifest.strict {
+    let unvalidated_selection_override = matches!(manifest.selection, SelectionContract::Modeled)
+        && policy.accept_unvalidated_selection_model;
+    let status = if unvalidated_selection_override {
+        PreflightStatus::DiagnosticOnly
+    } else if manifest.strict {
         if ledger.has_blocking_error() || !requested_eligible {
             PreflightStatus::Blocked
         } else {
@@ -528,6 +544,37 @@ pub fn run_preflight(
         status,
         ledger,
     })
+}
+
+fn record_design_geometry(
+    track: InferenceTrack,
+    design: &DesignAudit,
+    ledger: &mut EvidenceLedger,
+) {
+    ledger.provenance("design_corner_count", design.corner_count.to_string());
+    ledger.provenance("square_face_count", design.square_faces.len().to_string());
+    let four_law_requests = matches!(track, InferenceTrack::FourLaw | InferenceTrack::Both);
+    // Certificate route: a Warning here used to leave one-factor FourLaw Ready.
+    let geometry_severity = if four_law_requests {
+        Severity::Error
+    } else {
+        Severity::Warning
+    };
+    if design.lack_of_fit_dimension == 0 {
+        ledger.note(
+            geometry_severity,
+            "design",
+            code::NO_TESTABLE_FLATNESS,
+            "the observed design has no lack-of-fit degree of freedom beyond main effects; square flatness is not defined",
+        );
+    } else if !design.squares_span_lack_of_fit {
+        ledger.note(
+            geometry_severity,
+            "design",
+            code::NON_SQUARE_CONTRASTS_REQUIRED,
+            "observed square contrasts do not span the full testable lack-of-fit space; a four-law certificate would leave untested directions",
+        );
+    }
 }
 
 fn selection_gate(
@@ -694,6 +741,87 @@ mod tests {
         let report =
             run_preflight(&manifest([0.25; 4], false), PreflightPolicy::default()).unwrap();
         assert_eq!(report.status, PreflightStatus::DiagnosticOnly);
+    }
+
+    #[test]
+    fn unvalidated_selection_override_is_diagnostic_never_ready() {
+        let mut modeled = manifest([0.25; 4], true);
+        modeled.selection = SelectionContract::Modeled;
+        let policy = PreflightPolicy {
+            accept_unvalidated_selection_model: true,
+            ..PreflightPolicy::default()
+        };
+        let report = run_preflight(&modeled, policy).unwrap();
+        assert_eq!(report.status, PreflightStatus::DiagnosticOnly);
+        assert!(
+            report
+                .ledger
+                .findings
+                .iter()
+                .any(|finding| finding.code == code::SELECTION_MODEL_UNVALIDATED)
+        );
+    }
+
+    #[test]
+    fn loose_product_odds_tolerance_is_rejected_not_clamped_open() {
+        let policy = PreflightPolicy {
+            product_odds_tolerance: 0.5,
+            ..PreflightPolicy::default()
+        };
+        let error = run_preflight(&manifest([0.1, 0.2, 0.3, 0.4], true), policy).unwrap_err();
+        assert!(matches!(error, EngineError::InvalidPolicy(_)));
+    }
+
+    #[test]
+    fn one_factor_four_law_is_blocked_not_ready() {
+        let mut one_factor = manifest([0.5, 0.5, 0.0, 0.0], true);
+        one_factor.inference_track = InferenceTrack::FourLaw;
+        one_factor.regimes.truncate(2);
+        one_factor.regimes[0].id = "0".into();
+        one_factor.regimes[0].design = DesignPoint::parse("0").unwrap();
+        one_factor.regimes[0].sampling_proportion = 0.5;
+        one_factor.regimes[1].id = "1".into();
+        one_factor.regimes[1].design = DesignPoint::parse("1").unwrap();
+        one_factor.regimes[1].sampling_proportion = 0.5;
+        let report = run_preflight(&one_factor, PreflightPolicy::default()).unwrap();
+        assert_eq!(report.status, PreflightStatus::Blocked);
+        assert!(!report.four_law_eligible);
+        assert!(blocking_codes(&report).contains(code::NO_TESTABLE_FLATNESS));
+        assert!(report.design.square_faces.is_empty());
+    }
+
+    #[test]
+    fn no_square_lack_of_fit_blocks_four_law_certificate_route() {
+        let labels = ["001", "010", "011", "100", "101", "110"];
+        let hole = ExperimentManifest {
+            schema_version: "1.0.0".into(),
+            experiment_id: "antipodal-hole".into(),
+            strict: true,
+            inference_track: InferenceTrack::FourLaw,
+            selection: SelectionContract::StateIndependentWithinRegime,
+            cluster_column: "cluster".into(),
+            regime_column: "regime".into(),
+            state_columns: vec!["x".into()],
+            candidate_state_blocks: Vec::new(),
+            regimes: labels
+                .iter()
+                .map(|label| RegimeSpec {
+                    id: (*label).into(),
+                    design: DesignPoint::parse(label).unwrap(),
+                    sampling_proportion: 1.0 / 6.0,
+                    perturbations: Vec::new(),
+                })
+                .collect(),
+            data: DataSource {
+                format: "synthetic".into(),
+                path: PathBuf::from("none"),
+            },
+            seed: 7,
+        };
+        let report = run_preflight(&hole, PreflightPolicy::default()).unwrap();
+        assert_eq!(report.status, PreflightStatus::Blocked);
+        assert!(!report.four_law_eligible);
+        assert!(blocking_codes(&report).contains(code::NON_SQUARE_CONTRASTS_REQUIRED));
     }
 
     fn lens(family: &str, estimate: f64, standard_error: f64) -> LensEstimate {
