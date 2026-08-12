@@ -107,7 +107,7 @@ pub struct TabularAuditReport {
     /// Experiment identifier.
     pub experiment_id: String,
     /// Conservative certificate status. Histogram four-law never issues `passed`.
-    pub status: CertificateStatus,
+    status: CertificateStatus,
     /// Complete typed inputs from which `status` was derived.
     gates: CertificateGates,
     /// Preflight design and sampling gate.
@@ -121,7 +121,7 @@ pub struct TabularAuditReport {
     /// Binning description recorded for reproducibility.
     pub projection: ProjectionSpec,
     /// Evidence ledger for the whole tabular run.
-    pub ledger: EvidenceLedger,
+    ledger: EvidenceLedger,
 }
 
 impl TabularAuditReport {
@@ -135,6 +135,12 @@ impl TabularAuditReport {
     #[must_use]
     pub const fn gates(&self) -> CertificateGates {
         self.gates
+    }
+
+    /// Returns the evidence ledger bound to the derived status.
+    #[must_use]
+    pub const fn ledger(&self) -> &EvidenceLedger {
+        &self.ledger
     }
 
     /// Markdown report that leads with status and abstentions.
@@ -1073,7 +1079,7 @@ mod tests {
         let face = &report.four_law[0];
         assert!(face.incomplete_cells > 0);
         assert!(face.omitted_baseline_mass > 0.0);
-        assert!(report.ledger.findings.iter().any(|finding| {
+        assert!(report.ledger().findings.iter().any(|finding| {
             finding.code == "incomplete_common_support"
                 && finding.severity == Severity::Error
                 && finding.context.contains_key("omitted_baseline_mass")
@@ -1170,13 +1176,13 @@ mod tests {
             first_face.second
         );
         assert!(
-            report.ledger.findings.iter().any(|finding| {
+            report.ledger().findings.iter().any(|finding| {
                 finding.stage == first_prefix && finding.code == "overlap_adequate"
             }),
             "first face must remain an adequate-overlap control"
         );
         assert!(
-            report.ledger.findings.iter().any(|finding| {
+            report.ledger().findings.iter().any(|finding| {
                 finding.code == code::OVERLAP_FAILURE && !finding.stage.starts_with(&first_prefix)
             }),
             "a later face must be able to fail overlap after the first face passed"

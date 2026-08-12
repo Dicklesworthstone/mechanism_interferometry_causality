@@ -51,7 +51,7 @@ fn run(args: &[String]) -> Result<(), String> {
                 "report" => {
                     let narrative = report.narrative();
                     serde_json::json!({
-                        "status": report.status,
+                        "status": report.status(),
                         "preflight_status": report.preflight.status,
                         "narrative": narrative,
                         "audit": report,
@@ -73,7 +73,7 @@ fn run(args: &[String]) -> Result<(), String> {
                 );
             }
             if matches!(
-                report.status,
+                report.status(),
                 CertificateStatus::Abstained | CertificateStatus::DiagnosticOnly
             ) && command != "ingest"
             {
