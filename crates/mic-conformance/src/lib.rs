@@ -76,8 +76,7 @@ mod tests {
                     second_only[second] = true;
                     let mut both = first_only;
                     both[second] = true;
-                    let labels =
-                        [base, first_only, second_only, both].map(|bits| design_label(bits));
+                    let labels = [base, first_only, second_only, both].map(design_label);
                     for state in 0..8 {
                         let curvature = DensitySquare {
                             p0: law(&labels[0]).probabilities[state],
