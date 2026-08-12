@@ -102,6 +102,35 @@ object is the algebra of those changes (locality, transport, composability
 an arrow. Season-as-tilt on a fixed elevation panel is a tautology, not
 identification. See mail 9372 (CRC / S2–S4 worlds).
 
+**S2/S3 atlas authority-boundary fixtures.** RoseLark 9376: withdraw
+`DirectionScout` from the survey. Survey is Stage 0–1 atlas-only again. The
+worlds remain as tables the atlas must find without minting an arrow. A later
+scout belongs in a separate request after split-first data access.
+
+| World | Claim a wrong method would make | Required atlas behavior | Test |
+|---|---|---|---|
+| S2a season tautology | the `elev`×`season` corner contrast uniquely targets temperature and is then misread as elevation → temperature | complete `elev`×`season` square; `proposal_only`; next_step refuses orientation | `season_elevation_world_is_a_complete_square_and_stays_proposal_only` |
+| S2b coordinated two-mechanism | season uniquely targets temperature | same atlas contract | `coordinated_season_world_is_a_complete_square_and_stays_proposal_only` |
+| S3 mirrored V=IR | voltage → current or the reverse from the passive law | complete `drive`×`level` square; same atlas contract | `mirrored_vir_world_is_a_complete_square_and_stays_proposal_only` |
+
+The S2 fixtures use `moisture`; a regression test separately ensures that a
+state named `humidity` is not mistaken for an identifier merely because its
+spelling contains the letters `id`.
+
+These do not implement a CRC family check. Sachs / Tübingen / GHCN claims stay
+closed until a method that *can* fail these worlds is the method being scored.
+
+Tables: `examples/data/s2a_season_trap.csv`, `s2b_coordinated.csv`,
+`s3_vir_mirror.csv`.
+
+**GHCN as-if (session, 2026-08-12).** Token `low`/`high` on elevation and
+latitude (not 0/1 numerics) produces one complete square
+`pair:high_elev+high_lat` (17,660 stations, min corner 4,295). Sampling
+log-odds 0.109, `empirically_product: false`, selection `unknown`. After
+scout withdrawal the report has no `direction_scout` field and `next_step`
+refuses orientation. That is an H-003 atlas hit, not elevation → temperature.
+0/1 numeric bins stay `state_candidate` by the binary-numeric guard.
+
 **Identities-only technical-state projection (bb-ule, 2026-08-12).** On the
 hash-checked CBL/CNN1 square, clustered at construct × `gemgroup`, the
 *fold-specific P0-weighted mean* κ sign-flips across gemgroups (pooled +0.59;
@@ -112,6 +141,37 @@ four-corner `ln(348·2536/(663·480))=+1.020` is post-selection **row-count**
 odds, not assignment odds. This kills an identities-only κ *figure* as the
 paper lead. Eligibility-table facts survive. Artifact:
 `~/brennerbot_sessions/mic-empirical-figure/evidence/packs/EV-pack-H-001.md`.
+
+**Proposed next extracts (2026-08-12, proposal only).** These fill holes the
+current gauntlet leaves: CRC families of ≥2 same-target tilts, H-003 incomplete
+squares, H-002 selection twins, constitutive S3 laws, and registered abstention.
+They are not wins. Access must be receipted before a run. Do not edit
+`docs/DATASET_GAUNTLET.md` from this list — that file is RoseLark's.
+
+| Gap | Dataset | Access | What MIC should do | What success is not |
+|---|---|---|---|---|
+| Anchored radiation propagation | NOAA SURFRAD (+ SOLRAD) | public FTP | nominate radiation-to-temperature lag contracts on held-out days; clouds, advection, diurnal phase, and shuffled/negative lags are hard kills | calling days repeated single-target tilts |
+| Anchored space-weather propagation | NASA OMNIWeb + WDC Kyoto SYM-H | public agency archives | solar-wind / IMF front → geomagnetic response; time-reversal and timestamp-uncertainty kills | a direct edge or any Earth→Sun arrow |
+| PV response under natural forcing | Ausgrid solar homes + separately receipted irradiance | utility data; license/source receipt required | irradiance-to-PV response with temperature as a modifier; site/day holdouts and negative lags | load → irradiance or a randomized-intervention claim |
+| Constitutive chemistry (S3) | GLODAP v2/v3 bottle carbon | NOAA NCEI public | verify carbonate constraints while abstaining on pCO2/alkalinity/pH direction without a boundary-condition receipt | discovering an actuator from a passive chemistry table |
+| Factorial ecology (κ) | published NutNet N×P slices within the randomized NPK blocks | published subsets via EDI/other DOI; full network data require a request | complete 2×2 within site/block; missing site-years named, never imputed | a global DAG of nutrients or fence as a fully crossed factor |
+| Chemical single-cell tilt families | sci-Plex (GSE139944) | GEO public | same-compound dose families and cell-line transport; plate is the unit | cell-iid certificates or dose as a second autonomous mechanism |
+| Incomplete scalar combo surfaces (H-003) | DrugComb / NCI-ALMANAC | public APIs / portals | atlas of missing dose cells plus held-out scalar response-surface prediction; named additive/Bliss summaries only | MIC density κ, raw-normalizer, or imputed synergy graphs |
+| Morphology regimes | JUMP-CP / Cell Painting Gallery | AWS Open Data, CC0 | compound as regime, morphology as state; most pairs incomplete | image embeddings as arrows |
+| Labeled signaling interventions | Sachs 2005 | Zenodo / bnlearn public | peel on *declared* reagents; hide reagent labels → abstain | community DAG as certificate |
+| Unified perturbation corpus | scPerturb (Zenodo 10044268) | CC, h5ad | adapter over many studies; authority is per-study, never pooled | one score across truth classes |
+| Genome-wide CRISPRi | Replogle 2022 GWPS | GEO / gwps.wi.mit.edu | single-gene tilts, not dual-guide κ unless AB exists | genome-wide DAG |
+| Selection twin (H-002) | Lalonde NSW + CPS/PSID controls (NBER) | public txt | RCT vs observational twins must not identify inclusion from selected rows | matching “recovers” NSW |
+| Randomized identification | Heartsteps MRT (NCT03225521) | often DUA / investigator | product-odds at decision point, not person-period iid | a behavior DAG |
+| Building load field | Building Data Genome 2 | Zenodo / CC BY 4.0 | weather → meter; building is the unit; holiday/future-weather placebos | occupancy inferred as cause of weather |
+| Registered abstain | EPICA / ice-core CO2–δD; OWID GDP×life expectancy; Card–Krueger-class min-wage panels | public aggregates | emitting an arrow is method failure | lead-lag as identification |
+
+AmeriFlux/FLUXNET2015 Tier 1 is the ecological sibling of SURFRAD (radiation → GPP)
+but is license-split by site-year; receipt the tier before any extract. OhioT1DM
+and Nightscout are the right *physiology* for insulin→glucose, but they are
+DUA/application, not walk-up public — use UVA/Padova (known simulator) until a
+receipt exists. Do not add GBIF/eBird, MIMIC, UK Biobank, or GWAS: selection or
+no factorial family.
 
 ## Modes of reasoning (lead-agent synthesis, no NTM)
 

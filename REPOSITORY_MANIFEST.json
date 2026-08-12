@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T23:39:53Z",
+  "generated_at_utc": "2026-08-12T23:43:28Z",
   "hash_algorithm": "sha256",
-  "file_count": 154,
-  "aggregate_sha256": "e7cdafb631e8d78297a7f2872d404512eb6d382f9950ccc31742b88f51c36182",
+  "file_count": 157,
+  "aggregate_sha256": "9b6364b404a1ebdd1e357e3bf8fc3a0cac3ba444f4a957d7c38f35aab089e8ce",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -168,8 +168,8 @@
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 46059,
-      "sha256": "9cd4b676bdee3a65e62116366c6582656bb8f2b394f513d7ed091301a514edf2"
+      "bytes": 34734,
+      "sha256": "360eab7cc8859544ca7b0d8ac4c9fa33ab1227ccc7c0af1fc5f4831440f458f4"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
@@ -263,8 +263,8 @@
     },
     {
       "path": "docs/HYPOTHESIS_SLATE.md",
-      "bytes": 10801,
-      "sha256": "9b4e1ac9ebb4ddfe7f5d503dcbdc0af013b79cc1eb39a1e82b4c5c41ab57a825"
+      "bytes": 16928,
+      "sha256": "2d1aa4ce8212f5e231061a29e7f1578ab04fb34ff4200599498cf1b662d8e4a7"
     },
     {
       "path": "docs/IMPLEMENTATION_BLUEPRINT.md",
@@ -435,6 +435,21 @@
       "path": "examples/data/running_example.csv",
       "bytes": 16500,
       "sha256": "a8d1ba834f34ef272f401b52a69f84b550245a310931e60c5cdabdd10e2a5d48"
+    },
+    {
+      "path": "examples/data/s2a_season_trap.csv",
+      "bytes": 2244,
+      "sha256": "46205d194ef65dfbda114f266722274d7d03592521c0c020f9d434b64210a357"
+    },
+    {
+      "path": "examples/data/s2b_coordinated.csv",
+      "bytes": 2308,
+      "sha256": "b0f6781054f6d8c922c8a95d48ee349882c80a399e852efa54d51daa4e0b3110"
+    },
+    {
+      "path": "examples/data/s3_vir_mirror.csv",
+      "bytes": 2367,
+      "sha256": "5b52e2beea16380d29437e2e04607e2a411e760d44aff0712d815247dc5dec40"
     },
     {
       "path": "examples/data/selection_dependent.csv",

@@ -9,7 +9,6 @@ use mic_data::{RawTable, load_raw_csv};
 use mic_design::{
     DesignPoint, ObservedDesign, SamplingOddsAudit, audit_sampling_odds, observed_design_from_rows,
 };
-use mic_stats::simultaneous_mean_bounds;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -116,91 +115,8 @@ pub struct SurveyReport {
     /// Suggested four-law manifest for the top complete square, if any.
     /// Authority remains `proposal_only`; selection is left `unknown`.
     pub suggested_manifest: Option<mic_data::ExperimentManifest>,
-    /// Confirmation-split composability scout. Scout-only types; never a certificate.
-    pub direction_scout: Option<DirectionScout>,
     /// Human-readable next action.
     pub next_step: String,
-}
-
-/// Whether a remaining-state contrast sits relative to the scout tolerance.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum ScoutInvariance {
-    /// Entire interval is below tolerance.
-    Below,
-    /// Entire interval is above tolerance.
-    Above,
-    /// Interval overlaps the tolerance.
-    Overlaps,
-}
-
-/// One state coordinate's remaining-contrast interval. Not a deletion certificate.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ScoutContrast {
-    /// State column that was left out of the remaining contrast.
-    pub coordinate: String,
-    /// Point relative discrepancy.
-    pub relative_discrepancy: f64,
-    /// Simultaneous lower bound.
-    pub lower: f64,
-    /// Simultaneous upper bound.
-    pub upper: f64,
-    /// Position versus the scout tolerance.
-    pub status: ScoutInvariance,
-}
-
-/// Scout-only summary. Does not establish same-target family membership.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum ScoutOutcome {
-    /// One remaining contrast is below tolerance. Family membership is unproven.
-    SingleCoordinateBelowTolerance {
-        /// The coordinate.
-        coordinate: String,
-    },
-    /// More than one remaining contrast is below tolerance.
-    MultipleCoordinatesBelowTolerance {
-        /// Those coordinates.
-        coordinates: Vec<String>,
-    },
-    /// No remaining contrast is below tolerance.
-    NoneBelowTolerance,
-    /// Confirmation half is too small or the full contrast is too small.
-    Underpowered,
-    /// At least one interval overlaps the tolerance.
-    IntervalOverlap {
-        /// Unresolved coordinates.
-        unresolved: Vec<String>,
-    },
-}
-
-/// Proposal-only scout. Does not reuse certificate orientation types.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct DirectionScout {
-    /// Always `proposal_only`.
-    pub authority: SurveyAuthority,
-    /// Interferometer that supplied the two corners compared.
-    pub interferometer_id: String,
-    /// Context bits compared. Not assumed to be two tilts of one mechanism.
-    pub compared_columns: Vec<String>,
-    /// State columns scored.
-    pub state_columns: Vec<String>,
-    /// Clusters used only to find the square.
-    pub discovery_clusters: usize,
-    /// Clusters used only to score remaining contrasts.
-    pub confirmation_clusters: usize,
-    /// Seed for the split and multiplier bounds.
-    pub seed: u64,
-    /// Preregistered tolerance on relative remaining contrast.
-    pub epsilon: f64,
-    /// Two-sample discrepancy between the compared corners on full state.
-    pub full_discrepancy: f64,
-    /// Scout-only outcome. Not `unique_target`.
-    pub outcome: ScoutOutcome,
-    /// Per-coordinate remaining contrasts.
-    pub contrasts: Vec<ScoutContrast>,
-    /// Why this is not an arrow.
-    pub note: String,
 }
 
 /// Policy for the unsupervised survey.
@@ -254,21 +170,7 @@ pub fn run_unsupervised_survey(
         .iter()
         .find(|item| item.complete_square)
         .and_then(|item| suggested_four_law_manifest(&table, item, cluster_column.as_deref()));
-    let direction_scout = interferometers
-        .iter()
-        .find(|item| item.complete_square)
-        .and_then(|item| {
-            scout_direction(
-                &table,
-                &columns,
-                item,
-                cluster_column.as_deref(),
-                &table.content_sha256,
-            )
-            .ok()
-            .flatten()
-        });
-    let next_step = survey_next_step(&interferometers, direction_scout.as_ref());
+    let next_step = survey_next_step(&interferometers);
     Ok(SurveyReport {
         schema_version: "1.0.0".into(),
         authority: SurveyAuthority::ProposalOnly,
@@ -281,7 +183,6 @@ pub fn run_unsupervised_survey(
         cluster_unit_basis,
         interferometers,
         suggested_manifest,
-        direction_scout,
         next_step,
     })
 }
@@ -298,9 +199,7 @@ fn triage_columns(table: &RawTable, policy: SurveyPolicy) -> Vec<ColumnTriage> {
             let uniqueness = n_unique as f64 / n;
             let lower = name.to_ascii_lowercase();
             let token_shaped = !column_is_numeric(&uniques);
-            let looks_like_id = lower.contains("id")
-                || lower.ends_with("_key")
-                || lower.contains("uuid")
+            let looks_like_id = identifier_shaped_name(&lower)
                 || (uniqueness >= 0.98 && token_shaped);
             let constant = n_unique <= 1;
             let bitstring = looks_like_bitstring(&uniques);
@@ -348,6 +247,15 @@ fn triage_columns(table: &RawTable, policy: SurveyPolicy) -> Vec<ColumnTriage> {
             }
         })
         .collect()
+}
+
+fn identifier_shaped_name(lower: &str) -> bool {
+    lower == "id"
+        || lower.starts_with("id_")
+        || lower.ends_with("_id")
+        || lower.contains("_id_")
+        || lower.ends_with("_key")
+        || lower.contains("uuid")
 }
 
 fn coarsest_cluster(columns: &[ColumnTriage]) -> Option<String> {
@@ -525,32 +433,7 @@ fn propose(
     }))
 }
 
-fn survey_next_step(
-    interferometers: &[InterferometerProposal],
-    scout: Option<&DirectionScout>,
-) -> String {
-    if let Some(scout) = scout {
-        return match &scout.outcome {
-            ScoutOutcome::SingleCoordinateBelowTolerance { coordinate } => format!(
-                "Confirmation clusters put remaining contrast for `{coordinate}` below tolerance when comparing {}. That does **not** prove those corners are two tilts of one mechanism, and it is not an arrow. Family membership is unproven.",
-                scout.compared_columns.join(" vs ")
-            ),
-            ScoutOutcome::MultipleCoordinatesBelowTolerance { coordinates } => format!(
-                "Multiple remaining contrasts sit below tolerance ({}). Do not force a direction.",
-                coordinates.join(",")
-            ),
-            ScoutOutcome::NoneBelowTolerance => {
-                "Compared corners do not become exchangeable after leaving out any one state column. Do not invent an arrow.".into()
-            }
-            ScoutOutcome::Underpowered => {
-                "Confirmation half is underpowered for a remaining-contrast scout.".into()
-            }
-            ScoutOutcome::IntervalOverlap { unresolved } => format!(
-                "Remaining-contrast intervals overlap the scout tolerance for {}. Undetermined, not absent.",
-                unresolved.join(",")
-            ),
-        };
-    }
+fn survey_next_step(interferometers: &[InterferometerProposal]) -> String {
     if interferometers.iter().any(|item| item.complete_square) {
         return "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Do not treat this atlas as orientation.".into();
     }
@@ -566,353 +449,6 @@ fn survey_next_step(
         );
     }
     "No complete square was observed. Add the missing corners or collect a factorial follow-up. The atlas is a design proposal, not a graph.".into()
-}
-
-const SCOUT_EPSILON: f64 = 0.25;
-const SCOUT_MIN_FULL: f64 = 1e-3;
-const SCOUT_MIN_CLUSTERS_PER_ARM: usize = 4;
-const SCOUT_REPLICATES: usize = 199;
-
-fn scout_direction(
-    table: &RawTable,
-    columns: &[ColumnTriage],
-    interferometer: &InterferometerProposal,
-    cluster_column: Option<&str>,
-    table_sha256: &str,
-) -> Result<Option<DirectionScout>, EngineError> {
-    let Some(cluster_name) = cluster_column else {
-        return Ok(None);
-    };
-    let state_columns: Vec<String> = columns
-        .iter()
-        .filter(|column| column.role == ColumnRole::StateCandidate)
-        .map(|column| column.column.clone())
-        .collect();
-    if state_columns.len() < 2 {
-        return Ok(None);
-    }
-    let by_cluster =
-        collect_compared_clusters(table, interferometer, cluster_name, &state_columns)?;
-    let seed = seed_from_sha256(table_sha256);
-    let (discovery, confirm_a, confirm_b) = split_confirmation(&by_cluster, seed);
-    if confirm_a.len() < SCOUT_MIN_CLUSTERS_PER_ARM || confirm_b.len() < SCOUT_MIN_CLUSTERS_PER_ARM
-    {
-        return Ok(Some(scout_report(
-            interferometer,
-            state_columns,
-            discovery,
-            confirm_a.len() + confirm_b.len(),
-            seed,
-            0.0,
-            ScoutOutcome::Underpowered,
-            Vec::new(),
-            "confirmation half has too few clusters per compared corner for bounds",
-        )));
-    }
-    let full = mean_l2(&column_means(&confirm_a), &column_means(&confirm_b));
-    if full < SCOUT_MIN_FULL {
-        return Ok(Some(scout_report(
-            interferometer,
-            state_columns,
-            discovery,
-            confirm_a.len() + confirm_b.len(),
-            seed,
-            full,
-            ScoutOutcome::Underpowered,
-            Vec::new(),
-            "full-support contrast on confirmation state is below the power floor",
-        )));
-    }
-    let dim = state_columns.len();
-    let mut contributions = Vec::with_capacity(confirm_a.len() + confirm_b.len());
-    for point in &confirm_a {
-        contributions.push(signed_remaining(point, 1.0, dim));
-    }
-    for point in &confirm_b {
-        contributions.push(signed_remaining(point, -1.0, dim));
-    }
-    let bounds = match simultaneous_mean_bounds(&contributions, SCOUT_REPLICATES, 0.9, seed) {
-        Ok(bounds) => bounds,
-        Err(mic_stats::StatsError::DegenerateColumn { .. }) => {
-            return Ok(Some(scout_report(
-                interferometer,
-                state_columns.clone(),
-                discovery,
-                confirm_a.len() + confirm_b.len(),
-                seed,
-                full,
-                ScoutOutcome::IntervalOverlap {
-                    unresolved: state_columns.clone(),
-                },
-                Vec::new(),
-                "a contrast column was degenerate; refusing a zero-width interval",
-            )));
-        }
-        Err(error) => return Err(error.into()),
-    };
-    let mut contrasts = Vec::with_capacity(dim);
-    for (index, name) in state_columns.iter().enumerate() {
-        let (point, lower, upper) = relative_from_signed(
-            bounds.means[index],
-            bounds.lower[index],
-            bounds.upper[index],
-            full,
-        );
-        contrasts.push(ScoutContrast {
-            coordinate: name.clone(),
-            relative_discrepancy: point,
-            lower,
-            upper,
-            status: scout_status(lower, upper),
-        });
-    }
-    let outcome = summarize_scout(&contrasts);
-    Ok(Some(scout_report(
-        interferometer,
-        state_columns,
-        discovery,
-        confirm_a.len() + confirm_b.len(),
-        seed,
-        full,
-        outcome,
-        contrasts,
-        "remaining-contrast scout only; compared corners are not assumed to be one family",
-    )))
-}
-
-fn scout_status(lower: f64, upper: f64) -> ScoutInvariance {
-    if upper < SCOUT_EPSILON {
-        ScoutInvariance::Below
-    } else if lower > SCOUT_EPSILON {
-        ScoutInvariance::Above
-    } else {
-        ScoutInvariance::Overlaps
-    }
-}
-
-fn summarize_scout(contrasts: &[ScoutContrast]) -> ScoutOutcome {
-    let below: Vec<String> = contrasts
-        .iter()
-        .filter(|item| item.status == ScoutInvariance::Below)
-        .map(|item| item.coordinate.clone())
-        .collect();
-    let overlap: Vec<String> = contrasts
-        .iter()
-        .filter(|item| item.status == ScoutInvariance::Overlaps)
-        .map(|item| item.coordinate.clone())
-        .collect();
-    if below.len() > 1 {
-        return ScoutOutcome::MultipleCoordinatesBelowTolerance { coordinates: below };
-    }
-    if !overlap.is_empty() {
-        return ScoutOutcome::IntervalOverlap {
-            unresolved: overlap,
-        };
-    }
-    match below.into_iter().next() {
-        Some(coordinate) => ScoutOutcome::SingleCoordinateBelowTolerance { coordinate },
-        None => ScoutOutcome::NoneBelowTolerance,
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn scout_report(
-    interferometer: &InterferometerProposal,
-    state_columns: Vec<String>,
-    discovery_clusters: usize,
-    confirmation_clusters: usize,
-    seed: u64,
-    full_discrepancy: f64,
-    outcome: ScoutOutcome,
-    contrasts: Vec<ScoutContrast>,
-    note: &str,
-) -> DirectionScout {
-    DirectionScout {
-        authority: SurveyAuthority::ProposalOnly,
-        interferometer_id: interferometer.interferometer_id.clone(),
-        compared_columns: interferometer.context_columns.clone(),
-        state_columns,
-        discovery_clusters,
-        confirmation_clusters,
-        seed,
-        epsilon: SCOUT_EPSILON,
-        full_discrepancy,
-        outcome,
-        contrasts,
-        note: note.into(),
-    }
-}
-
-type ClusterArmRows = BTreeMap<String, (u8, Vec<Vec<f64>>)>;
-
-fn collect_compared_clusters(
-    table: &RawTable,
-    interferometer: &InterferometerProposal,
-    cluster_name: &str,
-    state_columns: &[String],
-) -> Result<ClusterArmRows, EngineError> {
-    let cluster_index = header_index(table, cluster_name)?;
-    let state_indexes: Vec<usize> = state_columns
-        .iter()
-        .map(|name| header_index(table, name))
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut by_cluster = ClusterArmRows::new();
-    for row in &table.rows {
-        let Some(bits) = row_bits(table, interferometer, row)? else {
-            continue;
-        };
-        if bits.len() != 2 {
-            continue;
-        }
-        let arm = match (bits[0], bits[1]) {
-            (true, false) => 1,
-            (false, true) => 2,
-            _ => continue,
-        };
-        let values: Option<Vec<f64>> = state_indexes
-            .iter()
-            .map(|&index| row[index].parse::<f64>().ok())
-            .collect();
-        let Some(values) = values else {
-            continue;
-        };
-        if values.iter().any(|value| !value.is_finite()) {
-            continue;
-        }
-        let cluster_id = row[cluster_index].clone();
-        if cluster_id.is_empty() {
-            continue;
-        }
-        let entry = by_cluster
-            .entry(cluster_id)
-            .or_insert_with(|| (arm, Vec::new()));
-        if entry.0 != arm {
-            return Err(EngineError::InvalidTabular(
-                "direction scout: a cluster spans both compared corners".into(),
-            ));
-        }
-        entry.1.push(values);
-    }
-    Ok(by_cluster)
-}
-
-fn split_confirmation(
-    by_cluster: &ClusterArmRows,
-    seed: u64,
-) -> (usize, Vec<Vec<f64>>, Vec<Vec<f64>>) {
-    let mut discovery = 0usize;
-    let mut confirm_a = Vec::new();
-    let mut confirm_b = Vec::new();
-    for (cluster_id, (arm, rows)) in by_cluster {
-        if fold_bit(cluster_id, seed) == 0 {
-            discovery += 1;
-            continue;
-        }
-        let mean = column_means(rows);
-        if *arm == 1 {
-            confirm_a.push(mean);
-        } else {
-            confirm_b.push(mean);
-        }
-    }
-    (discovery, confirm_a, confirm_b)
-}
-
-fn row_bits(
-    table: &RawTable,
-    interferometer: &InterferometerProposal,
-    row: &[String],
-) -> Result<Option<Vec<bool>>, EngineError> {
-    if interferometer.context_columns.len() == 1 {
-        let index = header_index(table, &interferometer.context_columns[0])?;
-        return Ok(DesignPoint::parse(&row[index]).ok().map(|point| point.bits));
-    }
-    if interferometer.context_columns.len() == 2 {
-        let i = header_index(table, &interferometer.context_columns[0])?;
-        let j = header_index(table, &interferometer.context_columns[1])?;
-        let first_levels = sorted_uniques(table, i);
-        let second_levels = sorted_uniques(table, j);
-        if first_levels.len() != 2 || second_levels.len() != 2 {
-            return Ok(None);
-        }
-        return Ok(Some(vec![
-            row[i] == first_levels[1],
-            row[j] == second_levels[1],
-        ]));
-    }
-    Ok(None)
-}
-
-fn column_means(rows: &[Vec<f64>]) -> Vec<f64> {
-    if rows.is_empty() {
-        return Vec::new();
-    }
-    let dim = rows[0].len();
-    let mut sums = vec![0.0; dim];
-    for row in rows {
-        for (index, value) in row.iter().enumerate() {
-            sums[index] += *value;
-        }
-    }
-    let n = rows.len() as f64;
-    sums.iter().map(|sum| sum / n).collect()
-}
-
-fn mean_l2(left: &[f64], right: &[f64]) -> f64 {
-    left.iter()
-        .zip(right)
-        .map(|(a, b)| (a - b) * (a - b))
-        .sum::<f64>()
-        .sqrt()
-}
-
-fn signed_remaining(point: &[f64], sign: f64, dim: usize) -> Vec<f64> {
-    (0..dim)
-        .map(|deleted| {
-            let leftover: Vec<f64> = point
-                .iter()
-                .enumerate()
-                .filter(|(index, _)| *index != deleted)
-                .map(|(_, value)| *value)
-                .collect();
-            sign * leftover.iter().copied().sum::<f64>() / leftover.len().max(1) as f64
-        })
-        .collect()
-}
-
-fn relative_from_signed(mean: f64, lower: f64, upper: f64, full: f64) -> (f64, f64, f64) {
-    let scale = if full > 0.0 { 2.0 / full } else { 0.0 };
-    let point = mean.abs() * scale;
-    let abs_lower = if lower > 0.0 {
-        lower
-    } else if upper < 0.0 {
-        -upper
-    } else {
-        0.0
-    };
-    let abs_upper = lower.abs().max(upper.abs());
-    (point, abs_lower * scale, abs_upper * scale)
-}
-
-fn seed_from_sha256(hex: &str) -> u64 {
-    let mut bytes = [0_u8; 8];
-    for (index, slot) in bytes.iter_mut().enumerate() {
-        let start = index * 2;
-        *slot = hex
-            .get(start..start + 2)
-            .and_then(|pair| u8::from_str_radix(pair, 16).ok())
-            .unwrap_or(0);
-    }
-    u64::from_be_bytes(bytes)
-}
-
-fn fold_bit(cluster_id: &str, seed: u64) -> u64 {
-    let mut hash = seed ^ 0xcbf2_9ce4_8422_2325;
-    for byte in cluster_id.as_bytes() {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x1000_0000_01b3);
-    }
-    hash & 1
 }
 
 fn extension_note(base: &str, missing: &[String], dropped: &[String]) -> String {
@@ -1113,7 +649,6 @@ fn suggested_four_law_manifest(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fmt::Write as _;
     use std::path::PathBuf;
 
     fn workspace_root() -> PathBuf {
@@ -1143,10 +678,6 @@ mod tests {
             .expect("complete square should emit a draft");
         assert_eq!(suggested.selection, mic_data::SelectionContract::Unknown);
         assert_eq!(suggested.inference_track, mic_data::InferenceTrack::FourLaw);
-        assert!(
-            report.direction_scout.is_none(),
-            "a single state column cannot license deletion orientation"
-        );
         assert!(report.interferometers.iter().any(|item| {
             item.complete_square
                 && item.missing_corners.is_empty()
@@ -1180,6 +711,31 @@ mod tests {
             "numeric columns are state unless declared as context"
         );
         assert_ne!(report.inferred_cluster_column.as_deref(), Some("outcome"));
+    }
+
+    #[test]
+    fn state_name_containing_id_is_not_an_identifier() {
+        let dir = std::env::temp_dir().join("mic-survey-humidity");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("humidity.csv");
+        std::fs::write(
+            &path,
+            "cluster_id,regime,humidity\n\
+             c0,00,40.0\n\
+             c1,10,41.0\n\
+             c2,01,42.0\n\
+             c3,11,43.0\n",
+        )
+        .unwrap();
+        let report =
+            run_unsupervised_survey(&path, None, Some("cluster_id"), SurveyPolicy::default())
+                .unwrap();
+        let humidity = report
+            .columns
+            .iter()
+            .find(|column| column.column == "humidity")
+            .unwrap();
+        assert_eq!(humidity.role, ColumnRole::StateCandidate);
     }
 
     #[test]
@@ -1278,35 +834,138 @@ mod tests {
         assert!(report.suggested_manifest.is_none());
     }
 
+    /// S2a season tautology as an atlas fixture, not a direction scout.
+    /// elev × season is a complete square; the survey must not mint an arrow.
     #[test]
-    fn two_tilts_of_one_target_name_that_state_on_confirmation_only() {
-        let dir = std::env::temp_dir().join("mic-survey-direction-scout");
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("two_tilts.csv");
-        let mut rows = String::from("cluster_id,regime,target,distractor\n");
-        for index in 0..24 {
-            let jitter = 0.02 * f64::from(index % 5);
-            let _ = writeln!(rows, "a{index},10,{t},{d}", t = 2.0 + jitter, d = jitter);
-            let _ = writeln!(rows, "b{index},01,{t},{d}", t = -2.0 + jitter, d = jitter);
-            let _ = writeln!(rows, "c{index},00,{t},{d}", t = jitter, d = jitter);
-            let _ = writeln!(rows, "d{index},11,{t},{d}", t = jitter, d = jitter);
-        }
-        std::fs::write(&path, rows).unwrap();
-        let report =
-            run_unsupervised_survey(&path, None, Some("cluster_id"), SurveyPolicy::default())
-                .unwrap();
+    fn season_elevation_world_is_a_complete_square_and_stays_proposal_only() {
+        let table =
+            load_raw_csv("examples/data/s2a_season_trap.csv", Some(&workspace_root())).unwrap();
+        let moisture = values_by_context(&table, "moisture", "elev", "season");
+        let reference = moisture.values().next().unwrap();
+        assert!(moisture.values().all(|values| values == reference));
+        let report = run_unsupervised_survey(
+            "examples/data/s2a_season_trap.csv",
+            Some(&workspace_root()),
+            Some("cluster_id"),
+            SurveyPolicy::default(),
+        )
+        .unwrap();
+        assert_atlas_only_complete_pair(&report, "elev", "season");
+    }
+
+    /// S2b: season moves temperature and moisture. Still atlas-only.
+    #[test]
+    fn coordinated_season_world_is_a_complete_square_and_stays_proposal_only() {
+        let table =
+            load_raw_csv("examples/data/s2b_coordinated.csv", Some(&workspace_root())).unwrap();
+        let moisture = values_by_context(&table, "moisture", "elev", "season");
+        assert_eq!(
+            moisture.get(&("low".into(), "summer".into())),
+            moisture.get(&("high".into(), "summer".into()))
+        );
+        assert_eq!(
+            moisture.get(&("low".into(), "winter".into())),
+            moisture.get(&("high".into(), "winter".into()))
+        );
+        assert_ne!(
+            moisture.get(&("low".into(), "summer".into())),
+            moisture.get(&("low".into(), "winter".into()))
+        );
+        let report = run_unsupervised_survey(
+            "examples/data/s2b_coordinated.csv",
+            Some(&workspace_root()),
+            Some("cluster_id"),
+            SurveyPolicy::default(),
+        )
+        .unwrap();
+        assert_atlas_only_complete_pair(&report, "elev", "season");
+    }
+
+    /// S3: voltage-driven and current-driven copies of V = I. Atlas-only.
+    #[test]
+    fn mirrored_vir_world_is_a_complete_square_and_stays_proposal_only() {
+        let table =
+            load_raw_csv("examples/data/s3_vir_mirror.csv", Some(&workspace_root())).unwrap();
+        let voltage = header_index(&table, "voltage").unwrap();
+        let current = header_index(&table, "current").unwrap();
+        assert!(
+            table.rows.iter().all(|row| row[voltage] == row[current]),
+            "mirrored constitutive fixture must preserve V = I row by row"
+        );
+        let report = run_unsupervised_survey(
+            "examples/data/s3_vir_mirror.csv",
+            Some(&workspace_root()),
+            Some("cluster_id"),
+            SurveyPolicy::default(),
+        )
+        .unwrap();
+        assert_atlas_only_complete_pair(&report, "drive", "level");
+    }
+
+    fn assert_atlas_only_complete_pair(report: &SurveyReport, first: &str, second: &str) {
         assert_eq!(report.authority, SurveyAuthority::ProposalOnly);
-        let scout = report
-            .direction_scout
-            .expect("complete square with two state columns should emit a scout");
-        assert_eq!(scout.authority, SurveyAuthority::ProposalOnly);
-        match scout.outcome {
-            ScoutOutcome::SingleCoordinateBelowTolerance { ref coordinate } => {
-                assert_eq!(coordinate, "target");
-            }
-            other => panic!("expected single coordinate below tolerance, got {other:?}"),
+        let square = report
+            .interferometers
+            .iter()
+            .find(|item| item.complete_square)
+            .expect("token pair must form a complete square");
+        assert!(square.context_columns.contains(&first.to_string()));
+        assert!(square.context_columns.contains(&second.to_string()));
+        assert!(
+            report
+                .next_step
+                .contains("Do not treat this atlas as orientation"),
+            "atlas next_step must refuse orientation: {}",
+            report.next_step
+        );
+        let wire = serde_json::to_value(report).expect("survey report must serialize");
+        let actual: BTreeSet<&str> = wire
+            .as_object()
+            .expect("survey report must serialize as an object")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        let expected: BTreeSet<&str> = [
+            "schema_version",
+            "authority",
+            "wall",
+            "table_sha256",
+            "path",
+            "n_rows",
+            "columns",
+            "inferred_cluster_column",
+            "cluster_unit_basis",
+            "interferometers",
+            "suggested_manifest",
+            "next_step",
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(
+            actual, expected,
+            "survey wire shape gained an unreviewed field"
+        );
+        if let Some(manifest) = &report.suggested_manifest {
+            assert_eq!(manifest.selection, mic_data::SelectionContract::Unknown);
         }
-        assert!(report.next_step.contains("target"));
-        assert!(report.next_step.contains("not an arrow"));
+    }
+
+    fn values_by_context(
+        table: &RawTable,
+        value: &str,
+        first: &str,
+        second: &str,
+    ) -> BTreeMap<(String, String), Vec<String>> {
+        let value_index = header_index(table, value).unwrap();
+        let first_index = header_index(table, first).unwrap();
+        let second_index = header_index(table, second).unwrap();
+        let mut groups = BTreeMap::new();
+        for row in &table.rows {
+            groups
+                .entry((row[first_index].clone(), row[second_index].clone()))
+                .or_insert_with(Vec::new)
+                .push(row[value_index].clone());
+        }
+        groups
     }
 }
