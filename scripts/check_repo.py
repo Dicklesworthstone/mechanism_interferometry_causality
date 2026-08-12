@@ -509,6 +509,16 @@ def validate_cargo_and_sources() -> None:
         check(revision in dependency_text, f"{name} revision missing from Cargo.toml")
         check(revision in integration_text, f"{name} revision missing from FRANKEN_INTEGRATION.md")
 
+    stats_text = (ROOT / "crates" / "mic-stats" / "src" / "lib.rs").read_text(encoding="utf-8")
+    for token in [
+        "ProductDesignEvidence",
+        "from_corner_odds",
+        "from_reweighting_audit",
+        "DiagnosticOnly",
+        "design_evidence: &ProductDesignEvidence",
+    ]:
+        check(token in stats_text, f"mic-stats GCM evidence boundary is missing token: {token}")
+
 
 def validate_shell_scripts() -> None:
     for path in sorted((ROOT / "scripts").glob("*.sh")):
