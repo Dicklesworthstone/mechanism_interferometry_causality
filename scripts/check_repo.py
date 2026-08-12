@@ -330,7 +330,13 @@ def validate_schemas_and_manifests() -> None:
 
 
 
-IGNORED_DIRECTORIES = {".git", "_renders", "target", "__pycache__", ".venv", "venv", "dist"}
+# Must match scripts/generate_repository_manifest.py exactly. If the two lists diverge,
+# the generator and the checker disagree about what belongs in the manifest and the
+# path-set check fails on a tree that is actually correct.
+IGNORED_DIRECTORIES = {
+    ".git", "_renders", "target", "__pycache__", ".venv", "venv", "dist",
+    ".wrangler", ".beads", ".ee", ".ntm", ".bv", ".claude",
+}
 
 
 def manifest_included(path: Path) -> bool:

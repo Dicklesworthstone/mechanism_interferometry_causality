@@ -10,7 +10,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "REPOSITORY_MANIFEST.json"
-IGNORED_DIRECTORIES = {".git", "_renders", "target", "__pycache__", ".venv", "venv", "dist"}
+# Must stay a superset of the ephemeral directories in .gitignore. A directory that is
+# gitignored but not listed here gets hashed into the manifest and then goes missing in a
+# clean checkout, which fails the manifest path-set check for everyone but the author.
+IGNORED_DIRECTORIES = {
+    ".git", "_renders", "target", "__pycache__", ".venv", "venv", "dist",
+    ".wrangler", ".beads", ".ee", ".ntm", ".bv", ".claude",
+}
 IGNORED_SUFFIXES = {
     ".aux",
     ".bbl",

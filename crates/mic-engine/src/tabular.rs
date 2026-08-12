@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Cluster-weighted histogram four-law audit.
 //!
 //! This is a projection of the four regime laws onto a coarse state. It is a

@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Standard-library CSV ingest with cluster-level fingerprints.
 //!
 //! This is the default tabular reader. `FrankenPandas` remains a feature-gated

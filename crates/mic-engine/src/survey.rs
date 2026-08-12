@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Unsupervised Stage 0–1 survey: column triage and a testability atlas.
 //!
 //! Authority is permanently `proposal_only`. Selection cannot be established

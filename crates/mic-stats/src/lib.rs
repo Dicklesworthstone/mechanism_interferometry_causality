@@ -143,11 +143,11 @@ impl ProductDesignEvidence {
         probabilities: [f64; 4],
         tolerance: f64,
     ) -> Result<Self, StatsError> {
-        let audit_id = validate_audit_id(audit_id.into(), "sampling-odds audit identifier")?;
-        let source_fingerprint = validate_sha256_fingerprint(
-            source_fingerprint.into(),
-            "sampling-odds source fingerprint",
-        )?;
+        let audit_id = audit_id.into();
+        let audit_id = validate_audit_id(&audit_id, "sampling-odds audit identifier")?;
+        let source_fingerprint = source_fingerprint.into();
+        let source_fingerprint =
+            validate_sha256_fingerprint(&source_fingerprint, "sampling-odds source fingerprint")?;
         if !tolerance.is_finite() || tolerance < 0.0 {
             return Err(StatsError::Invalid {
                 name: "product-odds tolerance",
@@ -194,9 +194,11 @@ impl ProductDesignEvidence {
         audit_id: impl Into<String>,
         source_fingerprint: impl Into<String>,
     ) -> Result<Self, StatsError> {
-        let audit_id = validate_audit_id(audit_id.into(), "reweighting audit identifier")?;
+        let audit_id = audit_id.into();
+        let audit_id = validate_audit_id(&audit_id, "reweighting audit identifier")?;
+        let source_fingerprint = source_fingerprint.into();
         let source_fingerprint = validate_sha256_fingerprint(
-            source_fingerprint.into(),
+            &source_fingerprint,
             "reweighting audit source fingerprint",
         )?;
         Ok(Self {
@@ -287,7 +289,7 @@ impl ProductDesignEvidence {
     }
 }
 
-fn validate_audit_id(value: String, name: &'static str) -> Result<String, StatsError> {
+fn validate_audit_id(value: &str, name: &'static str) -> Result<String, StatsError> {
     let value = value.trim().to_owned();
     if value.is_empty() {
         return Err(StatsError::InvalidEvidenceReference { name });
@@ -295,10 +297,7 @@ fn validate_audit_id(value: String, name: &'static str) -> Result<String, StatsE
     Ok(value)
 }
 
-fn validate_sha256_fingerprint(
-    value: String,
-    name: &'static str,
-) -> Result<String, StatsError> {
+fn validate_sha256_fingerprint(value: &str, name: &'static str) -> Result<String, StatsError> {
     let value = value.trim().to_owned();
     let Some(hex) = value.strip_prefix("sha256:") else {
         return Err(StatsError::InvalidEvidenceReference { name });
@@ -1056,9 +1055,18 @@ pub mod franken {
 mod tests {
     use super::*;
 
+    const SOURCE_FINGERPRINT: &str =
+        "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+
     #[test]
     fn gcm_zero_when_one_residual_is_zero() {
-        let evidence = ProductDesignEvidence::from_corner_odds([0.25; 4], 1e-12).unwrap();
+        let evidence = ProductDesignEvidence::from_sampling_odds_audit(
+            "sampling-audit-1",
+            SOURCE_FINGERPRINT,
+            [0.25; 4],
+            1e-12,
+        )
+        .unwrap();
         let estimate = gcm_projection(
             &evidence,
             &[0.0, 1.0, 0.0, 1.0],
@@ -1074,13 +1082,48 @@ mod tests {
 
     #[test]
     fn nonproduct_odds_cannot_create_verified_gcm_evidence() {
-        let error =
-            ProductDesignEvidence::from_corner_odds([0.1, 0.2, 0.3, 0.4], 1e-12).unwrap_err();
+        let error = ProductDesignEvidence::from_sampling_odds_audit(
+            "sampling-audit-1",
+            SOURCE_FINGERPRINT,
+            [0.1, 0.2, 0.3, 0.4],
+            1e-12,
+        )
+        .unwrap_err();
         assert!(matches!(error, StatsError::Invalid { .. }));
         assert!(
-            ProductDesignEvidence::from_corner_odds([f64::MAX; 4], 1e-12).is_err(),
+            ProductDesignEvidence::from_sampling_odds_audit(
+                "sampling-audit-1",
+                SOURCE_FINGERPRINT,
+                [f64::MAX; 4],
+                1e-12,
+            )
+            .is_err(),
             "nonfinite recorded diagnostics must fail closed"
         );
+    }
+
+    #[test]
+    fn product_looking_odds_require_audited_provenance() {
+        assert!(matches!(
+            ProductDesignEvidence::from_sampling_odds_audit(
+                "",
+                SOURCE_FINGERPRINT,
+                [0.25; 4],
+                1e-12,
+            )
+            .unwrap_err(),
+            StatsError::InvalidEvidenceReference { .. }
+        ));
+        assert!(matches!(
+            ProductDesignEvidence::from_sampling_odds_audit(
+                "sampling-audit-1",
+                "empirical-counts",
+                [0.25; 4],
+                1e-12,
+            )
+            .unwrap_err(),
+            StatsError::InvalidEvidenceReference { .. }
+        ));
     }
 
     #[test]
@@ -1103,15 +1146,32 @@ mod tests {
 
     #[test]
     fn completed_reweighting_audit_is_certificate_eligible() {
-        let evidence = ProductDesignEvidence::from_reweighting_audit(" weights-audit-17 ").unwrap();
+        let evidence =
+            ProductDesignEvidence::from_reweighting_audit(" weights-audit-17 ", SOURCE_FINGERPRINT)
+                .unwrap();
         assert!(evidence.is_certificate_eligible());
         assert_eq!(evidence.grade(), ProductDesignGrade::ReweightedToProduct);
+        assert_eq!(evidence.reweighting_audit_id(), Some("weights-audit-17"));
+        assert_eq!(evidence.source_fingerprint(), Some(SOURCE_FINGERPRINT));
     }
 
     #[test]
     fn deserialization_revalidates_product_odds_and_diagnostics() {
+        let forged_provenance = r#"{
+            "grade":"product_odds_verified",
+            "audit_id":"sampling-audit-1",
+            "source_fingerprint":"empirical-counts",
+            "probabilities":[0.25,0.25,0.25,0.25],
+            "probability_sum":1.0,
+            "log_odds_ratio":0.0,
+            "tolerance":1e-12
+        }"#;
+        assert!(serde_json::from_str::<ProductDesignEvidence>(forged_provenance).is_err());
+
         let forged_nonproduct = r#"{
             "grade":"product_odds_verified",
+            "audit_id":"sampling-audit-1",
+            "source_fingerprint":"sha256:0000000000000000000000000000000000000000000000000000000000000000",
             "probabilities":[0.1,0.2,0.3,0.4],
             "probability_sum":1.0,
             "log_odds_ratio":0.0,
@@ -1119,10 +1179,17 @@ mod tests {
         }"#;
         assert!(serde_json::from_str::<ProductDesignEvidence>(forged_nonproduct).is_err());
 
-        let evidence = ProductDesignEvidence::from_corner_odds([0.25; 4], 1e-12).unwrap();
+        let evidence = ProductDesignEvidence::from_sampling_odds_audit(
+            "sampling-audit-1",
+            SOURCE_FINGERPRINT,
+            [0.25; 4],
+            1e-12,
+        )
+        .unwrap();
         let encoded = serde_json::to_string(&evidence).unwrap();
         let decoded: ProductDesignEvidence = serde_json::from_str(&encoded).unwrap();
         assert_eq!(decoded, evidence);
+        assert_eq!(decoded.sampling_odds_audit_id(), Some("sampling-audit-1"));
     }
 
     #[test]

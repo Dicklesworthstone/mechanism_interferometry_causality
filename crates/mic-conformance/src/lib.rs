@@ -8,8 +8,9 @@ mod tests {
     use mic_data::{DataSource, ExperimentManifest, InferenceTrack, RegimeSpec, SelectionContract};
     use mic_design::{DesignPoint, audit_design, audit_sampling_odds};
     use mic_engine::{
-        FourLawPolicy, LensEstimate, PreflightPolicy, PreflightStatus, audit_lens_battery,
-        audit_orientation, run_preflight, run_tabular_audit,
+        FourLawPolicy, LensEstimate, PreflightPolicy, PreflightStatus, SurveyAuthority,
+        SurveyPolicy, audit_lens_battery, audit_orientation, run_preflight, run_tabular_audit,
+        run_unsupervised_survey,
     };
     use mic_model::PosteriorSquare;
     use mic_sim::exact_suite;

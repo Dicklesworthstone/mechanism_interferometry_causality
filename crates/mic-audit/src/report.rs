@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Human-readable reports that open with assumptions and abstentions.
 
 use crate::{CertificateStatus, EvidenceLedger, ExecutionMode, Finding, Severity};
