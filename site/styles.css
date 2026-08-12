@@ -344,25 +344,62 @@ main > section + section:not(.band)::before {
 
 .band { background: var(--bg-deep); border-block: 1px solid var(--line); }
 
+/* A deep band is always dark, in both themes. Rather than writing a parallel
+   set of component rules for it, the band redeclares the design tokens
+   locally: every card, panel, input, table, finding and diagram inside it then
+   picks up dark values through the ordinary cascade, with no component aware
+   that it is on a dark background. */
 .band--deep {
+  --surface: #16203a;
+  --surface-2: #1b2542;
+  --surface-3: #22304f;
+  --inset: #101a30;
+
+  --fg: #eef1f8;
+  --fg-mid: #cbd4e6;
+  --fg-dim: #a7b2c9;
+  --fg-faint: #8590aa;
+
+  --line: rgba(255, 255, 255, .11);
+  --line-strong: rgba(255, 255, 255, .2);
+  --grid: rgba(255, 255, 255, .08);
+  --axis: #6b7796;
+
+  --violet: #9d88ff;
+  --violet-2: #b8a5ff;
+  --violet-ink: #c6b7ff;
+  --violet-wash: rgba(157, 136, 255, .16);
+
+  --flat: #3fd7a4;
+  --flat-ink: #7fe9c6;
+  --flat-wash: rgba(63, 215, 164, .14);
+
+  --curve: #ffab5c;
+  --curve-ink: #ffc78f;
+  --curve-wash: rgba(255, 171, 92, .14);
+
+  --block: #ff7286;
+  --block-ink: #ff9fac;
+  --block-wash: rgba(255, 114, 134, .14);
+
+  --info: #6da7ff;
+  --info-ink: #a2c6ff;
+  --info-wash: rgba(109, 167, 255, .14);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .06);
+  --shadow: 0 18px 48px -20px rgba(0, 0, 0, .85);
+
   background:
     radial-gradient(900px 600px at 82% -10%, rgba(91, 70, 224, .3), transparent 66%),
     radial-gradient(700px 520px at 4% 110%, rgba(13, 155, 112, .16), transparent 68%),
     linear-gradient(165deg, #161f38, #0b1120);
   border-color: transparent;
-  color: #e9edf7;
+  color: var(--fg);
   overflow: hidden;
 }
 
 .band--deep h2, .band--deep h3, .band--deep h4 { color: #fff; }
-.band--deep p { color: #aeb9d1; }
-
-/* The ink ramp does not invert on the dark bands in the light theme, so
-   display mathematics has to be re-inked explicitly here. */
-.band--deep .eq { color: #e9edf7; }
-.band--deep .eq .op { color: #93a0bd; }
-.band--deep .label { color: #3fd7a4; }
-.band--deep .eyebrow { color: #3fd7a4; }
+.band--deep .eyebrow { color: var(--flat); }
 .band--deep .eyebrow::before, .band--deep .eyebrow::after { background: rgba(63, 215, 164, .4); }
 
 /* One large ring, low contrast, to give the dark bands depth. */
@@ -453,7 +490,6 @@ code {
   color: var(--violet-ink);
 }
 
-.band--deep code { border-color: rgba(255, 255, 255, .12); background: rgba(0, 0, 0, .3); color: #a9ecd3; }
 
 pre.code {
   margin: 0;
@@ -1054,6 +1090,12 @@ main > section.hero {
 .viz-interval.curve { stroke: var(--curve); }
 .viz-interval.block { stroke: var(--block); }
 
+.cube-edge { stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 4 5; fill: none; }
+.cube-edge.live { stroke: var(--violet); stroke-width: 2.4; stroke-dasharray: none; opacity: .55; }
+.cube-face { fill: var(--flat); opacity: .16; stroke: var(--flat); stroke-width: 1.5; }
+.cube-missing { fill: none; stroke: var(--line-strong); stroke-width: 1.8; stroke-dasharray: 4 4; }
+.cube-missing-text { fill: var(--fg-faint); font: 600 12px var(--mono); text-anchor: middle; }
+
 .hero-badge { fill: var(--surface); stroke: var(--flat); stroke-width: 2.5; }
 .hero-badge-text { fill: var(--flat-ink); font: 800 26px var(--mono); text-anchor: middle; }
 
@@ -1326,7 +1368,6 @@ main > section.hero {
   background: var(--surface);
 }
 
-.band--deep .table-scroll { border-color: rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .045); }
 
 .spec-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
 
@@ -1341,7 +1382,6 @@ main > section.hero {
   border-bottom: 1px solid var(--line);
 }
 
-.band--deep .spec-table caption { color: #aeb9d1; border-color: rgba(255, 255, 255, .1); }
 
 .spec-table th {
   padding: .7rem 1.1rem;
@@ -1354,16 +1394,12 @@ main > section.hero {
   white-space: nowrap;
 }
 
-.band--deep .spec-table th { color: #3fd7a4; border-color: rgba(255, 255, 255, .1); }
 
 .spec-table td { padding: .8rem 1.1rem; vertical-align: top; border-bottom: 1px solid var(--line); color: var(--fg-mid); }
 .spec-table tr:last-child td { border-bottom: 0; }
-.band--deep .spec-table td { color: #c3ccdf; border-color: rgba(255, 255, 255, .07); }
 .spec-table td code { white-space: nowrap; }
 .spec-table td.yes { color: var(--flat-ink); }
 .spec-table td.no { color: var(--block-ink); }
-.band--deep .spec-table td.yes { color: #7fe9c6; }
-.band--deep .spec-table td.no { color: #ff9fac; }
 
 .pullquote {
   max-width: 30ch;
@@ -1395,8 +1431,6 @@ main > section.hero {
 .corner-toggle:hover { border-color: var(--violet); }
 .corner-toggle:has(input:checked) { color: var(--violet-ink); border-color: color-mix(in srgb, var(--violet) 42%, var(--line)); background: var(--violet-wash); }
 
-.band--deep .corner-toggle { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .1); color: #aeb9d1; }
-.band--deep .corner-toggle:has(input:checked) { color: #fff; border-color: rgba(157, 136, 255, .5); background: rgba(157, 136, 255, .16); }
 
 .lens-grid { display: grid; gap: .6rem; }
 
@@ -1408,7 +1442,6 @@ main > section.hero {
 }
 
 .lens-row > span { font: 600 .82rem/1.2 var(--mono); color: var(--fg-dim); overflow-wrap: anywhere; }
-.band--deep .lens-row > span { color: #aeb9d1; }
 
 .lens-row input {
   width: 100%;
@@ -1422,7 +1455,6 @@ main > section.hero {
   font-variant-numeric: tabular-nums;
 }
 
-.band--deep .lens-row input { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); color: #eef1f8; }
 .lens-row input:focus-visible { border-color: var(--violet); outline: none; box-shadow: 0 0 0 3px var(--violet-wash); }
 .lens-head { font: 800 .64rem/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-faint); text-align: center; }
 
