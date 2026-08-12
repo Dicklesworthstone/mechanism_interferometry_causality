@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T19:01:19Z",
+  "generated_at_utc": "2026-08-12T19:20:22Z",
   "hash_algorithm": "sha256",
-  "file_count": 116,
-  "aggregate_sha256": "6854604daf0ef2b0b033f84b9d8455e3726a46f34ab3753886a70173a1fdf68c",
+  "file_count": 125,
+  "aggregate_sha256": "9a17de003719aaf3e8bec24991cb83d395760ebd75d58646d74d4d036503a549",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -23,8 +23,8 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 1707,
-      "sha256": "a4cf22427b97dfc179ff698deeb06e94fad06b50b982d1547817b35cdf308bbf"
+      "bytes": 3016,
+      "sha256": "e4ee5c856450f046c68fcea439afb3ab8edc834bcd86f3859a0627b71b050c24"
     },
     {
       "path": "CHANGELOG.md",
@@ -133,8 +133,8 @@
     },
     {
       "path": "crates/mic-data/src/table.rs",
-      "bytes": 21591,
-      "sha256": "79b5cbb33ae77f97efbdd5b16fd5f835dd8e834201948594db42c1b97e160068"
+      "bytes": 26604,
+      "sha256": "42648bc7b773b4d5f6dff27a445aa33a7d4cdc79ce1aaade957231725ccec1dd"
     },
     {
       "path": "crates/mic-design/Cargo.toml",
@@ -143,8 +143,8 @@
     },
     {
       "path": "crates/mic-design/src/lib.rs",
-      "bytes": 41742,
-      "sha256": "3fe778706094497909160646755bf1ffdf34ce558fd8ec50c009964f12921a88"
+      "bytes": 45865,
+      "sha256": "4b565d01f24591e5fa521838de8b9b72c0eaf2a70741b39a7925d3d1cbd006af"
     },
     {
       "path": "crates/mic-engine/Cargo.toml",
@@ -158,18 +158,18 @@
     },
     {
       "path": "crates/mic-engine/src/lib.rs",
-      "bytes": 31646,
-      "sha256": "873309db6c8492bc5f37c83afd9cae9ec681d330f0554ab45b0c7d397a425447"
+      "bytes": 31664,
+      "sha256": "efa6817fadcfc75fc8869876e9505ccfec4edbbf13978373c6a08e708c51c4f6"
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 16335,
-      "sha256": "8dad8cf9dd1f12083e4fc4b39646c2bc3aa9af059808b304a0494a0090c47308"
+      "bytes": 21076,
+      "sha256": "871381ba1f1f2fb1e210a80f8d7c4a63ae74f02640b2ff54c4e99da3d04e9363"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
-      "bytes": 31890,
-      "sha256": "9aca1b9f29dc79a7a6668f9b968dd565e7511b8e163d65a5dc126a81f5aa740a"
+      "bytes": 32335,
+      "sha256": "11f8b781f50761629c1d929d4f058f2b53e234f3f12bba62abeeaaa8bf91c28a"
     },
     {
       "path": "crates/mic-model/Cargo.toml",
@@ -213,8 +213,8 @@
     },
     {
       "path": "docs/AUTONOMOUS_MODE.md",
-      "bytes": 9856,
-      "sha256": "48c6237cfea598e7d5a31b19a8b161f10ac615391a4a7dd06bc05086bd05463b"
+      "bytes": 10059,
+      "sha256": "6e627274fa036eb340e8cfc80fd775d6121f47e23e025ca6013362795110fac5"
     },
     {
       "path": "docs/DATASET_ELIGIBILITY.md",
@@ -235,6 +235,11 @@
       "path": "docs/FRANKEN_INTEGRATION.md",
       "bytes": 4240,
       "sha256": "9aa90ab9a021faa9a22b1dcd5351af703010d3ed83f9ba658e1a2b6e4eb28043"
+    },
+    {
+      "path": "docs/HYPOTHESIS_SLATE.md",
+      "bytes": 8108,
+      "sha256": "cadcf90a9e8d5d51b474c31268f185a52d5353d78cf471ded4239e7bb9eb2634"
     },
     {
       "path": "docs/IMPLEMENTATION_BLUEPRINT.md",
@@ -307,6 +312,11 @@
       "sha256": "0cad9ceb8010b04ae7f33d30ae8e003857c05c43eb281dd126e6122b31d41a83"
     },
     {
+      "path": "examples/configs/selection_dependent.json",
+      "bytes": 996,
+      "sha256": "2e6deeb5b439f1a94f765ca76b7019726e887eda8224a4eb962ef8c1dbd614db"
+    },
+    {
       "path": "examples/data/feature_flag_pilot.csv",
       "bytes": 18611,
       "sha256": "92fd5fe42ecaf5f7649e920c6bbabae6bca4462643822508ddc5dfd189fe05b5"
@@ -330,6 +340,11 @@
       "path": "examples/data/running_example.csv",
       "bytes": 16500,
       "sha256": "a8d1ba834f34ef272f401b52a69f84b550245a310931e60c5cdabdd10e2a5d48"
+    },
+    {
+      "path": "examples/data/selection_dependent.csv",
+      "bytes": 1149,
+      "sha256": "e6aafbb99ad30266e193d46f3f5e02efd2177e2fb08a4c9fd7ed14e369dc4684"
     },
     {
       "path": "examples/datasets/graduation_rct/README.md",
@@ -377,6 +392,36 @@
       "sha256": "948f696d251fc03fefef96a9ab5d45cc874c71f63f4721872b0dce23b9e4d315"
     },
     {
+      "path": "experiments/tierb_pilots/README.md",
+      "bytes": 2530,
+      "sha256": "8632db7cbb4dbed273a64a78fc57973d152f40ea57f167c5fbd3bf13a0cc33cd"
+    },
+    {
+      "path": "experiments/tierb_pilots/conservation_pilot.py",
+      "bytes": 3298,
+      "sha256": "79ff6870761c0fba9df38102e24ca53cb40674055024836292dcc5be00066312"
+    },
+    {
+      "path": "experiments/tierb_pilots/detection_floors.py",
+      "bytes": 2262,
+      "sha256": "23589a8bfa0e5c0c6df9a493e3ca955785a9e37031298632bdde8ef83fd71b47"
+    },
+    {
+      "path": "experiments/tierb_pilots/norman_h001_attack.py",
+      "bytes": 1114,
+      "sha256": "bc0bccd17e8971605c37ea4bac94115747031c596ccd74434e65ae0ba3e72fe8"
+    },
+    {
+      "path": "experiments/tierb_pilots/witness_identity_check.py",
+      "bytes": 1637,
+      "sha256": "ab6592de5ad417f6ab556daee2eb10f58d7b14ec9f6c389551606b3ff7d8e325"
+    },
+    {
+      "path": "experiments/tierb_pilots/witness_identity_check2.py",
+      "bytes": 1482,
+      "sha256": "f1f5d0daddab2a7dc60dbc2d3060ce4fe92dfff5d8ee92b1e5f2d144416adf42"
+    },
+    {
       "path": "paper/README.md",
       "bytes": 275,
       "sha256": "609659728b397c37e8c87d573d9c86985786272328004956e22f6b00932ee1ff"
@@ -418,8 +463,8 @@
     },
     {
       "path": "paper/main.tex",
-      "bytes": 74957,
-      "sha256": "802d4f380ac48acbaf3a4dd54b97ff862e0e19c58b69a678cc561ecc773e0dfe"
+      "bytes": 75940,
+      "sha256": "8119dd631c024d3cd8ee0c5b262dac40e482e847b5defade86f521606a70207c"
     },
     {
       "path": "paper/references.bib",
@@ -533,8 +578,8 @@
     },
     {
       "path": "site/app.js",
-      "bytes": 68769,
-      "sha256": "ac1aaded5745302362030ce7f0e213437587eb3878b93d441abdf953a3430aa0"
+      "bytes": 69175,
+      "sha256": "ea34c6334be07784af1a614db90259958c37b4dc427ccf4832eef682fc50df29"
     },
     {
       "path": "site/assets/favicon.svg",
@@ -568,18 +613,18 @@
     },
     {
       "path": "site/index.html",
-      "bytes": 90232,
-      "sha256": "20f2b3fd826a5aff91d2a49584b9ec88301c8cfbb92a7f2c2d21a94b132981ef"
+      "bytes": 97351,
+      "sha256": "9336ec83b0b9b58647958534a9e99c6ed2d59a678f726ed240633e18d176084f"
     },
     {
       "path": "site/mechanism_interferometry.pdf",
-      "bytes": 515191,
-      "sha256": "011e5bf8298385e92abfd191a5e2dd422f8446a08fe643ec2a4a4f3dccf40465"
+      "bytes": 515706,
+      "sha256": "28389d049b10946bbf3118116752396dfe92468754acd69564fd9ce116c0e8f8"
     },
     {
       "path": "site/styles.css",
-      "bytes": 54025,
-      "sha256": "7fd7d272ed28b0d5d7b27772982193d84081c9dadd116d043b5b28e60a476242"
+      "bytes": 54400,
+      "sha256": "07af047c75aa0408f5c1d65681cfe8de638e2ac7f242f5046157faf16f04c15c"
     },
     {
       "path": "uv.lock",
