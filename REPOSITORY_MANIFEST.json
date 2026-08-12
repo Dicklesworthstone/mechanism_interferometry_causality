@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T18:23:28Z",
+  "generated_at_utc": "2026-08-12T18:24:57Z",
   "hash_algorithm": "sha256",
-  "file_count": 98,
-  "aggregate_sha256": "2337326830ec0942973c40e9e5a93b5f087b2ec3e65cdf161dfbdc0c17a39afa",
+  "file_count": 100,
+  "aggregate_sha256": "f47e2c877439998de561ce8b465acde0d7d54c97ec974b6c70bd69d6851dc8cd",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -38,8 +38,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 2264,
-      "sha256": "1c73b9d0a185b9c12dbe7af7ff440da99be8844c41c6838c455748c7b519c9f2"
+      "bytes": 2427,
+      "sha256": "f623839aa9264647b8227c664c7fc4b57c26a0c1db27ad913f89d1a3bd2906d8"
     },
     {
       "path": "CITATION.cff",
@@ -53,8 +53,8 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 58495,
-      "sha256": "2ecde6bbaf7f63520ccbca7b49c1db8041ad9e5a0df835edc34c973e20778f43"
+      "bytes": 58513,
+      "sha256": "56111cc2c35b7ed9c181db4107f54e4263828f41aba62ad9357c8f99f412307d"
     },
     {
       "path": "Cargo.toml",
@@ -73,8 +73,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 5985,
-      "sha256": "2f2346cf53e5be94c03d61b9595ce1bc203a7308590e7585041aaf4a63ce9f80"
+      "bytes": 6181,
+      "sha256": "d69005cd607ce5618e9c7a501dc6d8fe6d4bd3d038ff15c0cd4b3f4adebe5be4"
     },
     {
       "path": "artifacts/simulations/exact_results.json",
@@ -103,8 +103,8 @@
     },
     {
       "path": "crates/mic-cli/src/main.rs",
-      "bytes": 13789,
-      "sha256": "1608a49ccd1ca0c6b836bb0fccf935fcba0e41356c4a13df2fbf5a5b4b557005"
+      "bytes": 13870,
+      "sha256": "16a3206c6c232b087639d2d30967a3cb1f9e22652218ca4de7e257b17054763e"
     },
     {
       "path": "crates/mic-conformance/Cargo.toml",
@@ -128,13 +128,18 @@
     },
     {
       "path": "crates/mic-data/Cargo.toml",
-      "bytes": 536,
-      "sha256": "89eeb8d6b243ddf8770f1573b57ed839fbe86144b762f38c8605e6f9dccc0444"
+      "bytes": 558,
+      "sha256": "7c2519f87dac48815781f300495d92f84ff8dbe5e27478209770885150a4c9ae"
     },
     {
       "path": "crates/mic-data/src/lib.rs",
-      "bytes": 11819,
-      "sha256": "240c97f2f4b5fdd05b1617bd5de4e93cb4bdeb524d16f6c579d0275a91d83cde"
+      "bytes": 11995,
+      "sha256": "bc1606be296bedb4fed84ec516a1f353a22cc3c1d5820ba2167ff5daffeaf685"
+    },
+    {
+      "path": "crates/mic-data/src/table.rs",
+      "bytes": 19489,
+      "sha256": "59144860107c2f07b8511e097c62ec5e9b556f2239f9a3019638b18139bf8a6d"
     },
     {
       "path": "crates/mic-design/Cargo.toml",
@@ -143,8 +148,8 @@
     },
     {
       "path": "crates/mic-design/src/lib.rs",
-      "bytes": 16956,
-      "sha256": "3076e4ffd57b52aefb75def9bb46bb715a5aaee12f6319d972da68a8b4fd1bd2"
+      "bytes": 23500,
+      "sha256": "dcf6bd16f1ee32d945e4d77059f88f8320793a4925296678166582cea839d9c8"
     },
     {
       "path": "crates/mic-engine/Cargo.toml",
@@ -218,8 +223,8 @@
     },
     {
       "path": "docs/INFERENCE_PROTOCOL.md",
-      "bytes": 9678,
-      "sha256": "2a8ee7b649cde1e98b98a5d355aea1a7e78db011442881a3603e69c5668c85d8"
+      "bytes": 10038,
+      "sha256": "2c7b8db0e7876a4d0e80b949e2812944f8a936938b3fa8dac92283b59647443d"
     },
     {
       "path": "docs/PARTIAL_DESIGNS.md",
@@ -233,8 +238,8 @@
     },
     {
       "path": "docs/ROADMAP.md",
-      "bytes": 2862,
-      "sha256": "a64a15c9b495d8891116f98535845abcff19bece23cd448c56eb0497378787ea"
+      "bytes": 2930,
+      "sha256": "125af444bdf049d984cfa5b24ea7a5470c6bff02f2fce47a7153423840c0bb68"
     },
     {
       "path": "docs/SECURITY_AND_REPRODUCIBILITY.md",
@@ -333,8 +338,8 @@
     },
     {
       "path": "paper/main.pdf",
-      "bytes": 501764,
-      "sha256": "dc450c6fa5d0bf4bdb66aae5568836729a755904a17cab5a20942516e4af85f5"
+      "bytes": 515191,
+      "sha256": "011e5bf8298385e92abfd191a5e2dd422f8446a08fe643ec2a4a4f3dccf40465"
     },
     {
       "path": "paper/main.tex",
@@ -442,9 +447,14 @@
       "sha256": "cf7b30b133685b0870be1ab7c6471cb5ab88c421782046d66fbceb7ca0ea705c"
     },
     {
+      "path": "site/_headers",
+      "bytes": 1852,
+      "sha256": "3527c7c95316fbc9f1ffd3bd8862fc0aab50ba4c70861e8f8f993bebbd4f9f58"
+    },
+    {
       "path": "site/app.js",
-      "bytes": 68151,
-      "sha256": "2b3aa5d682bc8ae6261d08901e2654be5a7b266ec9de6e5d51f9c1129cc74e15"
+      "bytes": 68099,
+      "sha256": "72d6a90f901a932958949f7e43eaa06f676234c0f5990a60bd154457f424c147"
     },
     {
       "path": "site/assets/favicon.svg",
@@ -478,18 +488,18 @@
     },
     {
       "path": "site/index.html",
-      "bytes": 74879,
-      "sha256": "88b9a99eb2bf51765fe3b72ecf76f6eeda3df6be068c09ce43859742eba910ef"
+      "bytes": 74324,
+      "sha256": "6d9848520a8db2a12427eeb0d34a18d76d544abca806955761de21d4f01fb174"
     },
     {
       "path": "site/mechanism_interferometry.pdf",
-      "bytes": 501764,
-      "sha256": "dc450c6fa5d0bf4bdb66aae5568836729a755904a17cab5a20942516e4af85f5"
+      "bytes": 515191,
+      "sha256": "011e5bf8298385e92abfd191a5e2dd422f8446a08fe643ec2a4a4f3dccf40465"
     },
     {
       "path": "site/styles.css",
-      "bytes": 50991,
-      "sha256": "91dd5b561f9fca347d774b1fa8448268b9c971238e099568e6fee19ac909063d"
+      "bytes": 51533,
+      "sha256": "6220d01e339ad641a93fb1769f387511c0f2f09061f6c3e902e6d24181103a8b"
     },
     {
       "path": "uv.lock",
