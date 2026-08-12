@@ -22,6 +22,8 @@ pub struct PreflightPolicy {
     pub accept_unvalidated_selection_model: bool,
     /// Maximum standard-error-scaled pairwise gap tolerated between estimator families.
     pub lens_gap_tolerance: f64,
+    /// Minimum acceptable ratio of effective sample size to sample size for ratio weights.
+    pub min_ess_ratio: f64,
 }
 
 impl Default for PreflightPolicy {
@@ -31,6 +33,7 @@ impl Default for PreflightPolicy {
             product_odds_tolerance: 1e-10,
             accept_unvalidated_selection_model: false,
             lens_gap_tolerance: 3.0,
+            min_ess_ratio: 0.1,
         }
     }
 }
@@ -100,6 +103,187 @@ pub enum EngineError {
     /// A lens-battery input was structurally invalid.
     #[error("estimator lens battery is invalid: {0}")]
     InvalidLensBattery(String),
+    /// A statistical primitive rejected its inputs.
+    #[error(transparent)]
+    Stats(#[from] mic_stats::StatsError),
+    /// An overlap-audit input was structurally invalid.
+    #[error("overlap audit is invalid: {0}")]
+    InvalidOverlap(String),
+}
+
+/// Serializable result of the deletion-orientation audit.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OrientationAudit {
+    /// Classified deletions in input order.
+    pub deletions: Vec<mic_stats::DeletionEquivalence>,
+    /// Full-support intervention discrepancy.
+    pub full_discrepancy: f64,
+    /// Power threshold below which the audit abstains as underpowered.
+    pub min_full_discrepancy: f64,
+    /// Five-state pass-count outcome.
+    pub outcome: mic_stats::OrientationOutcome,
+}
+
+/// Runs the pass-count state machine and records the verdict in the ledger.
+///
+/// Only the unique-target state orients a family and is recorded as an
+/// informational finding.  Every other state is recorded as a blocking error
+/// with reason code [`code::ORIENTATION_UNRESOLVED`], so strict runs abstain
+/// rather than forcing an orientation.  The multiple-pass state additionally
+/// signals that an active same-target disambiguation tilt should be proposed.
+pub fn audit_orientation(
+    deletions: &[mic_stats::DeletionEquivalence],
+    full_discrepancy: f64,
+    min_full_discrepancy: f64,
+    stage: &str,
+    ledger: &mut EvidenceLedger,
+) -> Result<OrientationAudit, EngineError> {
+    let outcome = mic_stats::orient_from_deletions(
+        deletions,
+        full_discrepancy,
+        min_full_discrepancy,
+    )?;
+    let mut context = BTreeMap::new();
+    context.insert("deletion_count".into(), deletions.len().to_string());
+    context.insert("full_discrepancy".into(), format!("{full_discrepancy:.6}"));
+    match &outcome {
+        mic_stats::OrientationOutcome::UniqueTarget { target } => {
+            context.insert("target".into(), target.clone());
+            ledger.push(finding_with_context(
+                Severity::Info,
+                stage,
+                "orientation_unique_target",
+                "exactly one deletion is certified invariant and every competitor is certified changed",
+                context,
+            ));
+        }
+        mic_stats::OrientationOutcome::NoPass => {
+            context.insert("state".into(), "no_pass".into());
+            ledger.push(finding_with_context(
+                Severity::Error,
+                stage,
+                code::ORIENTATION_UNRESOLVED,
+                "no deletion is certified invariant; suspect descendant contamination, multi-target primitives, selection, or implementation mismatch",
+                context,
+            ));
+        }
+        mic_stats::OrientationOutcome::MultiplePasses { passes } => {
+            context.insert("state".into(), "multiple_passes".into());
+            context.insert("passes".into(), passes.join(","));
+            ledger.push(finding_with_context(
+                Severity::Error,
+                stage,
+                code::ORIENTATION_UNRESOLVED,
+                "multiple deletions are certified invariant; propose an asymmetric same-target tilt to disambiguate",
+                context,
+            ));
+        }
+        mic_stats::OrientationOutcome::Underpowered => {
+            context.insert("state".into(), "underpowered".into());
+            context.insert(
+                "min_full_discrepancy".into(),
+                format!("{min_full_discrepancy:.6}"),
+            );
+            ledger.push(finding_with_context(
+                Severity::Error,
+                stage,
+                code::ORIENTATION_UNRESOLVED,
+                "the intervention discrepancy is below the power threshold; an undetectable intervention cannot orient a family",
+                context,
+            ));
+        }
+        mic_stats::OrientationOutcome::Undetermined { unresolved } => {
+            context.insert("state".into(), "undetermined".into());
+            context.insert("unresolved".into(), unresolved.join(","));
+            ledger.push(finding_with_context(
+                Severity::Error,
+                stage,
+                code::ORIENTATION_UNRESOLVED,
+                "simultaneous intervals overlap the equivalence boundary; collect more data or widen the design",
+                context,
+            ));
+        }
+    }
+    Ok(OrientationAudit {
+        deletions: deletions.to_vec(),
+        full_discrepancy,
+        min_full_discrepancy,
+        outcome,
+    })
+}
+
+/// Serializable result of the ratio-weight overlap audit.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OverlapAudit {
+    /// Kish effective sample size of the ratio weights.
+    pub effective_sample_size: f64,
+    /// Number of observations carrying weights.
+    pub sample_size: usize,
+    /// Effective sample size divided by sample size.
+    pub ess_ratio: f64,
+    /// Policy floor the ratio was compared against.
+    pub minimum_ratio: f64,
+    /// Whether the overlap is adequate under the policy.
+    pub adequate: bool,
+}
+
+/// Audits common-support overlap through the effective sample size of ratio weights.
+///
+/// Density-ratio weights collapse toward a few observations exactly when the
+/// regimes separate, which is also when ratio estimation is least reliable, so
+/// an inadequate effective-sample-size ratio is recorded as a blocking error
+/// with reason code [`code::OVERLAP_FAILURE`].
+pub fn audit_overlap(
+    ratio_weights: &[f64],
+    policy: &PreflightPolicy,
+    stage: &str,
+    ledger: &mut EvidenceLedger,
+) -> Result<OverlapAudit, EngineError> {
+    if !policy.min_ess_ratio.is_finite()
+        || policy.min_ess_ratio <= 0.0
+        || policy.min_ess_ratio > 1.0
+    {
+        return Err(EngineError::InvalidOverlap(format!(
+            "min_ess_ratio must lie in (0, 1], got {}",
+            policy.min_ess_ratio
+        )));
+    }
+    let effective = mic_stats::effective_sample_size(ratio_weights)?;
+    let sample_size = ratio_weights.len();
+    let ess_ratio = effective / sample_size as f64;
+    let adequate = ess_ratio >= policy.min_ess_ratio;
+    let mut context = BTreeMap::new();
+    context.insert("effective_sample_size".into(), format!("{effective:.6}"));
+    context.insert("sample_size".into(), sample_size.to_string());
+    context.insert("ess_ratio".into(), format!("{ess_ratio:.6}"));
+    context.insert(
+        "minimum_ratio".into(),
+        format!("{:.6}", policy.min_ess_ratio),
+    );
+    if adequate {
+        ledger.push(finding_with_context(
+            Severity::Info,
+            stage,
+            "overlap_adequate",
+            "ratio-weight effective sample size meets the policy floor",
+            context,
+        ));
+    } else {
+        ledger.push(finding_with_context(
+            Severity::Error,
+            stage,
+            code::OVERLAP_FAILURE,
+            "ratio-weight effective sample size is below the policy floor; overlap is inadequate for reliable ratio functionals",
+            context,
+        ));
+    }
+    Ok(OverlapAudit {
+        effective_sample_size: effective,
+        sample_size,
+        ess_ratio,
+        minimum_ratio: policy.min_ess_ratio,
+        adequate,
+    })
 }
 
 /// One estimator family's projection of the same population estimand.
@@ -562,6 +746,77 @@ mod tests {
         .unwrap_err();
         assert!(matches!(error, EngineError::InvalidLensBattery(_)));
         assert!(ledger.findings.is_empty());
+    }
+
+    #[test]
+    fn unique_target_orientation_is_informational() {
+        let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        let deletions = vec![
+            mic_stats::classify_deletion("t", 0.01, 0.0, 0.02, 0.05).unwrap(),
+            mic_stats::classify_deletion("p", 0.9, 0.6, 1.2, 0.05).unwrap(),
+        ];
+        let audit = audit_orientation(&deletions, 1.0, 0.1, "orientation", &mut ledger).unwrap();
+        assert_eq!(
+            audit.outcome,
+            mic_stats::OrientationOutcome::UniqueTarget {
+                target: "t".into()
+            }
+        );
+        assert!(!ledger.has_blocking_error());
+    }
+
+    #[test]
+    fn parity_multiple_passes_blocks_strict_run() {
+        let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        let deletions = vec![
+            mic_stats::classify_deletion("P", 0.01, 0.0, 0.02, 0.05).unwrap(),
+            mic_stats::classify_deletion("T", 0.01, 0.0, 0.02, 0.05).unwrap(),
+        ];
+        let audit = audit_orientation(&deletions, 1.0, 0.1, "orientation", &mut ledger).unwrap();
+        assert!(matches!(
+            audit.outcome,
+            mic_stats::OrientationOutcome::MultiplePasses { .. }
+        ));
+        assert!(ledger.has_blocking_error());
+        assert!(
+            ledger
+                .findings
+                .iter()
+                .any(|finding| finding.code == code::ORIENTATION_UNRESOLVED)
+        );
+        assert_eq!(ledger.status(true), mic_audit::CertificateStatus::Abstained);
+    }
+
+    #[test]
+    fn concentrated_weights_fail_overlap_gate() {
+        let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        let mut weights = vec![0.001; 100];
+        weights[0] = 1000.0;
+        let audit =
+            audit_overlap(&weights, &PreflightPolicy::default(), "overlap", &mut ledger).unwrap();
+        assert!(!audit.adequate);
+        assert!(audit.ess_ratio < 0.1);
+        assert!(
+            ledger
+                .findings
+                .iter()
+                .any(|finding| finding.code == code::OVERLAP_FAILURE)
+        );
+    }
+
+    #[test]
+    fn uniform_weights_pass_overlap_gate() {
+        let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
+        let audit = audit_overlap(
+            &vec![1.0; 64],
+            &PreflightPolicy::default(),
+            "overlap",
+            &mut ledger,
+        )
+        .unwrap();
+        assert!(audit.adequate);
+        assert!((audit.ess_ratio - 1.0).abs() < 1e-12);
+        assert!(!ledger.has_blocking_error());
     }
 
     #[test]
