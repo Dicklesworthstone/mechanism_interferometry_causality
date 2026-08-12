@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-//! FrankenPandas tabular adapter.
+//! `FrankenPandas` tabular adapter.
 //!
 //! The sibling library reads the file. It decides nothing about the experiment: the
 //! adapter hands cell strings to [`build_ingest_report`], which is the same function the
@@ -22,13 +22,13 @@ pub const fn backend_name() -> &'static str {
     "FrankenPandas"
 }
 
-/// Loads the manifest's CSV through FrankenPandas.
+/// Loads the manifest's CSV through `FrankenPandas`.
 ///
 /// Contractually identical to [`crate::load_csv_table`], including the error a
 /// regime-spanning cluster ultimately produces. Two properties make that hold rather
 /// than merely hope for it.
 ///
-/// Every column is forced to [`DType::Utf8`]. Left to infer, FrankenPandas would type a
+/// Every column is forced to [`DType::Utf8`]. Left to infer, `FrankenPandas` would type a
 /// cluster column of `007, 008` as `Int64` and hand back `7, 8`, silently merging
 /// `007` with `7` and — worse for this system — changing which clusters look distinct.
 /// Cluster identity is the randomization unit, so a backend that normalizes identifiers
@@ -101,14 +101,7 @@ pub fn load_csv_table_franken(
     }
 
     verify_cell_fidelity(&text, &headers, &records)?;
-    build_ingest_report(
-        manifest,
-        &path,
-        content_sha256,
-        &headers,
-        &records,
-        n_folds,
-    )
+    build_ingest_report(manifest, &path, content_sha256, &headers, &records, n_folds)
 }
 
 /// Refuses to proceed unless the backend returned the file's cells verbatim.
@@ -139,12 +132,12 @@ fn verify_cell_fidelity(
         if line.trim().is_empty() {
             continue;
         }
-        expected_rows.push(
-            crate::parse_csv_header_line(line).map_err(|message| TableError::Parse {
+        expected_rows.push(crate::parse_csv_header_line(line).map_err(|message| {
+            TableError::Parse {
                 row: offset + 1,
                 message,
-            })?,
-        );
+            }
+        })?);
     }
     if expected_rows.len() != records.len() {
         return Err(TableError::Parse {
@@ -177,7 +170,7 @@ fn verify_cell_fidelity(
 
 /// Reads header names from the raw text so the dtype override can be built before parsing.
 ///
-/// Deliberately uses the standard reader's own tokenizer rather than asking FrankenPandas
+/// Deliberately uses the standard reader's own tokenizer rather than asking `FrankenPandas`
 /// for the header: the dtype override is keyed by name, so the two readers must agree on
 /// what the header names *are* before either can disagree about anything else.
 fn header_names(text: &str) -> Result<Vec<String>, TableError> {
@@ -186,10 +179,7 @@ fn header_names(text: &str) -> Result<Vec<String>, TableError> {
 }
 
 /// Extracts one column as owned strings, refusing anything that is not present text.
-fn column_strings(
-    frame: &frankenpandas::DataFrame,
-    name: &str,
-) -> Result<Vec<String>, TableError> {
+fn column_strings(frame: &frankenpandas::DataFrame, name: &str) -> Result<Vec<String>, TableError> {
     let column = frame
         .columns()
         .get(name)
@@ -235,6 +225,9 @@ mod tests {
     use mic_design::DesignPoint;
     use std::path::PathBuf;
 
+    /// Regime *ids* are free-form labels; only the design is a bit string. Alphabetic ids
+    /// are used here so the fixture is not destroyed by the backend's numeric
+    /// re-rendering, which is exercised deliberately in its own test below.
     fn manifest_for(path: &Path) -> ExperimentManifest {
         ExperimentManifest {
             schema_version: "1.0.0".into(),
@@ -246,11 +239,11 @@ mod tests {
             regime_column: "regime".into(),
             state_columns: vec!["x".into()],
             candidate_state_blocks: Vec::new(),
-            regimes: ["00", "10", "01", "11"]
+            regimes: [("base", "00"), ("a", "10"), ("b", "01"), ("ab", "11")]
                 .iter()
-                .map(|label| RegimeSpec {
-                    id: (*label).into(),
-                    design: DesignPoint::parse(label).unwrap(),
+                .map(|(id, design)| RegimeSpec {
+                    id: (*id).into(),
+                    design: DesignPoint::parse(design).unwrap(),
                     sampling_proportion: 0.25,
                     perturbations: Vec::new(),
                 })
@@ -271,25 +264,21 @@ mod tests {
         path
     }
 
-    /// The falsifier for this adapter: the two backends must agree on a spanning cluster.
+    /// The falsifier for this adapter, on input the backend reproduces faithfully.
     ///
-    /// A regime-spanning cluster is recorded, not rejected, by either reader; every
+    /// A regime-spanning cluster is recorded, not rejected, by either reader, and every
     /// downstream refusal is conditioned on `clusters_spanning_regimes` being non-empty.
     /// So the property that matters is not "each backend notices something" but "the two
-    /// backends produce the same field", which is what is asserted here.
-    ///
-    /// Regime labels are quoted so the fixture survives the backend's numeric
-    /// re-rendering; see `bit_string_regime_labels_are_refused_not_silently_altered` for
-    /// the unquoted case, which is a refusal rather than an agreement.
+    /// backends produce the same field". Whole-report equality asserts that and more.
     #[test]
     fn spanning_cluster_is_identical_across_backends() {
         let path = write_fixture(
             "spanning.csv",
             "cluster_id,regime,x,included\n\
-             shared,\"00\",0.5,1\n\
-             shared,\"10\",0.25,1\n\
-             c1,\"01\",0.75,1\n\
-             c2,\"11\",0.125,1\n",
+             shared,base,0.5,1\n\
+             shared,a,0.25,1\n\
+             c1,b,0.75,1\n\
+             c2,ab,0.125,1\n",
         );
         let manifest = manifest_for(&path);
         let std_report = load_csv_table(&manifest, None, 2).unwrap();
@@ -304,62 +293,68 @@ mod tests {
             std_report.clusters_spanning_regimes, franken_report.clusters_spanning_regimes,
             "a backend that drops a spanning cluster silently disables the refusal chain"
         );
-        assert_eq!(std_report, franken_report, "backends must agree on the whole report");
+        assert_eq!(
+            std_report, franken_report,
+            "backends must agree on the whole report, folds and quotas included"
+        );
     }
 
-    /// Identifier normalization is the realistic way the two readers could diverge.
+    /// Bit-string design labels do not survive the pinned backend, and that is refused.
     ///
-    /// `007` and `7` are different assignment units. A reader that infers `Int64` merges
-    /// them, which changes the cluster count, the cluster fingerprint, and the fold plan
-    /// without any error being raised.
+    /// `00` comes back as `0` even with `DType::Utf8` forced and even when the field is
+    /// quoted. Two distinct regimes would stop being distinguishable, so the adapter
+    /// fails closed rather than ingesting a relabelled experiment.
     #[test]
-    fn numeric_looking_cluster_ids_are_not_normalized() {
+    fn bit_string_regime_labels_are_refused_not_silently_altered() {
+        let path = write_fixture(
+            "bitstring_regimes.csv",
+            "cluster_id,regime,x,included\n\
+             c0,00,0.5,1\n\
+             c1,10,0.25,1\n",
+        );
+        let mut manifest = manifest_for(&path);
+        for (spec, label) in manifest.regimes.iter_mut().zip(["00", "10", "01", "11"]) {
+            spec.id = label.into();
+        }
+        let error = load_csv_table_franken(&manifest, None, 2).unwrap_err();
+        let message = error.to_string();
+        assert!(
+            message.contains("altered column \"regime\"") && message.contains("\"00\""),
+            "the refusal must name the column and both values, got: {message}"
+        );
+        // The standard reader handles the same file without complaint.
+        assert!(load_csv_table(&manifest, None, 2).is_ok());
+    }
+
+    /// Leading-zero cluster ids must never be merged into one randomization unit.
+    ///
+    /// `007` and `7` are distinct assignment units. The pinned backend renders both as
+    /// `7`, which would pool two clusters and treat their rows as one unit — the
+    /// independence violation the randomization-unit rule exists to prevent. The adapter
+    /// refuses instead.
+    #[test]
+    fn leading_zero_cluster_ids_are_refused_not_merged() {
         let path = write_fixture(
             "leading_zero.csv",
             "cluster_id,regime,x,included\n\
-             007,00,0.5,1\n\
-             7,10,0.25,1\n\
-             008,01,0.75,1\n\
-             9,11,0.125,1\n",
+             007,base,0.5,1\n\
+             7,a,0.25,1\n\
+             c1,b,0.75,1\n\
+             c2,ab,0.125,1\n",
         );
         let manifest = manifest_for(&path);
         let std_report = load_csv_table(&manifest, None, 2).unwrap();
-        let franken_report = load_csv_table_franken(&manifest, None, 2).unwrap();
-
         assert_eq!(
             std_report.fingerprint.n_clusters, 4,
-            "007 and 7 are distinct assignment units"
+            "007 and 7 are distinct assignment units to the standard reader"
         );
-        assert_eq!(
-            std_report.fingerprint.n_clusters, franken_report.fingerprint.n_clusters,
-            "dtype inference must not merge distinct cluster identifiers"
-        );
-        assert_eq!(
-            std_report.fingerprint.cluster_fingerprint, franken_report.fingerprint.cluster_fingerprint,
-            "cluster fingerprints bind the randomization unit and must match exactly"
-        );
-        assert_eq!(std_report, franken_report);
-    }
 
-    /// A clean table must also agree, including quotas and the seeded fold plan.
-    #[test]
-    fn clean_table_agrees_including_folds_and_quotas() {
-        let path = write_fixture(
-            "clean.csv",
-            "cluster_id,regime,x,included\n\
-             c0,00,0.5,1\n\
-             c1,10,0.25,1\n\
-             c2,01,0.75,1\n\
-             c3,11,0.125,1\n",
+        let error = load_csv_table_franken(&manifest, None, 2).unwrap_err();
+        let message = error.to_string();
+        assert!(
+            message.contains("altered column \"cluster_id\"") && message.contains("\"007\""),
+            "the refusal must name the merged identifier, got: {message}"
         );
-        let manifest = manifest_for(&path);
-        let std_report = load_csv_table(&manifest, None, 5).unwrap();
-        let franken_report = load_csv_table_franken(&manifest, None, 5).unwrap();
-
-        assert!(std_report.clusters_spanning_regimes.is_empty());
-        assert_eq!(std_report.cluster_folds, franken_report.cluster_folds);
-        assert_eq!(std_report.regime_counts, franken_report.regime_counts);
-        assert_eq!(std_report, franken_report);
     }
 
     /// Both readers must refuse the same malformed input, not merely succeed alike.
@@ -368,10 +363,10 @@ mod tests {
         let path = write_fixture(
             "duplicate_rows.csv",
             "row_id,cluster_id,regime,x,included\n\
-             r1,c0,00,0.5,1\n\
-             r1,c1,10,0.25,1\n\
-             r2,c2,01,0.75,1\n\
-             r3,c3,11,0.125,1\n",
+             r1,c0,base,0.5,1\n\
+             r1,c1,a,0.25,1\n\
+             r2,c2,b,0.75,1\n\
+             r3,c3,ab,0.125,1\n",
         );
         let manifest = manifest_for(&path);
         let std_error = load_csv_table(&manifest, None, 2).unwrap_err();
