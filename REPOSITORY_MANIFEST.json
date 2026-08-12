@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T20:19:25Z",
+  "generated_at_utc": "2026-08-12T20:19:39Z",
   "hash_algorithm": "sha256",
   "file_count": 125,
-  "aggregate_sha256": "a338af6f8ac9213445afb6f7c6881e45dd787d0cfccb2a901a355c610757189e",
+  "aggregate_sha256": "c0e5e40872d44d65703a71911baeccb1bb3826a3d158351ca477c2295bf44b92",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -533,8 +533,8 @@
     },
     {
       "path": "scripts/check_repo.py",
-      "bytes": 29796,
-      "sha256": "fbdfaba055b7d9cc5cffb18ef90075a2ce38bb79990dd6b3a30fbe1e54760beb"
+      "bytes": 29841,
+      "sha256": "3bb7ae7fa10d7845f6f31d73a4f6b05acb59057a556a2a676fe4da369f5a26a8"
     },
     {
       "path": "scripts/generate_example_data.py",
