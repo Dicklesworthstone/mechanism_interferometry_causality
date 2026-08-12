@@ -10,7 +10,7 @@ use crate::{
     finding_with_context, run_preflight,
 };
 use mic_audit::{CertificateStatus, EvidenceLedger, NarrativeReport, Severity, render_narrative};
-use mic_core::{DensitySquare, self_normalize};
+use mic_core::DensitySquare;
 use mic_data::{ExperimentManifest, IngestReport, load_csv_table};
 use mic_design::DesignPoint;
 use serde::{Deserialize, Serialize};
@@ -265,7 +265,16 @@ pub fn run_tabular_audit(
     let mut overlap = None;
     for face in &preflight_report.design.square_faces {
         let corners = face.corners();
-        let audit = audit_face(manifest, &ingest, &labeled, &corners, four_law)?;
+        let audit = match audit_face(manifest, &ingest, &labeled, &corners, four_law) {
+            Ok(audit) => audit,
+            Err(EngineError::InvalidTabular(message))
+                if message.contains("empty common support") =>
+            {
+                ledger.note(Severity::Error, "four_law", "empty_common_support", message);
+                continue;
+            }
+            Err(error) => return Err(error),
+        };
         if overlap.is_none()
             && let Some(weights) = baseline_ratio_weights(&labeled, &ingest, &audit, &corners[0])
         {
@@ -556,19 +565,11 @@ fn audit_face(
     }
     cells.sort_by(|left, right| left.cell.cmp(&right.cell));
     if cells.is_empty() {
-        return Ok(FourLawFaceAudit {
-            corners: corners.each_ref().map(DesignPoint::bit_string),
-            regime_ids,
-            cells,
-            incomplete_cells,
-            normalizer_a: f64::NAN,
-            normalizer_b: f64::NAN,
-            normalizer_ab: f64::NAN,
-            scalar_moment: f64::NAN,
-            signed_moment: f64::NAN,
-            max_abs_kappa: f64::NAN,
-            mean_abs_kappa: f64::NAN,
-        });
+        return Err(EngineError::InvalidTabular(format!(
+            "empty common support on face {}/{}: {incomplete_cells} incomplete cells and no four-corner cell",
+            corners[0].bit_string(),
+            corners[3].bit_string()
+        )));
     }
     let p0: Vec<f64> = cells.iter().map(|cell| cell.p0).collect();
     let ra: Vec<f64> = cells.iter().map(|cell| cell.ra).collect();
@@ -709,23 +710,14 @@ fn record_face(face: &FourLawFaceAudit, ledger: &mut EvidenceLedger) {
         "cluster-weighted histogram four-law projection computed; this is a diagnostic, not a certificate",
         context,
     ));
-    let normalized = self_normalize(
-        &face
-            .cells
-            .iter()
-            .map(|cell| cell.ra.max(1e-12))
-            .collect::<Vec<_>>(),
+    ledger.provenance(
+        "ratio_a_raw_normalizer",
+        format!("{:.6}", face.normalizer_a),
     );
-    if let Ok(weights) = normalized {
-        ledger.provenance(
-            "ratio_a_raw_normalizer",
-            format!("{:.6}", weights.raw_normalizer),
-        );
-        ledger.provenance(
-            "ratio_a_normalizer_residual",
-            format!("{:.6}", weights.normalizer_residual),
-        );
-    }
+    ledger.provenance(
+        "ratio_a_normalizer_residual",
+        format!("{:.6}", face.normalizer_a - 1.0),
+    );
 }
 
 fn corner_regime_ids(
@@ -868,6 +860,21 @@ mod tests {
         assert!(report.preflight.four_law_eligible);
         assert!(!report.preflight.product_factorial_eligible);
         assert!(!report.four_law.is_empty());
+    }
+
+    #[test]
+    fn declared_state_dependent_selection_blocks_four_law() {
+        let report = run_tabular_audit(
+            &load("examples/configs/selection_dependent.json"),
+            FourLawPolicy::default(),
+            PreflightPolicy::default(),
+            Some(&workspace_root()),
+        )
+        .unwrap();
+        assert_eq!(report.preflight.status, PreflightStatus::Blocked);
+        assert!(!report.preflight.four_law_eligible);
+        assert!(report.four_law.is_empty());
+        assert_eq!(report.status, CertificateStatus::Abstained);
     }
 
     #[test]

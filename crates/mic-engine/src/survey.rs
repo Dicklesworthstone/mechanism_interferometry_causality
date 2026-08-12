@@ -21,6 +21,18 @@ pub enum SurveyAuthority {
     ProposalOnly,
 }
 
+/// How the randomization unit was chosen.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ClusterUnitBasis {
+    /// Caller passed `--cluster`.
+    Declared,
+    /// Inferred from an identifier-shaped column.
+    Inferred,
+    /// No unit available; survey collapsed to rows and must say so.
+    Row,
+}
+
 /// How a column was triaged.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -92,8 +104,13 @@ pub struct SurveyReport {
     pub columns: Vec<ColumnTriage>,
     /// Coarsest cluster-candidate column, if any.
     pub inferred_cluster_column: Option<String>,
+    /// Whether the unit was declared, inferred, or fallen back to rows.
+    pub cluster_unit_basis: ClusterUnitBasis,
     /// Ranked interferometers.
     pub interferometers: Vec<InterferometerProposal>,
+    /// Suggested four-law manifest for the top complete square, if any.
+    /// Authority remains `proposal_only`; selection is left `unknown`.
+    pub suggested_manifest: Option<mic_data::ExperimentManifest>,
     /// Human-readable next action.
     pub next_step: String,
 }
@@ -136,11 +153,19 @@ pub fn run_unsupervised_survey(
     }
     let table = load_raw_csv(path, base_dir)?;
     let columns = triage_columns(&table, policy);
-    let inferred_cluster = declared_cluster
-        .map(ToOwned::to_owned)
-        .or_else(|| coarsest_cluster(&columns));
+    let (cluster_column, cluster_unit_basis) = match declared_cluster {
+        Some(name) => (Some(name.to_owned()), ClusterUnitBasis::Declared),
+        None => match coarsest_cluster(&columns) {
+            Some(name) => (Some(name), ClusterUnitBasis::Inferred),
+            None => (None, ClusterUnitBasis::Row),
+        },
+    };
     let interferometers =
-        discover_interferometers(&table, &columns, inferred_cluster.as_deref(), policy)?;
+        discover_interferometers(&table, &columns, cluster_column.as_deref(), policy)?;
+    let suggested_manifest = interferometers
+        .iter()
+        .find(|item| item.complete_square)
+        .and_then(|item| suggested_four_law_manifest(&table, item, cluster_column.as_deref()));
     let next_step = if interferometers.iter().any(|item| item.complete_square) {
         "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Do not treat this atlas as orientation.".into()
     } else {
@@ -154,8 +179,10 @@ pub fn run_unsupervised_survey(
         path: table.path.display().to_string(),
         n_rows: table.rows.len(),
         columns,
-        inferred_cluster_column: inferred_cluster,
+        inferred_cluster_column: cluster_column,
+        cluster_unit_basis,
         interferometers,
+        suggested_manifest,
         next_step,
     })
 }
@@ -171,10 +198,11 @@ fn triage_columns(table: &RawTable, policy: SurveyPolicy) -> Vec<ColumnTriage> {
             let n_unique = uniques.len();
             let uniqueness = n_unique as f64 / n;
             let lower = name.to_ascii_lowercase();
+            let token_shaped = !column_is_numeric(&uniques);
             let looks_like_id = lower.contains("id")
                 || lower.ends_with("_key")
                 || lower.contains("uuid")
-                || uniqueness >= 0.98;
+                || (uniqueness >= 0.98 && token_shaped);
             let constant = n_unique <= 1;
             let bitstring = looks_like_bitstring(&uniques);
             let (role, reason) = if constant {
@@ -339,7 +367,11 @@ fn propose(
     if assignments.is_empty() {
         return Ok(None);
     }
-    let design = observed_design_from_rows(assignments, policy.min_corner_count)?;
+    let design = match observed_design_from_rows(assignments, policy.min_corner_count) {
+        Ok(design) => design,
+        Err(mic_design::DesignError::EmptyDesign) => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
     let complete_square =
         design.points.len() == 4 && design.points.iter().all(|point| point.dimension() == 2);
     let sampling = if complete_square {
@@ -453,6 +485,75 @@ fn corner_slot(point: &DesignPoint) -> Option<usize> {
     Some(usize::from(point.bits[0]) + 2 * usize::from(point.bits[1]))
 }
 
+fn column_is_numeric(values: &BTreeSet<String>) -> bool {
+    !values.is_empty() && values.iter().all(|value| value.parse::<f64>().is_ok())
+}
+
+fn suggested_four_law_manifest(
+    table: &RawTable,
+    interferometer: &InterferometerProposal,
+    cluster_column: Option<&str>,
+) -> Option<mic_data::ExperimentManifest> {
+    if !interferometer.complete_square || interferometer.design.points.len() != 4 {
+        return None;
+    }
+    let state_columns: Vec<String> = table
+        .headers
+        .iter()
+        .filter(|header| {
+            Some(header.as_str()) != cluster_column
+                && !interferometer
+                    .context_columns
+                    .iter()
+                    .any(|col| col == *header)
+                && *header != "included"
+                && *header != "row_id"
+        })
+        .cloned()
+        .collect();
+    if state_columns.is_empty() {
+        return None;
+    }
+    let mut regimes = Vec::new();
+    for (point, proportion) in interferometer
+        .design
+        .points
+        .iter()
+        .zip(&interferometer.design.proportions)
+    {
+        regimes.push(mic_data::RegimeSpec {
+            id: point.bit_string(),
+            design: point.clone(),
+            sampling_proportion: *proportion,
+            perturbations: Vec::new(),
+        });
+    }
+    Some(mic_data::ExperimentManifest {
+        schema_version: "1.0.0".into(),
+        experiment_id: format!(
+            "survey-{}",
+            interferometer.interferometer_id.replace(':', "-")
+        ),
+        strict: true,
+        inference_track: mic_data::InferenceTrack::FourLaw,
+        selection: mic_data::SelectionContract::Unknown,
+        cluster_column: cluster_column.unwrap_or("row").to_string(),
+        regime_column: interferometer
+            .context_columns
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "regime".into()),
+        state_columns,
+        candidate_state_blocks: Vec::new(),
+        regimes,
+        data: mic_data::DataSource {
+            format: "csv".into(),
+            path: table.path.clone(),
+        },
+        seed: 0,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -479,5 +580,35 @@ mod tests {
                 .any(|item| item.complete_square && item.context_columns == ["regime"])
         );
         assert!(report.wall.contains("cannot issue a certificate"));
+        assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Declared);
+        let suggested = report
+            .suggested_manifest
+            .expect("complete square should emit a draft");
+        assert_eq!(suggested.selection, mic_data::SelectionContract::Unknown);
+        assert_eq!(suggested.inference_track, mic_data::InferenceTrack::FourLaw);
+    }
+
+    #[test]
+    fn unique_numeric_column_is_state_not_a_cluster() {
+        let dir = std::env::temp_dir().join("mic-survey-numeric");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("numeric.csv");
+        std::fs::write(
+            &path,
+            "cluster_id,regime,outcome\n\
+             c0,00,0.11\n\
+             c1,10,0.22\n\
+             c2,01,0.33\n\
+             c3,11,0.44\n",
+        )
+        .unwrap();
+        let report = run_unsupervised_survey(&path, None, None, SurveyPolicy::default()).unwrap();
+        let outcome = report
+            .columns
+            .iter()
+            .find(|column| column.column == "outcome")
+            .unwrap();
+        assert_eq!(outcome.role, ColumnRole::StateCandidate);
+        assert_ne!(report.inferred_cluster_column.as_deref(), Some("outcome"));
     }
 }
