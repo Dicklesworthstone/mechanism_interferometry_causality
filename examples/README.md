@@ -7,6 +7,16 @@ python scripts/generate_example_data.py
 cargo run -p mic-cli -- validate-manifest examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- design audit examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- preflight examples/configs/feature_flag_pilot.json
+
+# Std-CSV four-law path (library + mic-tabular binary; not FrankenPandas Packet 1)
+cargo run -p mic-engine --bin mic-tabular -- ingest examples/configs/four_law_discrete.json --base-dir .
+cargo run -p mic-engine --bin mic-tabular -- four-law examples/configs/four_law_flat.json --base-dir .
+cargo run -p mic-engine --bin mic-tabular -- report examples/configs/four_law_nonproduct.json --base-dir .
+cargo run -p mic-engine --bin mic-tabular -- survey examples/data/four_law_discrete.csv --cluster cluster_id --base-dir .
 ```
 
 `nonproduct_sampling_demo.json` is an intentional fail-closed fixture: four-law inference remains identifiable, but the requested residual-product/GCM track is incompatible with the non-product corner quotas.
+
+`four_law_discrete.json` / `four_law_flat.json` / `four_law_nonproduct.json` are the smallest data-backed four-law fixtures. The non-product file requests **only** `four_law`, so preflight stays ready while GCM remains ineligible.
+
+Public-dataset **templates** (data not bundled) live under `examples/datasets/` and are documented in [`docs/DATASET_ELIGIBILITY.md`](../docs/DATASET_ELIGIBILITY.md).

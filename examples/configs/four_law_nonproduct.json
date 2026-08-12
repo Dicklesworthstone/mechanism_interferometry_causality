@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "experiment_id": "four-law-nonproduct-quotas",
+  "strict": true,
+  "inference_track": "four_law",
+  "selection": "state_independent_within_regime",
+  "cluster_column": "cluster_id",
+  "regime_column": "regime",
+  "state_columns": ["x"],
+  "candidate_state_blocks": [],
+  "regimes": [
+    {
+      "id": "control",
+      "design": {"bits": [false, false]},
+      "sampling_proportion": 0.1,
+      "perturbations": []
+    },
+    {
+      "id": "tilt-a",
+      "design": {"bits": [true, false]},
+      "sampling_proportion": 0.2,
+      "perturbations": ["a"]
+    },
+    {
+      "id": "tilt-b",
+      "design": {"bits": [false, true]},
+      "sampling_proportion": 0.3,
+      "perturbations": ["b"]
+    },
+    {
+      "id": "tilt-ab",
+      "design": {"bits": [true, true]},
+      "sampling_proportion": 0.4,
+      "perturbations": ["a", "b"]
+    }
+  ],
+  "data": {
+    "format": "csv",
+    "path": "examples/data/four_law_discrete.csv"
+  },
+  "seed": 20260812
+}

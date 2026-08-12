@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0.0",
+  "experiment_id": "graduation-cash-training-template",
+  "strict": true,
+  "inference_track": "four_law",
+  "selection": "state_independent_within_regime",
+  "cluster_column": "village_id",
+  "regime_column": "regime",
+  "state_columns": ["consumption", "assets", "food_security"],
+  "candidate_state_blocks": [
+    ["labor_supply", "business_assets"]
+  ],
+  "regimes": [
+    {
+      "id": "control",
+      "design": {"bits": [false, false]},
+      "sampling_proportion": 0.25,
+      "perturbations": []
+    },
+    {
+      "id": "cash",
+      "design": {"bits": [true, false]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["cash"]
+    },
+    {
+      "id": "training",
+      "design": {"bits": [false, true]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["training"]
+    },
+    {
+      "id": "cash-training",
+      "design": {"bits": [true, true]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["cash", "training"]
+    }
+  ],
+  "data": {
+    "format": "csv",
+    "path": "local/graduation_square.csv"
+  },
+  "seed": 16180339
+}

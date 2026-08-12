@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/four_law_report.schema.json",
+  "title": "Histogram four-law tabular diagnostic",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experiment_id",
+    "status",
+    "preflight",
+    "ingest",
+    "four_law",
+    "projection",
+    "ledger"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "experiment_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["passed", "failed", "abstained", "diagnostic_only"]},
+    "preflight": {"type": "object"},
+    "ingest": {
+      "type": "object",
+      "required": ["fingerprint", "regime_counts", "clusters_spanning_regimes", "missing_regimes"],
+      "properties": {
+        "fingerprint": {
+          "type": "object",
+          "required": ["content_sha256", "cluster_fingerprint", "n_rows", "n_included_clusters"],
+          "properties": {
+            "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "cluster_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "included_cluster_fingerprint": {"type": "string"},
+            "resolved_path": {"type": "string"},
+            "n_rows": {"type": "integer", "minimum": 0},
+            "n_included_rows": {"type": "integer", "minimum": 0},
+            "n_clusters": {"type": "integer", "minimum": 0},
+            "n_included_clusters": {"type": "integer", "minimum": 0}
+          }
+        },
+        "regime_counts": {"type": "array"},
+        "clusters_spanning_regimes": {"type": "array", "items": {"type": "string"}},
+        "missing_regimes": {"type": "array", "items": {"type": "string"}},
+        "max_row_quota_gap": {"type": "number"},
+        "max_cluster_quota_gap": {"type": "number"},
+        "n_folds": {"type": "integer", "minimum": 1}
+      }
+    },
+    "four_law": {"type": "array"},
+    "overlap": {"type": ["object", "null"]},
+    "projection": {"type": "object"},
+    "ledger": {"type": "object"}
+  }
+}
