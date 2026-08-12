@@ -995,8 +995,12 @@
             <p>
               <b>Undercoverage degrades gracefully.</b> When the proposed parent set is incomplete,
               an affected descendant generically drives the pass count to zero instead of quietly
-              reversing the arrow. Given the family sets, the graph can be reassembled by peeling in
-              topological order even without target labels.
+              reversing the arrow. Given the family sets, the graph is reassembled by peeling in
+              topological order even without target labels, and the peel either completes or reports
+              itself <em>stuck</em>, listing the families it could not reduce to a unique
+              unidentified node. Where several tilts of one target disagree about the parent set,
+              the variants are carried beside the union rather than dissolved into it, so a
+              disagreement can never be laundered into a confident support.
             </p>
           </div>
         </div>
@@ -1124,6 +1128,17 @@
             the constructors and bit-compares the recomputed probability sum and log-odds ratio, which
             means a hand-edited <code>product_odds_verified</code> object cannot acquire authority by
             skipping the constructor.
+          </p>
+          <p>
+            The tolerance that decides the grade is itself bounded. Without a ceiling the caller
+            picks the threshold that decides whether a design counts as product, and the failure
+            does not need an absurd number to bite: corner quotas of
+            <code>0.10 / 0.20 / 0.30 / 0.40</code> carry a pooled odds ratio of two to three, so a
+            tolerance of <code>0.5</code>, which reads as half a log unit of harmless slack, would
+            stamp them <code>product_odds_verified</code>. The constructor therefore refuses any
+            tolerance above a named ceiling of <code>1e-6</code>, which is already four orders
+            looser than anything the code actually uses, and the value in force is recorded in the
+            report.
           </p>
         </div>
       </div>
@@ -1614,6 +1629,12 @@ mic-tabular report examples/configs/four_law_discrete.json --base-dir .</code></
           <p class="note micro mt">
             Every node in the execution graph records input hashes, code revision, feature flags,
             seed, wall time, numerical policy and output hashes.
+          </p>
+          <p class="note micro">
+            The rendered report is ordered by the ledger rather than by the results: the certificate
+            status is the first heading, then assumptions, then abstentions, then warnings, and only
+            then anything informational. A test asserts the abstentions precede the informational
+            findings, and another asserts the output contains no p-values at all.
           </p>
         </div>
       </div>
