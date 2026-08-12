@@ -83,6 +83,14 @@ The proposed tilt must preserve the asserted primitive target and must have meas
 
 Candidate design corners are subject to the same product-odds rule as every other GCM analysis. If the follow-up allocation is not product, the engine must use four-law inference or explicitly reweight to a declared product design.
 
+### Implemented active-tilt surface
+
+`mic_proposal::rank_active_tilts` is the reference proposal-layer primitive. Its request consumes the surviving labels from a multiple-pass orientation audit, the primitive intervention that every admissible replacement must preserve, a planned analysis track, complete adapter provenance, and the deterministic seed used upstream. Each candidate supplies a complete table of predicted separations over every unordered pair of surviving hypotheses.
+
+Before ranking, the primitive rejects candidates that change a different intervention, lack measurable delivery or common support, omit or duplicate a hypothesis pair, produce nonfinite scores, or propose Product-Factorial analysis without a referenced product-odds audit or explicit reweighting plan. Accepted candidates are ranked by their minimum predicted pairwise separation. Experimental cost breaks exact score ties but never changes the acquisition objective.
+
+The result has fixed authority `proposal_only`. It stores raw score semantics, all rejected candidates and reason codes, source/fold/assignment-unit fingerprints, and the upstream seed. [`examples/proposals/parity_active_tilt.json`](../examples/proposals/parity_active_tilt.json) is the machine-readable parity example; [`schemas/proposal_batch.schema.json`](../schemas/proposal_batch.schema.json) is its output contract. The chosen candidate remains a recommendation for a new randomized regime, not a resolution of the current audit.
+
 ## 8. Audit artifacts
 
 The report bundle should include `proposals.json` whenever proposal adapters affect search order. It records:

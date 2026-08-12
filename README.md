@@ -27,9 +27,9 @@ is the gauge-invariant mechanism-curvature field. It separates nonlinear respons
 | `paper/` | Complete LaTeX paper, bibliography, verified PDF, and figures |
 | `site/` | Zero-build static explanatory website with an interactive running example |
 | `docs/` | Formal specification, inference protocol, experiment designs, Franken* integration, and implementation roadmap |
-| `crates/` | Safe-Rust workspace for exact algebra, design audits, inference primitives, models, simulations, and CLI |
+| `crates/` | Safe-Rust workspace for exact algebra, design audits, inference primitives, proposal adapters, models, simulations, and CLI |
 | `schemas/` | Machine-readable experiment and audit-report contracts |
-| `examples/configs/` | Feature-flag, Perturb-seq, and simulation manifests |
+| `examples/` | Feature-flag, Perturb-seq, simulation, orientation, and proposal artifacts |
 | `scripts/` | Reproducible simulation, paper, site, and repository checks |
 | `artifacts/simulations/` | Exact-population fixtures used by the paper and conformance tests |
 | `REPOSITORY_MANIFEST.json` | SHA-256 content inventory covering every release-relevant file |
@@ -78,6 +78,8 @@ Within-regime state-dependent selection invalidates both modes unless modeled. S
 The repository includes the complete mathematical paper, website, exact simulation generators, schemas, runnable example datasets, architectural contracts, and a safe-Rust reference core implementing the exact population algebra, partial-design geometry, fail-closed preflight, and deterministic audit primitives. The production estimators that depend on the evolving Franken* numerical APIs are isolated behind feature-gated adapters and specified packet-by-packet in the roadmap. This keeps the mathematical contracts stable while allowing the four sibling projects to advance without contaminating the causal API.
 
 Passive DAG learners, parsimony searches, residual heuristics, and previous audit runs may be connected only as proposal adapters. They can prioritize candidate supports, measurements, or follow-up interventions, but their scores never count as certificate evidence and data-adaptive proposals require independent confirmation.
+
+The `mic-proposal` crate now implements that boundary for active follow-up design. Given a multiple-pass orientation state, it validates a same-primitive candidate-tilt library, rejects candidates without delivery, common support, or the planned Product-Factorial design evidence, and ranks the remainder by worst-case predicted hypothesis separation. Every result is serialized with `authority: proposal_only`, complete provenance, a deterministic seed, and explicit rejection reasons.
 
 ## Citation
 

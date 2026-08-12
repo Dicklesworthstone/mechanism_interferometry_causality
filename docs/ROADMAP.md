@@ -19,11 +19,12 @@
 
 ## Packet 2: two-sample equivalence
 
-- MMD and energy U-statistics;
-- cluster-aware multiplier/bootstrap intervals;
-- relative deletion equivalence;
-- pass-count state machine and golden parity fixtures;
-- active tilt proposal for multiple-pass disambiguation.
+- MMD and energy U-statistics (reference forms in `mic-stats`);
+- cluster-aware multiplier/bootstrap intervals (mean-type reference: `mic_stats::simultaneous_mean_bounds`; U-statistic corrections outstanding);
+- relative deletion equivalence (`mic_stats::classify_deletion`);
+- pass-count state machine and golden parity fixtures (`mic_stats::orient_from_deletions`, `mic_engine::audit_orientation`, derived parity pass count);
+- overlap gate on ratio-weight effective sample size (`mic_engine::audit_overlap`);
+- active tilt proposal for multiple-pass disambiguation (quarantined in `mic-proposal`).
 
 ## Packet 3: GCM/wGCM
 

@@ -62,10 +62,22 @@ Owns learned nuisance and diagnostic models:
 - hierarchical main-effect and interaction fields;
 - primitive ratio extraction and normalization;
 - representation sufficiency probes;
-- local adapter traits for exploratory support, graph, measurement, and tilt proposals;
+- implementations of exploratory predictors behind `mic-proposal` adapter traits;
 - optional FrankenTorch CPU/Metal backends.
 
 Proposal adapters may order candidate tests but never implement certificate policy. Their serialized outputs use explicit score semantics and flow through the discovery/confirmation boundary in [`PROPOSAL_ADAPTERS.md`](PROPOSAL_ADAPTERS.md). External passive-discovery or residual-asymmetry code cannot become a dependency of `mic-core`.
+
+### `mic-proposal`
+
+Owns the quarantined proposal layer:
+
+- local adapter traits for support, graph, measurement, and active-tilt predictors;
+- complete hypothesis-pair validation for active follow-up design;
+- same-primitive, delivery, common-support, and planned-analysis feasibility gates;
+- deterministic maximin ranking with recorded seeds and tie rules;
+- explicitly `proposal_only` artifacts conforming to `proposal_batch.schema.json`.
+
+It does not depend on `mic-core`, `mic-engine`, or certificate-status types. A proposal can be deleted or reordered without changing the evidentiary meaning of a completed confirmatory audit.
 
 ### `mic-audit`
 
