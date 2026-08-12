@@ -14,7 +14,7 @@ use std::path::Path;
 use frankenpandas::{CsvReadOptions, DType, Scalar, read_csv_with_options};
 
 /// The reviewed sibling revision for audit provenance.
-pub const REVISION: &str = "a9f8d86c9e52923b9b2082d00a65841862d5ca9a";
+pub const REVISION: &str = "9599d6f4a12306897a9bc19be3d2ba2ac228a97c";
 
 /// Returns the selected tabular backend name.
 #[must_use]
@@ -28,8 +28,8 @@ pub const fn backend_name() -> &'static str {
 /// regime-spanning cluster ultimately produces. Two properties make that hold rather
 /// than merely hope for it.
 ///
-/// Every column is forced to [`DType::Utf8`]. Left to infer, `FrankenPandas` would type a
-/// cluster column of `007, 008` as `Int64` and hand back `7, 8`, silently merging
+/// Every column is forced to [`DType::Utf8`]. Left to infer, `FrankenPandas` types a
+/// cluster column of `007, 008` as `Int64` and hands back `7, 8`, silently merging
 /// `007` with `7` and — worse for this system — changing which clusters look distinct.
 /// Cluster identity is the randomization unit, so a backend that normalizes identifiers
 /// is not a faster reader, it is a different experiment. Numeric state columns are
@@ -106,22 +106,25 @@ pub fn load_csv_table_franken(
 
 /// Refuses to proceed unless the backend returned the file's cells verbatim.
 ///
-/// This is not defensive paranoia; the pinned revision fails it. Asked for
-/// [`DType::Utf8`], `fp-io` still parses each cell numerically and re-renders it, so
-/// `007` comes back `"7"`, `00` comes back `"0"`, and `1e3` comes back `"1000.0"`. The
-/// dtype override selects the storage type, not value fidelity.
+/// This is not defensive paranoia. The previously pinned revision (`a9f8d86c`) failed
+/// it: asked for [`DType::Utf8`], `fp-io` parsed each cell numerically and re-rendered
+/// it, so `007` came back `"7"`, `00` came back `"0"`, and `1e3` came back `"1000.0"`.
+/// The dtype override selected the storage type, not value fidelity. Fixed upstream in
+/// `9599d6f4a`, where a `dtype=str` column is taken from the verbatim source text.
 ///
-/// For this system that is not a cosmetic difference. `007` and `7` are distinct
-/// assignment units, and collapsing them pools two randomization units into one, which
-/// is exactly the independence violation the randomization-unit rule forbids — silently,
-/// with no error and a plausible-looking report. It equally destroys design bit strings,
-/// so `00` and `0` stop being distinguishable regimes.
+/// The check stays because of what that class of bug costs here. `007` and `7` are
+/// distinct assignment units, and collapsing them pools two randomization units into
+/// one — the independence violation the randomization-unit rule forbids, occurring
+/// silently, with no error and a plausible-looking report. It equally destroys design
+/// bit strings, so `00` and `0` stop being distinguishable regimes. Worse, identifier
+/// merging can both manufacture and mask a regime-spanning cluster, and that single
+/// field gates the entire refusal chain.
 ///
-/// So the adapter audits its own backend: cells are compared against the standard
-/// tokenizer and any disagreement is a hard error naming the row, column, and both
-/// values. A faithful backend passes and costs one comparison; an unfaithful one is
-/// refused with a diagnosable message instead of producing a wrong `IngestReport`. If
-/// the sibling is fixed, this starts succeeding with no change here.
+/// So the adapter audits its own backend rather than trusting a version pin: cells are
+/// compared against the standard tokenizer and any disagreement is a hard error naming
+/// the row, column, and both values. A faithful backend passes for the cost of one
+/// comparison. An unfaithful one — a future regression, or a different pin — is refused
+/// with a diagnosable message instead of producing a wrong `IngestReport`.
 fn verify_cell_fidelity(
     text: &str,
     headers: &[String],
@@ -299,13 +302,15 @@ mod tests {
         );
     }
 
-    /// Bit-string design labels do not survive the pinned backend, and that is refused.
+    /// Bit-string design labels must survive ingest byte-for-byte.
     ///
-    /// `00` comes back as `0` even with `DType::Utf8` forced and even when the field is
-    /// quoted. Two distinct regimes would stop being distinguishable, so the adapter
-    /// fails closed rather than ingesting a relabelled experiment.
+    /// This is the case that killed the previous pin: `00` came back as `0` even with
+    /// `DType::Utf8` forced and the field quoted, which stopped two regimes being
+    /// distinguishable. Fixed upstream in `frankenpandas` 9599d6f4a, where `dtype=str`
+    /// now returns the source text instead of re-rendering an inferred scalar. Asserted
+    /// here as whole-report equality so a regression is caught on the mic side too.
     #[test]
-    fn bit_string_regime_labels_are_refused_not_silently_altered() {
+    fn bit_string_regime_labels_survive_ingest() {
         let path = write_fixture(
             "bitstring_regimes.csv",
             "cluster_id,regime,x,included\n\
@@ -316,24 +321,34 @@ mod tests {
         for (spec, label) in manifest.regimes.iter_mut().zip(["00", "10", "01", "11"]) {
             spec.id = label.into();
         }
-        let error = load_csv_table_franken(&manifest, None, 2).unwrap_err();
-        let message = error.to_string();
-        assert!(
-            message.contains("altered column \"regime\"") && message.contains("\"00\""),
-            "the refusal must name the column and both values, got: {message}"
+        let std_report = load_csv_table(&manifest, None, 2).unwrap();
+        let franken_report = load_csv_table_franken(&manifest, None, 2).unwrap();
+
+        let regimes: Vec<&str> = std_report
+            .rows
+            .iter()
+            .map(|row| row.regime_id.as_str())
+            .collect();
+        assert_eq!(
+            regimes,
+            vec!["00", "10"],
+            "leading-zero design labels must not be renumbered"
         );
-        // The standard reader handles the same file without complaint.
-        assert!(load_csv_table(&manifest, None, 2).is_ok());
+        assert_eq!(
+            std_report, franken_report,
+            "both backends must resolve the same regimes from bit-string labels"
+        );
     }
 
     /// Leading-zero cluster ids must never be merged into one randomization unit.
     ///
-    /// `007` and `7` are distinct assignment units. The pinned backend renders both as
-    /// `7`, which would pool two clusters and treat their rows as one unit — the
-    /// independence violation the randomization-unit rule exists to prevent. The adapter
-    /// refuses instead.
+    /// `007` and `7` are distinct assignment units. The previous pin rendered both as
+    /// `7`, which pooled two clusters and treated their rows as one — the independence
+    /// violation the randomization-unit rule exists to prevent, occurring silently.
+    /// Both backends must now see four clusters and agree on the fingerprint that binds
+    /// the unit.
     #[test]
-    fn leading_zero_cluster_ids_are_refused_not_merged() {
+    fn leading_zero_cluster_ids_are_not_merged() {
         let path = write_fixture(
             "leading_zero.csv",
             "cluster_id,regime,x,included\n\
@@ -344,17 +359,22 @@ mod tests {
         );
         let manifest = manifest_for(&path);
         let std_report = load_csv_table(&manifest, None, 2).unwrap();
+        let franken_report = load_csv_table_franken(&manifest, None, 2).unwrap();
+
         assert_eq!(
             std_report.fingerprint.n_clusters, 4,
-            "007 and 7 are distinct assignment units to the standard reader"
+            "007 and 7 are distinct assignment units"
         );
-
-        let error = load_csv_table_franken(&manifest, None, 2).unwrap_err();
-        let message = error.to_string();
-        assert!(
-            message.contains("altered column \"cluster_id\"") && message.contains("\"007\""),
-            "the refusal must name the merged identifier, got: {message}"
+        assert_eq!(
+            franken_report.fingerprint.n_clusters, 4,
+            "dtype inference must not merge distinct cluster identifiers"
         );
+        assert_eq!(
+            std_report.fingerprint.cluster_fingerprint,
+            franken_report.fingerprint.cluster_fingerprint,
+            "cluster fingerprints bind the randomization unit and must match exactly"
+        );
+        assert_eq!(std_report, franken_report);
     }
 
     /// Both readers must refuse the same malformed input, not merely succeed alike.

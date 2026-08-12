@@ -31,7 +31,7 @@ thiserror = "2.0.19"
 sha2 = "0.11.0"
 
 # Reviewed sibling revisions. Individual crates opt in through features.
-frankenpandas = { git = "https://github.com/Dicklesworthstone/frankenpandas", rev = "a9f8d86c9e52923b9b2082d00a65841862d5ca9a", package = "frankenpandas", default-features = false }
+frankenpandas = { git = "https://github.com/Dicklesworthstone/frankenpandas", rev = "9599d6f4a12306897a9bc19be3d2ba2ac228a97c", package = "frankenpandas", default-features = false }
 fnp-ndarray = { git = "https://github.com/Dicklesworthstone/franken_numpy", rev = "6964e776528f1e492620ebd627d78d4f958220f4", package = "fnp-ndarray" }
 fnp-random = { git = "https://github.com/Dicklesworthstone/franken_numpy", rev = "6964e776528f1e492620ebd627d78d4f958220f4", package = "fnp-random" }
 fsci-stats = { git = "https://github.com/Dicklesworthstone/frankenscipy", rev = "e259ed002eec05a2eca08d38a0763e0e58b0623c", package = "fsci-stats" }

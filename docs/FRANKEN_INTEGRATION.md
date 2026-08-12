@@ -4,7 +4,7 @@ The workspace pins the sibling projects at reviewed revisions so every scientifi
 
 | Project | Pinned revision | Role |
 |---|---|---|
-| `Dicklesworthstone/frankenpandas` | `a9f8d86c9e52923b9b2082d00a65841862d5ca9a` | Typed tabular ingestion, Arrow/Parquet/CSV interchange, grouping, fold and report tables |
+| `Dicklesworthstone/frankenpandas` | `9599d6f4a12306897a9bc19be3d2ba2ac228a97c` | Typed tabular ingestion, Arrow/Parquet/CSV interchange, grouping, fold and report tables |
 | `Dicklesworthstone/franken_numpy` | `6964e776528f1e492620ebd627d78d4f958220f4` | Arrays, broadcasting, deterministic random streams, linear algebra, vectorized kernels |
 | `Dicklesworthstone/frankenscipy` | `e259ed002eec05a2eca08d38a0763e0e58b0623c` | Statistical distances, optimization, bootstrap/permutation, special functions |
 | `Dicklesworthstone/frankentorch` | `5a3a0e70a2854c08e42ae02d816a78b8f88d912d` | Multinomial/ratio models, autograd, representation probes, CPU and Metal execution |

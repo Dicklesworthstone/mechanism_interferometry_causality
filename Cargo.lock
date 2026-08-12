@@ -713,7 +713,7 @@ dependencies = [
 [[package]]
 name = "fp-columnar"
 version = "0.2.0"
-source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=a9f8d86c9e52923b9b2082d00a65841862d5ca9a#a9f8d86c9e52923b9b2082d00a65841862d5ca9a"
+source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=9599d6f4a12306897a9bc19be3d2ba2ac228a97c#9599d6f4a12306897a9bc19be3d2ba2ac228a97c"
 dependencies = [
  "fp-types",
  "rustc-hash",
@@ -724,7 +724,7 @@ dependencies = [
 [[package]]
 name = "fp-expr"
 version = "0.2.0"
-source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=a9f8d86c9e52923b9b2082d00a65841862d5ca9a#a9f8d86c9e52923b9b2082d00a65841862d5ca9a"
+source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=9599d6f4a12306897a9bc19be3d2ba2ac228a97c#9599d6f4a12306897a9bc19be3d2ba2ac228a97c"
 dependencies = [
  "fp-columnar",
  "fp-frame",
@@ -738,7 +738,7 @@ dependencies = [
 [[package]]
 name = "fp-frame"
 version = "0.2.0"
-source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=a9f8d86c9e52923b9b2082d00a65841862d5ca9a#a9f8d86c9e52923b9b2082d00a65841862d5ca9a"
+source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=9599d6f4a12306897a9bc19be3d2ba2ac228a97c#9599d6f4a12306897a9bc19be3d2ba2ac228a97c"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -759,7 +759,7 @@ dependencies = [
 [[package]]
 name = "fp-groupby"
 version = "0.2.0"
-source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=a9f8d86c9e52923b9b2082d00a65841862d5ca9a#a9f8d86c9e52923b9b2082d00a65841862d5ca9a"
+source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=9599d6f4a12306897a9bc19be3d2ba2ac228a97c#9599d6f4a12306897a9bc19be3d2ba2ac228a97c"
 dependencies = [
  "bumpalo",
  "fp-columnar",
@@ -774,7 +774,7 @@ dependencies = [
 [[package]]
 name = "fp-index"
 version = "0.2.0"
-source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=a9f8d86c9e52923b9b2082d00a65841862d5ca9a#a9f8d86c9e52923b9b2082d00a65841862d5ca9a"
+source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=9599d6f4a12306897a9bc19be3d2ba2ac228a97c#9599d6f4a12306897a9bc19be3d2ba2ac228a97c"
 dependencies = [
  "chrono",
  "fp-types",
@@ -786,7 +786,7 @@ dependencies = [
 [[package]]
 name = "fp-io"
 version = "0.2.0"
-source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=a9f8d86c9e52923b9b2082d00a65841862d5ca9a#a9f8d86c9e52923b9b2082d00a65841862d5ca9a"
+source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=9599d6f4a12306897a9bc19be3d2ba2ac228a97c#9599d6f4a12306897a9bc19be3d2ba2ac228a97c"
 dependencies = [
  "arrow",
  "bytes",
@@ -812,7 +812,7 @@ dependencies = [
 [[package]]
 name = "fp-join"
 version = "0.2.0"
-source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=a9f8d86c9e52923b9b2082d00a65841862d5ca9a#a9f8d86c9e52923b9b2082d00a65841862d5ca9a"
+source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=9599d6f4a12306897a9bc19be3d2ba2ac228a97c#9599d6f4a12306897a9bc19be3d2ba2ac228a97c"
 dependencies = [
  "bumpalo",
  "fp-columnar",
@@ -827,7 +827,7 @@ dependencies = [
 [[package]]
 name = "fp-runtime"
 version = "0.2.0"
-source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=a9f8d86c9e52923b9b2082d00a65841862d5ca9a#a9f8d86c9e52923b9b2082d00a65841862d5ca9a"
+source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=9599d6f4a12306897a9bc19be3d2ba2ac228a97c#9599d6f4a12306897a9bc19be3d2ba2ac228a97c"
 dependencies = [
  "serde",
  "serde_json",
@@ -838,7 +838,7 @@ dependencies = [
 [[package]]
 name = "fp-types"
 version = "0.2.0"
-source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=a9f8d86c9e52923b9b2082d00a65841862d5ca9a#a9f8d86c9e52923b9b2082d00a65841862d5ca9a"
+source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=9599d6f4a12306897a9bc19be3d2ba2ac228a97c#9599d6f4a12306897a9bc19be3d2ba2ac228a97c"
 dependencies = [
  "rustc-hash",
  "serde",
@@ -848,7 +848,7 @@ dependencies = [
 [[package]]
 name = "frankenpandas"
 version = "0.2.0"
-source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=a9f8d86c9e52923b9b2082d00a65841862d5ca9a#a9f8d86c9e52923b9b2082d00a65841862d5ca9a"
+source = "git+https://github.com/Dicklesworthstone/frankenpandas?rev=9599d6f4a12306897a9bc19be3d2ba2ac228a97c#9599d6f4a12306897a9bc19be3d2ba2ac228a97c"
 dependencies = [
  "fp-columnar",
  "fp-expr",
@@ -1432,13 +1432,10 @@ version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "mic-audit",
- "mic-core",
  "mic-data",
  "mic-design",
  "mic-engine",
- "mic-model",
  "mic-sim",
- "mic-stats",
  "serde",
  "serde_json",
  "wasm-bindgen",
