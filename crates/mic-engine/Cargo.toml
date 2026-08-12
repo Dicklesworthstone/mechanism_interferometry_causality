@@ -1,0 +1,19 @@
+[package]
+name = "mic-engine"
+description = "Fail-closed preflight orchestration for mechanism-interferometry runs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+mic-audit = { path = "../mic-audit" }
+mic-data = { path = "../mic-data" }
+mic-design = { path = "../mic-design" }
+
+[lints]
+workspace = true

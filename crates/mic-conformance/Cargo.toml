@@ -1,0 +1,22 @@
+[package]
+name = "mic-conformance"
+description = "Golden scientific journeys and cross-crate conformance tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[dependencies]
+mic-audit = { path = "../mic-audit" }
+mic-core = { path = "../mic-core" }
+mic-data = { path = "../mic-data" }
+mic-design = { path = "../mic-design" }
+mic-engine = { path = "../mic-engine" }
+mic-model = { path = "../mic-model" }
+mic-sim = { path = "../mic-sim" }
+mic-stats = { path = "../mic-stats" }
+
+[lints]
+workspace = true

@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  repository-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync
+      - run: uv run python scripts/generate_example_data.py
+      - run: uv run python scripts/generate_simulations.py
+      - run: uv run python scripts/check_repo.py
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-07-20
+          components: rustfmt, clippy
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --no-default-features -- -D warnings -A clippy::pedantic
+      - run: cargo test --workspace --no-default-features
+
+  paper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y latexmk biber texlive-latex-extra texlive-fonts-recommended texlive-bibtex-extra
+      - run: cd paper && latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+      - run: cp paper/main.pdf site/mechanism_interferometry.pdf
+      - run: cmp paper/main.pdf site/mechanism_interferometry.pdf

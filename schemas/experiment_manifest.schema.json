@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/experiment_manifest.schema.json",
+  "title": "Mechanism Interferometry Experiment Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experiment_id",
+    "strict",
+    "inference_track",
+    "selection",
+    "cluster_column",
+    "regime_column",
+    "state_columns",
+    "regimes",
+    "data",
+    "seed"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "experiment_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "strict": {"type": "boolean"},
+    "inference_track": {"enum": ["four_law", "product_factorial", "both"]},
+    "selection": {
+      "enum": [
+        "state_independent_within_regime",
+        "modeled",
+        "unknown",
+        "state_dependent_unmodeled"
+      ]
+    },
+    "cluster_column": {"type": "string", "minLength": 1},
+    "regime_column": {"type": "string", "minLength": 1},
+    "state_columns": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "candidate_state_blocks": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {"type": "string", "minLength": 1}
+      }
+    },
+    "regimes": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/regime"}
+    },
+    "data": {"$ref": "#/$defs/data_source"},
+    "seed": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615}
+  },
+  "$defs": {
+    "design_point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bits"],
+      "properties": {
+        "bits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "boolean"}
+        }
+      }
+    },
+    "regime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "design", "sampling_proportion"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "design": {"$ref": "#/$defs/design_point"},
+        "sampling_proportion": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "perturbations": {
+          "type": "array",
+          "default": [],
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "data_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "path"],
+      "properties": {
+        "format": {"enum": ["csv", "jsonl", "parquet", "arrow", "feather", "synthetic"]},
+        "path": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

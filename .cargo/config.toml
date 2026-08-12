@@ -1,0 +1,5 @@
+[build]
+rustflags = ["-Z", "threads=4"]
+
+[alias]
+mic = "run -p mic-cli --"

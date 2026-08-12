@@ -1,0 +1,16 @@
+[package]
+name = "mic-design"
+description = "Factorial design geometry, sampling-odds gates, and estimability audits"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

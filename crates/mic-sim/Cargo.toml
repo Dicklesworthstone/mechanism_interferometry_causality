@@ -1,0 +1,16 @@
+[package]
+name = "mic-sim"
+description = "Exact and finite-sample conformance scenarios for mechanism interferometry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+mic-core = { path = "../mic-core" }
+
+[lints]
+workspace = true

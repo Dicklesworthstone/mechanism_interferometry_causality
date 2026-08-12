@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0.0",
+  "experiment_id": "perturbseq-gene-a-gene-b",
+  "strict": true,
+  "inference_track": "both",
+  "selection": "state_independent_within_regime",
+  "cluster_column": "replicate_id",
+  "regime_column": "regime",
+  "state_columns": ["expr_g1", "expr_g2", "expr_g3", "expr_g4"],
+  "candidate_state_blocks": [
+    ["guide_efficiency"],
+    ["latent_cell_state_proxy"],
+    ["guide_efficiency", "latent_cell_state_proxy"]
+  ],
+  "regimes": [
+    {
+      "id": "control",
+      "design": {"bits": [false, false]},
+      "sampling_proportion": 0.25,
+      "perturbations": []
+    },
+    {
+      "id": "gene-a",
+      "design": {"bits": [true, false]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["gene_a"]
+    },
+    {
+      "id": "gene-b",
+      "design": {"bits": [false, true]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["gene_b"]
+    },
+    {
+      "id": "gene-a-b",
+      "design": {"bits": [true, true]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["gene_a", "gene_b"]
+    }
+  ],
+  "data": {
+    "format": "csv",
+    "path": "examples/data/perturbseq_pair.csv"
+  },
+  "seed": 31415926
+}

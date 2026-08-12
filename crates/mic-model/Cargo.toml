@@ -1,0 +1,24 @@
+[package]
+name = "mic-model"
+description = "Posterior-odds and hierarchical regime-model contracts"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+franken = ["dep:ft-api", "dep:fnp-ndarray"]
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+mic-core = { path = "../mic-core" }
+mic-design = { path = "../mic-design" }
+ft-api = { workspace = true, optional = true }
+fnp-ndarray = { workspace = true, optional = true }
+
+[lints]
+workspace = true

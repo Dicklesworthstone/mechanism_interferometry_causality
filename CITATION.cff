@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "Please cite the paper when using this repository."
+title: "Mechanism Interferometry: A Gauge-Invariant Soft-Intervention Certificate for Causal Modularity"
+authors:
+  - family-names: Emanuel
+    given-names: Jeffrey
+year: 2026
+version: 0.1.0
+type: software
+repository-code: "https://github.com/Dicklesworthstone/mechanism_interferometry_causality"
+license: LicenseRef-Proprietary

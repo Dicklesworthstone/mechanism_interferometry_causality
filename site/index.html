@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mechanism Interferometry</title>
+<meta name="description" content="Mechanism Interferometry: a gauge-invariant soft-intervention certificate for causal modularity. Locality, conditional normalization and square flatness are necessary and sufficient for a modular soft-intervention representation.">
+<meta name="theme-color" content="#5b46e0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0e1a" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="top" id="top">
+  <a class="brand" href="#top" aria-label="Mechanism Interferometry, back to top">
+    <span class="brand-mark" aria-hidden="true">MI</span>
+    <span class="brand-text">
+      <b>Mechanism Interferometry</b>
+      <span>Causal modularity certificate</span>
+    </span>
+  </a>
+
+  <nav aria-label="Sections">
+    <a href="#problem">Problem</a>
+    <a href="#certificate">Certificate</a>
+    <a href="#interferometer">Interferometer</a>
+    <a href="#scenarios">Failure modes</a>
+    <a href="#orientation">Orientation</a>
+    <a href="#inference">Inference</a>
+    <a href="#software">Software</a>
+  </nav>
+
+  <div class="top-actions">
+    <button class="icon-btn" id="themeToggle" type="button" aria-label="Switch colour theme" title="Switch colour theme">
+      <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.4v2.6M12 19v2.6M2.4 12h2.6M19 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1Z"/></svg>
+    </button>
+    <a class="btn primary" href="mechanism_interferometry.pdf">
+      <span class="btn-full">Read the paper</span>
+      <span class="btn-short" aria-hidden="true">Paper</span>
+    </a>
+  </div>
+
+  <div class="progress" aria-hidden="true"><i id="readProgress"></i></div>
+</header>
+
+<main id="main">
+
+  <!-- ==================================================================
+       Hero
+       ================================================================== -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">A causal-modularity calculus for factorial regimes</p>
+        <h1>Outcome effects need not add.<br><em class="accent">Mechanism changes do.</em></h1>
+        <p class="lede">
+          Autonomous causal changes may interact arbitrarily in outcome space. In log-density-ratio
+          space they add exactly. Every failure of that additivity is a gauge-invariant curvature
+          field that separates nonlinear response from genuine mechanism coupling and from curvature
+          manufactured by incomplete observation.
+        </p>
+        <div class="hero-cta">
+          <a class="btn primary" href="mechanism_interferometry.pdf">Download the paper</a>
+          <a class="btn" href="#interferometer">Run the interferometer</a>
+        </div>
+        <div class="hero-metrics">
+          <div><b>3</b><span>observable certificate conditions</span></div>
+          <div><b>3</b><span>exact conservation laws</span></div>
+          <div><b>2</b><span>inference tracks, never interchanged</span></div>
+        </div>
+      </div>
+
+      <figure class="hero-art">
+        <svg id="heroArt" viewBox="20 60 520 370" role="img" aria-labelledby="heroArtTitle heroArtDesc">
+          <title id="heroArtTitle">The intervention square</title>
+          <desc id="heroArtDesc">Four regime distributions at the corners of a square. Two primitive
+          mechanism changes act along the edges. The cycle closes exactly when the mechanism
+          curvature of the face is zero.</desc>
+        </svg>
+        <figcaption class="caption">
+          <span class="eq eq--sm">
+            &#954;<sub>AB</sub>(<var>x</var>) <span class="op">=</span> <span class="fn">log</span>
+            <span class="frac"><span><var>p</var><sub>AB</sub>(<var>x</var>)&#8201;<var>p</var><sub>0</sub>(<var>x</var>)</span><span><var>p</var><sub>A</sub>(<var>x</var>)&#8201;<var>p</var><sub>B</sub>(<var>x</var>)</span></span>
+          </span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Problem
+       ================================================================== -->
+  <section id="problem">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Four things one number cannot separate</p>
+        <h2>An interaction coefficient is <em class="accent">four answers</em> wearing one coat.</h2>
+        <p class="lede">
+          Outcome-level interaction statistics conflate response nonlinearity, genuine coupling
+          between mechanisms, curvature created by state you did not measure, and an intervention
+          that was not implemented the way you specified. Mechanism interferometry moves the object
+          of study from a chosen response summary to the full regime law, where the confusion is
+          resolvable.
+        </p>
+      </div>
+
+      <div class="grid grid-4">
+        <article class="card reveal concept">
+          <span class="card-num" aria-hidden="true">01</span>
+          <span class="glyph v" aria-hidden="true">N</span>
+          <h3>Response nonlinearity</h3>
+          <p class="note">The map from state to outcome can manufacture enormous synergy while the generating mechanisms stay perfectly autonomous.</p>
+        </article>
+        <article class="card reveal concept" style="--reveal-delay:70ms">
+          <span class="card-num" aria-hidden="true">02</span>
+          <span class="glyph c" aria-hidden="true">C</span>
+          <h3>Mechanism coupling</h3>
+          <p class="note">The combined intervention actually changes how a primitive mechanism operates. This is real density curvature, and the only case the word interaction should describe.</p>
+        </article>
+        <article class="card reveal concept" style="--reveal-delay:140ms">
+          <span class="card-num" aria-hidden="true">03</span>
+          <span class="glyph i" aria-hidden="true">M</span>
+          <h3>Missing state</h3>
+          <p class="note">Marginalizing away a variable makes exactly flat latent factors conditionally dependent. The curvature is a property of your observation set, not of the world.</p>
+        </article>
+        <article class="card reveal concept" style="--reveal-delay:210ms">
+          <span class="card-num" aria-hidden="true">04</span>
+          <span class="glyph f" aria-hidden="true">I</span>
+          <h3>Implementation drift</h3>
+          <p class="note">The joint arm was not the composition of the two single arms. A negative control with no interference must produce exactly zero curvature, or the apparatus is the finding.</p>
+        </article>
+      </div>
+
+      <div class="eq-card reveal mt">
+        <p class="label">The local likelihood-ratio hologram</p>
+        <div class="eq wrap-any">
+          <var>r</var><sub><var>e</var></sub>(<var>x</var>)
+          <span class="op">=</span>
+          <span class="frac"><span><var>p</var><sub><var>e</var></sub>(<var>x</var>)</span><span><var>p</var><sub>0</sub>(<var>x</var>)</span></span>
+          <span class="op">=</span>
+          <span class="frac"><span><var>q</var><sub><var>e</var></sub>(<var>x</var><sub><var>t</var></sub> &#8739; <var>x</var><sub>pa(<var>t</var>)</sub>)</span><span><var>p</var><sub><var>t</var></sub><sup>0</sup>(<var>x</var><sub><var>t</var></sub> &#8739; <var>x</var><sub>pa(<var>t</var>)</sub>)</span></span>
+        </div>
+        <p class="note">
+          For a soft intervention that replaces only the conditional mechanism of <code>X_t</code>,
+          every unchanged factor cancels from the regime likelihood ratio. A perturbation can move
+          every descendant marginal while its full joint ratio remains supported on the target and
+          its direct parents alone. Localization is not an escape from conditional-independence
+          testing; it relocates the search from state-to-state relations to design-to-state relations.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Certificate
+       ================================================================== -->
+  <section id="certificate" class="band band--deep">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">The publishable core</p>
+        <h2>A finite biconditional certificate</h2>
+        <p class="lede">
+          Relative to a proposed graph and target assignment, three observable properties are
+          necessary <em>and</em> sufficient for a modular soft-intervention representation of the
+          whole regime family. Nothing else has to be checked.
+        </p>
+      </div>
+
+      <div class="grid grid-3">
+        <article class="card reveal">
+          <span class="glyph ring" aria-hidden="true">L</span>
+          <h3>Locality</h3>
+          <p class="note">Each primitive ratio depends only on one target family: the node and its parents.</p>
+          <div class="eq eq--sm wrap-any">
+            <var>r</var><sub><var>j</var></sub>(<var>x</var>) <span class="op">=</span>
+            <var>r</var><sub><var>j</var></sub>(<var>x</var><sub><var>t</var><sub><var>j</var></sub></sub>, <var>x</var><sub>pa(<var>t</var><sub><var>j</var></sub>)</sub>)
+          </div>
+        </article>
+        <article class="card reveal" style="--reveal-delay:80ms">
+          <span class="glyph ring" aria-hidden="true">N</span>
+          <h3>Conditional normalization</h3>
+          <p class="note">The ratio integrates to one over the target, conditional on its proposed parents.</p>
+          <div class="eq eq--sm wrap-any">
+            <span class="fn">E</span><sub>0</sub>[<var>r</var><sub><var>j</var></sub> &#8739; <var>X</var><sub>pa(<var>t</var><sub><var>j</var></sub>)</sub>]
+            <span class="op">=</span> 1
+          </div>
+        </article>
+        <article class="card reveal" style="--reveal-delay:160ms">
+          <span class="glyph ring" aria-hidden="true">F</span>
+          <h3>Square flatness</h3>
+          <p class="note">Every two-dimensional face of the intervention cube closes. Order two already forces all higher-order flatness.</p>
+          <div class="eq eq--sm wrap-any">
+            &#954;<sub><var>jk</var></sub><sup><var>b</var></sup>(<var>x</var>) <span class="op">=</span> 0
+          </div>
+        </article>
+      </div>
+
+      <div class="iff reveal">
+        <p class="iff-side">
+          <b>locality</b>
+          <span class="iff-op" aria-hidden="true">+</span>
+          <b>conditional normalization</b>
+          <span class="iff-op" aria-hidden="true">+</span>
+          <b>square flatness</b>
+        </p>
+        <p class="iff-turnstile"><span aria-hidden="true">&#8660;</span><span class="sr-only">if and only if</span></p>
+        <p class="iff-out">a context-invariant modular soft-intervention representation exists</p>
+      </div>
+
+      <div class="grid grid-2 mt">
+        <article class="card reveal">
+          <h3>Order two suffices</h3>
+          <p class="note">
+            On a complete cube, vanishing square curvature makes every higher-order M&#246;bius
+            coefficient vanish automatically. Zero face curvature makes each edge increment
+            invariant under flips of the other coordinates; the remaining cube is connected, so
+            every edge increment equals its reference-corner value and the log-densities become
+            exactly additive. Higher-order tests remain useful as diagnostics under estimation
+            error, never as additional requirements.
+          </p>
+        </article>
+        <article class="card reveal" style="--reveal-delay:80ms">
+          <h3>Gauge invariance</h3>
+          <p class="note">
+            Adding any field of the form <code>a(x) + sum_j s_j b_j(x)</code> to the log-densities
+            leaves every mixed difference of order two or higher unchanged. The primitive potentials
+            depend on the reference corner; the curvature does not. Reversing a coordinate
+            orientation flips the sign of a mixed difference but never the statement that it is
+            zero. A reference corner is a coordinate convenience, not a scientific baseline.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Interferometer
+       ================================================================== -->
+  <section id="interferometer">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Interactive running example</p>
+        <h2>Same experiment. <em class="accent">Different observation set. Different verdict.</em></h2>
+        <p class="lede">
+          <code>X&#8321;</code> and <code>X&#8322;</code> are independent Rademacher sources,
+          <code>Y = X&#8321;X&#8322; + &#949;</code>, and the two perturbations tilt the two source
+          means. Move the tilts and watch the two panels disagree. On the left, the complete state:
+          the mechanism ratios multiply exactly and the curvature is <strong>identically zero, and
+          stays zero for every setting you can reach</strong>. On the right, the same experiment
+          observed through <code>Y</code> alone.
+        </p>
+      </div>
+
+      <div class="bench reveal">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Design parameters</h3>
+            <span class="verdict muted" id="fixtureState">paper fixture</span>
+          </div>
+          <div class="panel-body">
+            <div class="control">
+              <label for="aSlider">Tilt <var>a</var> on <code>X&#8321;</code></label>
+              <output id="aOut" for="aSlider">0.60</output>
+              <input id="aSlider" type="range" min="-0.9" max="0.9" step="0.01" value="0.6">
+            </div>
+            <div class="control">
+              <label for="bSlider">Tilt <var>b</var> on <code>X&#8322;</code></label>
+              <output id="bOut" for="bSlider">0.50</output>
+              <input id="bSlider" type="range" min="-0.9" max="0.9" step="0.01" value="0.5">
+            </div>
+            <div class="control">
+              <label for="sigmaSlider">Outcome noise <var>&#963;</var></label>
+              <output id="sigmaOut" for="sigmaSlider">0.80</output>
+              <input id="sigmaSlider" type="range" min="0.2" max="2" step="0.02" value="0.8">
+              <p class="micro">Noise sets how sharply the curve turns, not how far it travels. The range is fixed by <var>ab</var> alone.</p>
+            </div>
+
+            <div class="readouts" aria-live="polite">
+              <div class="readout">
+                <span>Outcome synergy</span>
+                <strong id="synergyOut">0.300</strong>
+              </div>
+              <div class="readout">
+                <span>Full-state &#954;</span>
+                <strong id="fullKappaOut" class="is-flat">0.000</strong>
+              </div>
+              <div class="readout readout--stack">
+                <span>Marginal &#954; range</span>
+                <strong id="rangeOut" class="is-curve">[-0.357, 0.262]</strong>
+              </div>
+              <div class="readout">
+                <span>Moment battery</span>
+                <strong id="batteryOut" class="is-flat">passes</strong>
+              </div>
+            </div>
+
+            <p class="chips mt">
+              <button class="btn subtle" id="resetInterferometer" type="button">Restore paper fixture</button>
+            </p>
+            <p class="micro mt">
+              The defaults reproduce the paper fixture exactly:
+              <code>a = 0.6</code>, <code>b = 0.5</code>, <code>sigma = 0.8</code>,
+              synergy <code>0.3</code>, marginal curvature spanning
+              <code>log(1-ab)</code> to <code>log(1+ab)</code>.
+            </p>
+          </div>
+        </div>
+
+        <div class="split-panels">
+          <div class="panel is-flat">
+            <div class="panel-head">
+              <h3>Complete state <code>(X&#8321;, X&#8322;, Y)</code></h3>
+              <span class="verdict flat" id="fullVerdict">modular</span>
+            </div>
+            <div class="panel-body">
+              <div class="viz-wide">
+                <svg id="squareViz" viewBox="0 0 380 320" role="img" aria-label="The four regime ratios on the complete state, with the curvature of each square face"></svg>
+              </div>
+              <p class="caption"><span class="eq eq--sm"><var>r</var><sub>AB</sub> <span class="op">=</span> <var>r</var><sub>A</sub><var>r</var><sub>B</sub> <span class="op">&#8658;</span> &#954; <span class="op">=</span> 0</span></p>
+            </div>
+          </div>
+
+          <div class="panel is-curve">
+            <div class="panel-head">
+              <h3>Observed <code>Y</code> only</h3>
+              <span class="verdict curve" id="marginalVerdict">curvature</span>
+            </div>
+            <div class="panel-body">
+              <div class="viz-wide">
+                <svg id="kappaChart" viewBox="0 0 380 320" role="img" aria-label="Marginal mechanism curvature as a function of the observed outcome"></svg>
+              </div>
+              <p class="caption"><span class="eq eq--sm">&#954;<sub>AB</sub>(<var>y</var>) <span class="op">=</span> <span class="fn">log</span>[1 <span class="op">+</span> <var>ab</var> <span class="fn">tanh</span>(<var>y</var>/<var>&#963;</var><sup>2</sup>)]</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <noscript>
+        <p class="noscript-note">
+          The interferometer is interactive with JavaScript enabled. The figure below is the same
+          curve generated by the paper's simulation script at the default settings.
+        </p>
+        <figure class="figure">
+          <img src="assets/running_example.png" alt="Marginal mechanism curvature against the observed outcome, rising from log(1 minus ab) to log(1 plus ab)" width="1200" height="500">
+          <figcaption>
+            Marginal curvature under <code>a = 0.6</code>, <code>b = 0.5</code>,
+            <code>sigma = 0.8</code>. Full-state curvature is exactly zero everywhere.
+          </figcaption>
+        </figure>
+      </noscript>
+
+      <div class="callout flat reveal mt">
+        <span class="callout-mark" aria-hidden="true">&#9670;</span>
+        <div>
+          <p>
+            <b>The lesson.</b> A nonlinear outcome can exhibit maximal synergy while the complete
+            generating mechanisms are exactly autonomous. Marginalization, not mechanism coupling,
+            created the observed interaction field.
+          </p>
+          <p>
+            This is also the canonical blind spot of the cheap statistic. In outcome-only space the
+            primitive ratios are both identically one, so the scalar moment battery
+            <code>E_0[r_A r_B] = 1</code> passes trivially while the curvature is nowhere zero. The
+            weighted mean vanishes because the baseline is symmetric and the curvature is odd. A
+            battery that passes is not a certificate.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Scenario gallery
+       ================================================================== -->
+  <section id="scenarios" class="band">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Four exact fixtures</p>
+        <h2>What curvature means depends on <em class="accent">which way it broke</em></h2>
+        <p class="lede">
+          Every scenario below is an exact-population fixture from
+          <code>artifacts/simulations/exact_results.json</code>, the same numbers the Rust
+          conformance tests and the paper figures are pinned to. Three of the four are failures.
+          The failures are the point.
+        </p>
+      </div>
+
+      <div class="reveal">
+        <div class="tabs" role="tablist" aria-label="Exact simulation fixtures">
+          <button class="tab" role="tab" id="tab-flat" aria-controls="pane-flat" aria-selected="true" type="button">Flat composition</button>
+          <button class="tab" role="tab" id="tab-latent" aria-controls="pane-latent" aria-selected="false" type="button">Hidden state</button>
+          <button class="tab" role="tab" id="tab-impl" aria-controls="pane-impl" aria-selected="false" type="button">Implementation drift</button>
+          <button class="tab" role="tab" id="tab-parity" aria-controls="pane-parity" aria-selected="false" type="button">Orientation ambiguity</button>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" tabindex="0" id="pane-flat" aria-labelledby="tab-flat">
+          <div class="bench">
+            <div class="panel">
+              <div class="panel-head"><h3>Flat composition</h3><span class="verdict flat">kappa = 0</span></div>
+              <div class="panel-body">
+                <p class="note">
+                  Two independent tilts on two independent sources. The primitive ratios multiply
+                  exactly at every point of the complete state, so every square face closes and the
+                  certificate holds. Held-out pair distributions are predictable from singles alone.
+                </p>
+                <p class="note">
+                  This is the only one of the four scenarios in which a certificate may be issued.
+                  It is what the other three are being compared against.
+                </p>
+                <div class="readouts">
+                  <div class="readout"><span>Curvature</span><strong class="is-flat">0.000000</strong></div>
+                  <div class="readout"><span>Cov(r_A, r_B)</span><strong class="is-flat">0.000000</strong></div>
+                  <div class="readout"><span>Certificate</span><strong class="is-flat">may pass</strong></div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>Composition check</h3><p class="micro">exact algebra</p></div>
+              <div class="panel-body"><div class="viz-wide"><svg id="vizFlat" viewBox="0 0 520 300" role="img" aria-label="Product of primitive ratios against the joint ratio, coinciding exactly"></svg></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" tabindex="0" id="pane-latent" aria-labelledby="tab-latent" hidden>
+          <div class="bench bench--wide-controls">
+            <div class="panel">
+              <div class="panel-head"><h3>Hidden state</h3><span class="verdict curve">kappa &#8800; 0</span></div>
+              <div class="panel-body">
+                <div class="control">
+                  <label for="latentSlider">Coordinated tilt <var>a</var></label>
+                  <output id="latentOut" for="latentSlider">0.30</output>
+                  <input id="latentSlider" type="range" min="0.05" max="0.85" step="0.01" value="0.3">
+                  <p class="micro">At <code>a = 0.3</code> this reproduces the paper fixture exactly.</p>
+                </div>
+                <p class="note">
+                  Two coordinated multi-source tilts compose flatly on the complete state. After the
+                  extra coordinate is marginalized away, the observable ratio fields acquire
+                  curvature, and the conditional covariance the observer cannot see reappears with
+                  exactly the opposite sign in the covariance the observer can.
+                </p>
+                <div class="readouts" aria-live="polite">
+                  <div class="readout"><span>Curvature <code>-log(1-a^2)</code></span><strong id="latentKappa" class="is-curve">0.094311</strong></div>
+                  <div class="readout"><span>Cov of observed ratios</span><strong id="latentCovObs" class="is-curve">-0.090000</strong></div>
+                  <div class="readout"><span>Mean hidden covariance</span><strong id="latentCovHid" class="is-flat">+0.090000</strong></div>
+                  <div class="readout"><span>Conservation residual</span><strong id="latentResidual" class="is-flat">0.000000</strong></div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>The books balance</h3><span class="verdict info" id="latentVerdict">sum = 0</span></div>
+              <div class="panel-body">
+                <div class="viz-wide"><svg id="vizLatent" viewBox="0 0 520 300" role="img" aria-label="Observed ratio covariance and mean hidden latent covariance as mirrored bars summing to zero"></svg></div>
+                <noscript>
+                  <figure class="figure">
+                    <img src="assets/latent_conservation.png" alt="Observed ratio covariance and hidden latent covariance balancing to zero" width="1200" height="500">
+                    <figcaption>Latent-factor conservation at <code>a = 0.3</code>.</figcaption>
+                  </figure>
+                </noscript>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" tabindex="0" id="pane-impl" aria-labelledby="tab-impl" hidden>
+          <div class="bench bench--wide-controls">
+            <div class="panel">
+              <div class="panel-head"><h3>Implementation drift</h3><span class="verdict block" id="implVerdict">apparatus</span></div>
+              <div class="panel-body">
+                <div class="control">
+                  <label for="gammaSlider">Interference <var>&#947;</var></label>
+                  <output id="gammaOut" for="gammaSlider">0.40</output>
+                  <input id="gammaSlider" type="range" min="0" max="0.85" step="0.01" value="0.4">
+                  <p class="micro">Drag to exactly zero to run the negative control. Fixture values: <code>a = 0.45</code>, <code>b = 0.35</code>, <code>gamma = 0.4</code>.</p>
+                </div>
+                <p class="note">
+                  The joint arm was not the composition of the two single arms. It acquired an extra
+                  normalized factor, so the observed curvature is a property of the apparatus rather
+                  than of the biology or the system under study. A negative control with no
+                  interference must return exactly zero, and here it does.
+                </p>
+                <div class="readouts" aria-live="polite">
+                  <div class="readout"><span>Normalizer <code>1 + ab&#947;</code></span><strong id="implNorm">1.063000</strong></div>
+                  <div class="readout"><span>Curvature at <code>X&#8321;X&#8322; = +1</code></span><strong id="implPlus" class="is-curve">+0.275377</strong></div>
+                  <div class="readout"><span>Curvature at <code>X&#8321;X&#8322; = -1</code></span><strong id="implMinus" class="is-curve">-0.571921</strong></div>
+                  <div class="readout"><span>Negative control</span><strong id="implControl" class="is-flat">0.000000</strong></div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>Curvature by product sign</h3><p class="micro">sign-varying field</p></div>
+              <div class="panel-body">
+                <div class="viz-wide"><svg id="vizImpl" viewBox="0 0 520 300" role="img" aria-label="Curvature at each sign of the product of the two sources, with the negative control at zero"></svg></div>
+                <noscript>
+                  <figure class="figure">
+                    <img src="assets/implementation_inconsistency.png" alt="Curvature produced by an inconsistently implemented joint intervention" width="1200" height="500">
+                    <figcaption>Implementation curvature at <code>gamma = 0.4</code>, and the exact zero at <code>gamma = 0</code>.</figcaption>
+                  </figure>
+                </noscript>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" tabindex="0" id="pane-parity" aria-labelledby="tab-parity" hidden>
+          <div class="bench">
+            <div class="panel">
+              <div class="panel-head"><h3>Orientation ambiguity</h3><span class="verdict block">2 passes</span></div>
+              <div class="panel-body">
+                <p class="note">
+                  A balanced parity mechanism. Baseline <code>T = P xor N</code>, intervention
+                  <code>T = (not P) xor N</code>, with <code>N ~ Bernoulli(0.1)</code>. Both
+                  one-dimensional marginals are perfectly balanced under both regimes, so deleting
+                  the parent and deleting the child each leave an invariant marginal. The deletion
+                  pass count is two, and no target may be inferred.
+                </p>
+                <p class="note">
+                  Balanced parity is a live discrete failure mode, not a measure-zero curiosity. The
+                  correct output is the explicit status, not a forced orientation. The remedy is
+                  several asymmetric tilts of the same target.
+                </p>
+                <div class="readouts">
+                  <div class="readout"><span>Deletion pass count</span><strong class="is-block">2</strong></div>
+                  <div class="readout"><span>Invariant deletions</span><strong class="is-block">P, T</strong></div>
+                  <div class="readout"><span>Status</span><strong class="is-block">ambiguous</strong></div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>Marginals agree, the joint does not</h3><p class="micro">epsilon = 0.1</p></div>
+              <div class="panel-body"><div class="viz-wide"><svg id="vizParity" viewBox="0 0 520 300" role="img" aria-label="Identical one-dimensional marginals under both regimes beside the joint distribution, which differs"></svg></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Conservation laws
+       ================================================================== -->
+  <section id="conservation">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Curvature from hidden state</p>
+        <h2>Three conservation laws</h2>
+        <p class="lede">
+          Whatever conditional coupling marginalization creates between flat latent factors must
+          reappear, with opposite sign on average, as correlation between the observable primitive
+          ratio fields. Curvature is not lost when you stop looking. It is moved.
+        </p>
+      </div>
+
+      <div class="grid grid-3">
+        <article class="card reveal law">
+          <p class="label">Law 1 &#183; curvature balance</p>
+          <div class="eq eq--sm wrap-any">
+            <span class="fn">Cov</span><sub>0</sub>(<var>r</var><sub>A</sub>,<var>r</var><sub>B</sub>)
+            <span class="op">=</span> &#8722;<span class="fn">E</span><sub>0</sub>[<var>r</var><sub>A</sub><var>r</var><sub>B</sub>(<var>e</var><sup>&#954;</sup> &#8722; 1)]
+          </div>
+          <p class="note">The cheap moment statistic is a signed, ratio-tilted average of curvature. Its blind spot is quantitative: a sign-varying field can integrate to zero.</p>
+        </article>
+        <article class="card reveal law" style="--reveal-delay:80ms">
+          <p class="label">Law 2 &#183; latent conservation</p>
+          <div class="eq eq--sm wrap-any">
+            <span class="fn">Cov</span><sub>0</sub>(<var>r</var><sub>A</sub>,<var>r</var><sub>B</sub>)
+            <span class="op">=</span> &#8722;<span class="fn">E</span><sub>0</sub>[<span class="fn">Cov</span><sub>0</sub>(<var>L</var><sub>A</sub>,<var>L</var><sub>B</sub> &#8739; <var>X</var>)]
+          </div>
+          <p class="note">Coupling hidden by observation returns with opposite sign as correlation between observable ratio fields. Neither side is directly the other; the average is exact.</p>
+        </article>
+        <article class="card reveal law" style="--reveal-delay:160ms">
+          <p class="label">Law 3 &#183; nested state expansion</p>
+          <div class="eq eq--sm wrap-any">
+            <var>C</var><sub><var>X</var></sub> <span class="op">=</span>
+            <span class="fn">E</span>[<var>C</var><sub><var>XW</var></sub> &#8739; <var>X</var>]
+            <span class="op">+</span> <span class="fn">Cov</span>(<var>r</var><sub>A</sub><sup><var>XW</var></sup>,<var>r</var><sub>B</sub><sup><var>XW</var></sup> &#8739; <var>X</var>)
+          </div>
+          <p class="note">Add a candidate measurement. If residual curvature disappears, the old curvature was variation of now-separated mechanisms across the new coordinate. Curvature becomes a search criterion.</p>
+        </article>
+      </div>
+
+      <div class="grid grid-2 mt">
+        <article class="card reveal">
+          <h3>Missing Fisher information</h3>
+          <p class="note">
+            For infinitesimal perturbations, observed curvature is the conditional covariance of the
+            complete-state intervention scores. That is exactly the off-diagonal missing-information
+            term in Louis's decomposition, and therefore the negative of the corresponding
+            observed-information cross entry when the complete cross-Hessian vanishes. State
+            expansion recovers the missing mechanism information in stages by the tower property.
+          </p>
+          <p class="note micro">
+            At orders three and above the clean two-term split no longer holds; Brillinger's
+            conditioning formula requires set-partition sums. The tidy decomposition is special to
+            covariance.
+          </p>
+        </article>
+        <article class="card reveal" style="--reveal-delay:80ms">
+          <h3>Flatness is never a reward</h3>
+          <p class="note">
+            Curvature is preserved by any invertible transformation of the state, and by any learned
+            representation that satisfies design sufficiency. That is what makes representation
+            search legitimate. It is also what makes optimizing a representation <em>towards</em>
+            flatness illegitimate: a model trained to minimize measured curvature has been trained
+            to destroy the evidence. Representations are selected on held-out sufficiency and
+            predictive composition, never on the flatness statistic itself.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Orientation
+       ================================================================== -->
+  <section id="orientation" class="band">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Orientation without ratio estimation</p>
+        <h2>Delete a coordinate. See what survives.</h2>
+        <p class="lede">
+          Within a localized family, delete each coordinate in turn. The target is the coordinate
+          whose deletion leaves the remaining marginal law invariant. Estimation becomes a handful
+          of low-dimensional two-sample equivalence tests rather than conditional means of a
+          calibrated density ratio.
+        </p>
+      </div>
+
+      <div class="eq-card reveal">
+        <p class="label">The master marginal identity</p>
+        <div class="eq wrap-any">
+          <span class="fn">E</span><sub>0</sub>[<var>r</var><sub><var>e</var></sub>(<var>X</var>) &#8739; <var>X</var><sub><var>A</var></sub>]
+          <span class="op">=</span>
+          <span class="frac"><span><var>p</var><sub><var>e</var></sub>(<var>X</var><sub><var>A</var></sub>)</span><span><var>p</var><sub>0</sub>(<var>X</var><sub><var>A</var></sub>)</span></span>
+        </div>
+        <p class="note">
+          The identity is what makes deletion testing legitimate: the conditional mean of a
+          high-dimensional ratio equals a low-dimensional marginal ratio, so the ratio never has to
+          be estimated at all.
+        </p>
+      </div>
+
+      <div class="bench reveal mt">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Deletion evidence</h3>
+            <p class="micro">equivalence bounds</p>
+          </div>
+          <div class="panel-body">
+            <div class="field">
+              <span>Scenario</span>
+              <select class="field-input" id="orientScenario">
+                <option value="unique" selected>Clean single target</option>
+                <option value="none">No coordinate passes</option>
+                <option value="multiple">Balanced parity, two pass</option>
+                <option value="under">Underpowered sample</option>
+                <option value="mixed">Straddling the tolerance</option>
+              </select>
+            </div>
+            <div class="control">
+              <label for="epsSlider">Equivalence tolerance <var>&#949;</var></label>
+              <output id="epsOut" for="epsSlider">0.20</output>
+              <input id="epsSlider" type="range" min="0.05" max="0.6" step="0.01" value="0.2">
+              <p class="micro">A deletion is certified invariant only when the whole interval sits below the tolerance, and certified changed only when it sits entirely above.</p>
+            </div>
+            <p class="note">
+              Failure to reject a discrepancy is never evidence of invariance. The decision is made
+              with two-sided equivalence bounds on the normalized discrepancy
+              <code>R_v = D_v / (D_full + eta)</code>, and a straddling interval yields the honest
+              answer rather than a convenient one.
+            </p>
+            <div class="readouts" aria-live="polite">
+              <div class="readout"><span>Deletion pass count</span><strong id="passCount">1</strong></div>
+              <div class="readout"><span>State machine</span><strong id="passState" class="is-flat">UNIQUE_TARGET</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Normalized discrepancy by deleted coordinate</h3>
+            <span class="verdict flat" id="orientVerdict">oriented</span>
+          </div>
+          <div class="panel-body">
+            <div class="viz-wide"><svg id="vizOrient" viewBox="0 0 560 300" role="img" aria-label="Equivalence intervals for each candidate deletion against the tolerance"></svg></div>
+            <p class="caption" id="orientNote">Exactly one coordinate is certified invariant. The family is oriented.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout info reveal mt">
+        <span class="callout-mark" aria-hidden="true">&#9670;</span>
+        <div>
+          <p>
+            <b>Undercoverage degrades gracefully.</b> If the proposed parent set is incomplete, an
+            affected descendant generically makes the procedure fail loudly, producing zero passes,
+            rather than silently reversing the arrow. Given the family sets, the graph is
+            recoverable by peeling in topological order even without target labels.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Inference
+       ================================================================== -->
+  <section id="inference">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Inference without category mistakes</p>
+        <h2>Two tracks, matched to the sampling design</h2>
+        <p class="lede">
+          Density curvature is a functional of four normalized regime laws. A residual-product test
+          characterizes zero curvature only when the pooled design odds are one. Confusing the two
+          does not weaken the test; it silently changes the null.
+        </p>
+      </div>
+
+      <div class="grid grid-2">
+        <article class="card reveal track">
+          <span class="card-num" aria-hidden="true">I</span>
+          <h3>Four-law functionals</h3>
+          <p class="note">For arbitrary known, state-independent regime quotas.</p>
+          <div class="eq eq--sm wrap-any">
+            <var>M</var><sub><var>w</var></sub> <span class="op">=</span>
+            <span class="fn">E</span><sub>0</sub>[<var>w</var>(<var>r</var><sub>AB</sub> &#8722; <var>r</var><sub>A</sub><var>r</var><sub>B</sub>)]
+          </div>
+          <div class="rule"></div>
+          <p class="note">
+            Estimable as <code>E_AB[w] - E_A[w r_B]</code> with ratio nuisances normalized on
+            held-out baseline data. Needs overlap control, but no assignment model. Under positivity,
+            vanishing for every bounded witness is equivalent to zero curvature almost surely.
+          </p>
+        </article>
+        <article class="card reveal track featured" style="--reveal-delay:80ms">
+          <span class="card-num" aria-hidden="true">II</span>
+          <h3>Generalized covariance measure</h3>
+          <p class="note">For product factorial randomization, or explicit reweighting to it.</p>
+          <div class="eq eq--sm wrap-any">
+            <var>&#952;</var><sub><var>w</var></sub> <span class="op">=</span>
+            <span class="fn">E</span>[<var>w</var>(<var>A</var> &#8722; <var>m</var><sub>A</sub>)(<var>B</var> &#8722; <var>m</var><sub>B</sub>)]
+          </div>
+          <div class="rule"></div>
+          <p class="note">
+            Cross-fitted residual products are Neyman-orthogonal. Weighted GCM supplies growing
+            witness classes and max-statistic inference. No observation may both construct an
+            adaptive witness and test it.
+          </p>
+        </article>
+      </div>
+
+      <div class="eq-card reveal mt">
+        <p class="label">The sampling-odds anchor</p>
+        <div class="eq wrap-any">
+          &#954;<sub>AB</sub>(<var>x</var>) <span class="op">=</span>
+          <span class="fn">log</span>
+          <span class="frac"><span><var>q</var><sub>11</sub>(<var>x</var>)<var>q</var><sub>00</sub>(<var>x</var>)</span><span><var>q</var><sub>10</sub>(<var>x</var>)<var>q</var><sub>01</sub>(<var>x</var>)</span></span>
+          <span class="op">&#8722;</span>
+          <span class="fn">log</span>
+          <span class="frac"><span><var>&#961;</var><sub>11</sub><var>&#961;</var><sub>00</sub></span><span><var>&#961;</var><sub>10</sub><var>&#961;</var><sub>01</sub></span></span>
+        </div>
+        <p class="note">
+          Curvature is excess conditional design log-odds after subtracting the known pooled-design
+          odds. Equal-corner balancing is product sampling and is safe. Arbitrary per-corner quotas
+          are not: under pooled odds <code>rho</code>, zero conditional covariance characterizes
+          <code>kappa = -log OR(rho)</code>, not <code>kappa = 0</code>. A free-intercept multinomial
+          fit can hide the offending term entirely if the analyst reports a centered interaction
+          instead of reconstructing the full posterior odds and subtracting.
+        </p>
+      </div>
+
+      <div class="section-head reveal mt">
+        <h3>Preflight the design before you touch the data</h3>
+        <p class="note">
+          The audit system decides track eligibility from the manifest alone. Change the corner
+          quotas below and watch the verdict, exactly as <code>mic preflight</code> would emit it.
+          The reason codes are the real ones from <code>mic-audit</code>.
+        </p>
+      </div>
+
+      <div class="bench bench--wide-controls reveal">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Experiment manifest</h3>
+            <p class="micro">corner quotas</p>
+          </div>
+          <div class="panel-body">
+            <div class="quota-grid">
+              <div class="quota"><label for="q00">rho_00</label><input id="q00" type="number" min="0.01" max="0.97" step="0.01" value="0.25" inputmode="decimal"></div>
+              <div class="quota"><label for="q10">rho_10</label><input id="q10" type="number" min="0.01" max="0.97" step="0.01" value="0.25" inputmode="decimal"></div>
+              <div class="quota"><label for="q01">rho_01</label><input id="q01" type="number" min="0.01" max="0.97" step="0.01" value="0.25" inputmode="decimal"></div>
+              <div class="quota"><label for="q11">rho_11</label><input id="q11" type="number" min="0.01" max="0.97" step="0.01" value="0.25" inputmode="decimal"></div>
+            </div>
+
+            <div class="chips" style="margin-bottom:1.1rem">
+              <button class="btn subtle" id="presetBalanced" type="button">Balanced 0.25 each</button>
+              <button class="btn subtle" id="presetNonProduct" type="button">Non-product demo</button>
+            </div>
+
+            <div class="field">
+              <span>Requested inference track</span>
+              <select class="field-input" id="trackSelect">
+                <option value="four_law">four_law</option>
+                <option value="product_factorial">product_factorial</option>
+                <option value="both" selected>both</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <span>Within-regime selection contract</span>
+              <select class="field-input" id="selectionSelect">
+                <option value="state_independent_within_regime" selected>state_independent_within_regime</option>
+                <option value="modeled">modeled</option>
+                <option value="unknown">unknown</option>
+                <option value="state_dependent_unmodeled">state_dependent_unmodeled</option>
+              </select>
+            </div>
+
+            <label class="switch"><input type="checkbox" id="strictMode" checked> Strict mode</label>
+            <p class="micro mt">
+              In exploratory mode nothing is ever serialized as a passing certificate. Every
+              affected result is watermarked diagnostic instead.
+            </p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Preflight report</h3>
+            <span class="verdict flat" id="auditStatus">READY</span>
+          </div>
+          <div class="panel-body">
+            <div class="readouts" style="margin-top:0;padding-top:0;border-top:0" aria-live="polite">
+              <div class="readout"><span>Pooled design log-odds <code>log OR(rho)</code></span><strong id="logOdds" class="is-flat">0.000000</strong></div>
+              <div class="readout"><span>Product sampling</span><strong id="isProduct" class="is-flat">yes</strong></div>
+              <div class="readout"><span>Four-law eligible</span><strong id="fourLawOk" class="is-flat">yes</strong></div>
+              <div class="readout"><span>Product-factorial eligible</span><strong id="gcmOk" class="is-flat">yes</strong></div>
+            </div>
+            <div class="findings" id="auditFindings" aria-live="polite"></div>
+            <p class="micro mt" id="auditNote">
+              The report begins with assumptions and abstentions, never with a table of p-values.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout curve reveal mt">
+        <span class="callout-mark" aria-hidden="true">&#9670;</span>
+        <div>
+          <p>
+            <b>Strict mode fails closed</b> on unknown or state-dependent within-regime selection,
+            inadequate common support, a GCM request under non-product sampling without reweighting,
+            aliased or unidentifiable design contrasts, unresolved deletion orientation, a missing or
+            inconsistent cluster unit, calibration outside tolerance, a self-normalization residual
+            over policy, and negative controls showing implementation curvature above threshold.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Pipeline
+       ================================================================== -->
+  <section id="pipeline-section">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">A unified audit pipeline</p>
+        <h2>Two statistical primitives, applied repeatedly</h2>
+        <p class="lede">
+          The whole protocol is built from weighted residual products and low-dimensional two-sample
+          equivalence tests, over shared cross-fitting and cluster-resampling infrastructure.
+        </p>
+      </div>
+
+      <ol class="pipeline reveal">
+        <li><h3>Validate design</h3><p>Sampling odds, selection contract, overlap, randomization unit.</p></li>
+        <li><h3>Localize</h3><p>Design-IAMB with cross-fitted residual-product independence tests.</p></li>
+        <li><h3>Orient</h3><p>Simultaneous MMD and energy-distance equivalence tests over deletions.</p></li>
+        <li><h3>Interfere</h3><p>Weighted GCM projections and joint multinomial interaction fields.</p></li>
+        <li><h3>Predict</h3><p>Self-normalized primitive-ratio products on held-out combinations.</p></li>
+        <li><h3>Expand state</h3><p>Find measurements that flatten reproducible curvature blocks.</p></li>
+      </ol>
+
+      <div class="grid grid-3 mt">
+        <article class="card reveal">
+          <p class="label">Cross-fitting graph</p>
+          <p class="note">Outer folds carry scientific evaluation and separate adaptive witnesses from their tests. Inner folds tune nuisances. The cluster bootstrap supplies uncertainty at the assignment unit, never at the row.</p>
+        </article>
+        <article class="card reveal" style="--reveal-delay:80ms">
+          <p class="label">Compositional prediction</p>
+          <p class="note">Held-out pair distributions are predicted by the product of primitive ratios. The raw normalizer residual is always reported alongside the self-normalized estimate, because self-normalization can hide the very failure being tested.</p>
+        </article>
+        <article class="card reveal" style="--reveal-delay:160ms">
+          <p class="label">Longitudinal caution</p>
+          <p class="note">Ratios are estimated at the transition level. Whole-trajectory ratio products are prohibited as a primary estimator: their variance grows exponentially in the horizon.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Software
+       ================================================================== -->
+  <section id="software" class="band band--deep">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Safe-Rust reference architecture</p>
+        <h2>An evidence-producing audit system, not a notebook collection</h2>
+        <p class="lede">
+          Unsafe code is forbidden across the workspace. Every stochastic operation takes a
+          deterministic seed recorded in the evidence ledger, and every optimization must preserve
+          the exact-algebra conformance fixtures and the strict-mode failure behaviour.
+        </p>
+      </div>
+
+      <div class="grid grid-4">
+        <article class="card reveal"><span class="glyph" style="background:#e07a2c" aria-hidden="true">FP</span><h3>FrankenPandas</h3><p class="note">Typed ingestion, Parquet and Arrow interchange, fold tables, grouped summaries, reproducible report frames.</p></article>
+        <article class="card reveal" style="--reveal-delay:70ms"><span class="glyph" style="background:#6b57e8" aria-hidden="true">FN</span><h3>FrankenNumPy</h3><p class="note">Dense arrays, deterministic random streams, broadcasting, Gram matrices, vectorized ratio and kernel evaluation.</p></article>
+        <article class="card reveal" style="--reveal-delay:140ms"><span class="glyph" style="background:#0d9b70" aria-hidden="true">FS</span><h3>FrankenSciPy</h3><p class="note">MMD and energy statistics, optimization, bootstrap and permutation engines, stable special functions.</p></article>
+        <article class="card reveal" style="--reveal-delay:210ms"><span class="glyph" style="background:#2260c6" aria-hidden="true">FT</span><h3>FrankenTorch</h3><p class="note">Joint multinomial models, differentiable density-ratio fields, representation sufficiency audits, CPU and Metal execution.</p></article>
+      </div>
+
+      <div class="crates reveal">
+        <div><b>mic-core</b><span>exact algebra, ratios, curvature, conservation</span></div>
+        <div><b>mic-design</b><span>factorial geometry, face enumeration, aliasing</span></div>
+        <div><b>mic-data</b><span>schemas, ingestion, selection and overlap gates</span></div>
+        <div><b>mic-stats</b><span>GCM and wGCM, MMD, equivalence, bootstrap</span></div>
+        <div><b>mic-model</b><span>multinomial and representation models</span></div>
+        <div><b>mic-audit</b><span>evidence ledger and fail-closed policy</span></div>
+        <div><b>mic-engine</b><span>preflight orchestration and track eligibility</span></div>
+        <div><b>mic-sim</b><span>exact scenarios and finite-sample generators</span></div>
+        <div><b>mic-cli</b><span>simulate, design audit, validate, preflight</span></div>
+      </div>
+
+      <div class="grid grid-2 mt">
+        <div class="reveal">
+          <h3>Reproduce the fixtures</h3>
+          <pre class="code"><code><span class="c"># exact-population scenarios, written to JSON</span>
+cargo run -p mic-cli -- simulate all \
+  --output artifacts/simulations/rust_exact_results.json
+
+<span class="c"># the design gate that this page simulates</span>
+cargo run -p mic-cli -- preflight \
+  examples/configs/nonproduct_sampling_demo.json</code></pre>
+        </div>
+        <article class="card reveal" style="--reveal-delay:80ms">
+          <h3>Partial designs are not a lost cause</h3>
+          <p class="note">
+            When corners are missing, the testable content is the null space of the main-effects
+            matrix. A three-factor cube missing only its two extreme corners contains no complete
+            square face at all, yet six observations against rank four still leave two genuine
+            flatness restrictions. An implementation that only enumerates squares would report,
+            incorrectly, that nothing is testable.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Empirical path
+       ================================================================== -->
+  <section id="empirical">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Empirical path</p>
+        <h2>Validate cleanly, then scale scientifically</h2>
+      </div>
+
+      <div class="grid grid-2">
+        <article class="card reveal">
+          <p class="label">First</p>
+          <h3>Factorial feature-flag pilot</h3>
+          <p class="note">
+            Independent assignment, rich telemetry, implementation negative controls and known
+            deployment units make engineered systems the cleanest initial validation. Randomization
+            at the deployment unit means inference at the deployment unit.
+          </p>
+        </article>
+        <article class="card reveal" style="--reveal-delay:80ms">
+          <p class="label">Second</p>
+          <h3>Combinatorial Perturb-seq</h3>
+          <p class="note">
+            Compare conventional epistasis against full-distribution curvature, control guide
+            competition as an implementation effect rather than a biological one, and predict
+            held-out pair distributions from singles.
+          </p>
+        </article>
+      </div>
+
+      <p class="final-eq reveal">
+        <b>locality</b><span aria-hidden="true">+</span>
+        <b>deletion invariance</b><span aria-hidden="true">+</span>
+        <b>square closure</b><span aria-hidden="true">+</span>
+        <b>held-out composition</b>
+        <strong>an overdetermined empirical case for causal modularity</strong>
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <p class="footer-head">Mechanism Interferometry</p>
+        <p class="note">
+          A gauge-invariant soft-intervention certificate for causal modularity: the formal paper,
+          exact simulation fixtures, machine-readable experiment contracts, and a safe-Rust audit
+          system that refuses to issue a certificate it cannot justify.
+        </p>
+      </div>
+      <div>
+        <p class="footer-head">Read</p>
+        <ul>
+          <li><a href="mechanism_interferometry.pdf">Paper PDF</a></li>
+          <li><a href="#certificate">The certificate</a></li>
+          <li><a href="#interferometer">Running example</a></li>
+          <li><a href="#inference">Inference tracks</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="footer-head">Navigate</p>
+        <ul>
+          <li><a href="#scenarios">Failure modes</a></li>
+          <li><a href="#conservation">Conservation laws</a></li>
+          <li><a href="#software">Rust workspace</a></li>
+          <li><a href="#top">Back to top</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>Jeffrey Emanuel &#183; August 2026</span>
+      <span>Static page. No trackers, no remote requests, no build step.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

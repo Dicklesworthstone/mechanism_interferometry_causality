@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "experiment_id": "multiplicative-running-example",
+  "strict": true,
+  "inference_track": "both",
+  "selection": "state_independent_within_regime",
+  "cluster_column": "cluster_id",
+  "regime_column": "regime",
+  "state_columns": ["x1", "x2", "y"],
+  "candidate_state_blocks": [],
+  "regimes": [
+    {
+      "id": "control",
+      "design": {"bits": [false, false]},
+      "sampling_proportion": 0.25,
+      "perturbations": []
+    },
+    {
+      "id": "tilt-x1",
+      "design": {"bits": [true, false]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["tilt_x1"]
+    },
+    {
+      "id": "tilt-x2",
+      "design": {"bits": [false, true]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["tilt_x2"]
+    },
+    {
+      "id": "tilt-x1-x2",
+      "design": {"bits": [true, true]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["tilt_x1", "tilt_x2"]
+    }
+  ],
+  "data": {
+    "format": "csv",
+    "path": "examples/data/running_example.csv"
+  },
+  "seed": 20260812
+}

@@ -1,0 +1,8 @@
+[toolchain]
+# Compatibility floor chosen from the exact sibling revisions: FrankenPandas and
+# FrankenNumPy pin 2026-07-05, FrankenSciPy pins 2026-07-20, and FrankenTorch
+# currently floats nightly. The newest explicit sibling pin is the conservative
+# reproducible workspace choice.
+channel = "nightly-2026-07-20"
+components = ["rustfmt", "clippy", "rust-src"]
+profile = "minimal"

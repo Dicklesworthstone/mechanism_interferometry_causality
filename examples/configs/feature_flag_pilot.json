@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0.0",
+  "experiment_id": "feature-flag-pilot-a-b",
+  "strict": true,
+  "inference_track": "both",
+  "selection": "state_independent_within_regime",
+  "cluster_column": "deployment_id",
+  "regime_column": "regime",
+  "state_columns": [
+    "demand",
+    "module_a_output",
+    "module_b_output",
+    "queue_depth",
+    "p95_latency_ms"
+  ],
+  "candidate_state_blocks": [
+    ["shared_resource_pressure"]
+  ],
+  "regimes": [
+    {
+      "id": "control",
+      "design": {"bits": [false, false]},
+      "sampling_proportion": 0.25,
+      "perturbations": []
+    },
+    {
+      "id": "flag-a",
+      "design": {"bits": [true, false]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["flag_a"]
+    },
+    {
+      "id": "flag-b",
+      "design": {"bits": [false, true]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["flag_b"]
+    },
+    {
+      "id": "flag-a-b",
+      "design": {"bits": [true, true]},
+      "sampling_proportion": 0.25,
+      "perturbations": ["flag_a", "flag_b"]
+    }
+  ],
+  "data": {
+    "format": "csv",
+    "path": "examples/data/feature_flag_pilot.csv"
+  },
+  "seed": 19051988
+}

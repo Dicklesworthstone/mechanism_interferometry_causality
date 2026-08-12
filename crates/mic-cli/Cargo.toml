@@ -1,0 +1,24 @@
+[package]
+name = "mic-cli"
+description = "Command-line entry point for mechanism-interferometry audits"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "mic"
+path = "src/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+mic-data = { path = "../mic-data" }
+mic-design = { path = "../mic-design" }
+mic-engine = { path = "../mic-engine" }
+mic-sim = { path = "../mic-sim" }
+
+[lints]
+workspace = true

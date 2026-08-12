@@ -1,0 +1,1400 @@
+/* ==========================================================================
+   Mechanism Interferometry — static site stylesheet.
+   Zero build, zero remote dependencies, light and dark themes.
+
+   Semantic colour contract. These meanings are fixed and are used identically
+   in this stylesheet and in every diagram that app.js draws:
+
+     --flat   green   the square closes, curvature is zero, the certificate holds
+     --curve  amber   curvature is present, the result is diagnostic only
+     --block  red     fail-closed, no certificate is issued
+     --violet         a mechanism, a primitive ratio, the object of study
+     --info   blue    neutral commentary about the design
+     --muted  slate   inert structure
+
+   Nothing in the page may use green for decoration. Green means flat.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Fonts
+
+   Both faces are self-hosted variable subsets, so the page has no network
+   dependency at all. No unicode-range is declared: the page sets Greek and
+   mathematical characters that the latin subset does not cover, and per-glyph
+   fallback to the platform font is the intended behaviour for those.
+   -------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: "Inter";
+  src: url("assets/fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("assets/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* --------------------------------------------------------------------------
+   2. Tokens
+   -------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  --bg: #fdfdff;
+  --bg-deep: #f5f4fb;
+  --surface: #ffffff;
+  --surface-2: #f7f6fc;
+  --surface-3: #efedf9;
+  --inset: #f4f3fa;
+
+  /* Five-step ink ramp. Every one of these clears AA on --surface. */
+  --fg: #131a2c;
+  --fg-mid: #333f59;
+  --fg-dim: #59617a;
+  --fg-faint: #767e93;
+
+  --violet: #5b46e0;
+  --violet-2: #8467f4;
+  --violet-ink: #4736c0;
+  --violet-wash: #efecfe;
+
+  --flat: #0d9b70;
+  --flat-ink: #076a4c;
+  --flat-wash: #e4f7ef;
+
+  --curve: #d76a10;
+  --curve-ink: #9a4906;
+  --curve-wash: #fdf0e4;
+
+  --block: #d0344a;
+  --block-ink: #9b1c2e;
+  --block-wash: #fdebee;
+
+  --info: #2260c6;
+  --info-ink: #16428c;
+  --info-wash: #e8effd;
+
+  --line: #e4e3ee;
+  --line-strong: #cecde0;
+  --grid: #ebeaf4;
+  --axis: #a5abbd;
+
+  --shadow: 0 14px 40px -18px rgba(19, 26, 44, .34);
+  --shadow-sm: 0 1px 2px rgba(19, 26, 44, .05), 0 0 0 1px rgba(19, 26, 44, .05);
+  --glow: 0 0 34px -8px rgba(91, 70, 224, .3);
+
+  --r-sm: 9px;
+  --r: 13px;
+  --r-lg: 19px;
+  --r-pill: 9999px;
+
+  --sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --math: "Latin Modern Math", "STIX Two Math", "Cambria Math", "Times New Roman", Georgia, serif;
+
+  --wrap: 1200px;
+  --header-h: 64px;
+
+  --ease: cubic-bezier(.22, .8, .2, 1);
+  --ease-spring: cubic-bezier(.34, 1.42, .5, 1);
+  --t-fast: .16s;
+  --t: .3s;
+  --t-slow: .62s;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0a0e1a;
+  --bg-deep: #070a14;
+  --surface: #121a2d;
+  --surface-2: #16203a;
+  --surface-3: #1d2946;
+  --inset: #0d1424;
+
+  --fg: #eef1f8;
+  --fg-mid: #cbd4e6;
+  --fg-dim: #9aa5bd;
+  --fg-faint: #7d879f;
+
+  --violet: #9d88ff;
+  --violet-2: #b8a5ff;
+  --violet-ink: #c6b7ff;
+  --violet-wash: rgba(157, 136, 255, .13);
+
+  --flat: #3fd7a4;
+  --flat-ink: #7fe9c6;
+  --flat-wash: rgba(63, 215, 164, .12);
+
+  --curve: #ffab5c;
+  --curve-ink: #ffc78f;
+  --curve-wash: rgba(255, 171, 92, .12);
+
+  --block: #ff7286;
+  --block-ink: #ff9fac;
+  --block-wash: rgba(255, 114, 134, .12);
+
+  --info: #6da7ff;
+  --info-ink: #a2c6ff;
+  --info-wash: rgba(109, 167, 255, .12);
+
+  --line: #25304c;
+  --line-strong: #384669;
+  --grid: #202a45;
+  --axis: #5b6786;
+
+  --shadow: 0 18px 48px -20px rgba(0, 0, 0, .85);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .05);
+  --glow: 0 0 40px -10px rgba(157, 136, 255, .45);
+}
+
+/* The same overrides when the visitor has expressed no explicit choice. Kept
+   as a duplicate block rather than a shared selector list, because a browser
+   that does not understand one selector must still apply the other. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #0a0e1a;
+    --bg-deep: #070a14;
+    --surface: #121a2d;
+    --surface-2: #16203a;
+    --surface-3: #1d2946;
+    --inset: #0d1424;
+
+    --fg: #eef1f8;
+    --fg-mid: #cbd4e6;
+    --fg-dim: #9aa5bd;
+    --fg-faint: #7d879f;
+
+    --violet: #9d88ff;
+    --violet-2: #b8a5ff;
+    --violet-ink: #c6b7ff;
+    --violet-wash: rgba(157, 136, 255, .13);
+
+    --flat: #3fd7a4;
+    --flat-ink: #7fe9c6;
+    --flat-wash: rgba(63, 215, 164, .12);
+
+    --curve: #ffab5c;
+    --curve-ink: #ffc78f;
+    --curve-wash: rgba(255, 171, 92, .12);
+
+    --block: #ff7286;
+    --block-ink: #ff9fac;
+    --block-wash: rgba(255, 114, 134, .12);
+
+    --info: #6da7ff;
+    --info-ink: #a2c6ff;
+    --info-wash: rgba(109, 167, 255, .12);
+
+    --line: #25304c;
+    --line-strong: #384669;
+    --grid: #202a45;
+    --axis: #5b6786;
+
+    --shadow: 0 18px 48px -20px rgba(0, 0, 0, .85);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .05);
+    --glow: 0 0 40px -10px rgba(157, 136, 255, .45);
+  }
+}
+
+@media (max-width: 640px) {
+  :root { --header-h: 58px; }
+}
+
+/* --------------------------------------------------------------------------
+   3. Base
+   -------------------------------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Load-bearing: several elements below are given an explicit display value,
+   which would otherwise beat the user-agent rule for [hidden]. */
+[hidden] { display: none !important; }
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  font: 400 16.5px/1.65 var(--sans);
+  font-synthesis-weight: none;
+  font-feature-settings: "kern" 1, "liga" 1;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Ambient wash. Fixed and behind everything, so the page never reads as a
+   flat rectangle even with JavaScript disabled. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 640px at 10% -8%, var(--violet-wash), transparent 68%),
+    radial-gradient(900px 700px at 96% 6%, var(--flat-wash), transparent 70%),
+    radial-gradient(760px 560px at 46% 106%, var(--curve-wash), transparent 72%);
+}
+
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+p { margin: 0 0 1.05em; color: var(--fg-dim); }
+p:last-child { margin-bottom: 0; }
+
+h1, h2, h3, h4 {
+  margin: 0 0 .5em;
+  color: var(--fg);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -.028em;
+  text-wrap: balance;
+}
+
+h1 { font-size: clamp(2.5rem, 6.4vw, 4.6rem); line-height: 1.02; letter-spacing: -.042em; }
+h2 { font-size: clamp(1.95rem, 4.4vw, 3.1rem); line-height: 1.06; letter-spacing: -.034em; }
+h3 { font-size: 1.2rem; }
+h4 { font-size: 1rem; }
+
+em.accent {
+  font-style: normal;
+  background: linear-gradient(100deg, var(--violet), var(--flat));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+::selection { background: color-mix(in srgb, var(--violet) 30%, transparent); }
+
+:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+img { max-width: 100%; height: auto; }
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 10px;
+  z-index: 100;
+  padding: 11px 18px;
+  border-radius: var(--r);
+  background: var(--violet);
+  color: #fff;
+  font-weight: 700;
+}
+
+.skip-link:focus { left: 10px; }
+
+/* --------------------------------------------------------------------------
+   4. Layout primitives
+   -------------------------------------------------------------------------- */
+
+.wrap { width: min(100% - 2.2rem, var(--wrap)); margin-inline: auto; }
+.wrap-narrow { width: min(100% - 2.2rem, 820px); margin-inline: auto; }
+
+main > section {
+  position: relative;
+  padding-block: clamp(4rem, 7vw, 6.5rem);
+  scroll-margin-top: calc(var(--header-h) + 28px);
+}
+
+main > section:first-of-type { padding-top: 0; }
+
+/* Divider drawn by the section itself, so there is no divider markup and the
+   first section can never grow one. Suppressed on banded sections, whose own
+   background already provides the break. */
+main > section + section:not(.band)::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 2.2rem, var(--wrap));
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line) 20%, var(--line) 80%, transparent);
+}
+
+.band { background: var(--bg-deep); border-block: 1px solid var(--line); }
+
+.band--deep {
+  background:
+    radial-gradient(900px 600px at 82% -10%, rgba(91, 70, 224, .3), transparent 66%),
+    radial-gradient(700px 520px at 4% 110%, rgba(13, 155, 112, .16), transparent 68%),
+    linear-gradient(165deg, #161f38, #0b1120);
+  border-color: transparent;
+  color: #e9edf7;
+  overflow: hidden;
+}
+
+.band--deep h2, .band--deep h3, .band--deep h4 { color: #fff; }
+.band--deep p { color: #aeb9d1; }
+
+/* The ink ramp does not invert on the dark bands in the light theme, so
+   display mathematics has to be re-inked explicitly here. */
+.band--deep .eq { color: #e9edf7; }
+.band--deep .eq .op { color: #93a0bd; }
+.band--deep .label { color: #3fd7a4; }
+.band--deep .eyebrow { color: #3fd7a4; }
+.band--deep .eyebrow::before, .band--deep .eyebrow::after { background: rgba(63, 215, 164, .4); }
+
+/* One large ring, low contrast, to give the dark bands depth. */
+.band--deep::after {
+  content: "";
+  position: absolute;
+  right: -220px;
+  bottom: -360px;
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .06);
+  pointer-events: none;
+}
+
+.grid { display: grid; gap: 1.15rem; }
+.grid > * { min-width: 0; }
+.grid-2, .grid-3, .grid-4 { grid-template-columns: minmax(0, 1fr); }
+
+@media (min-width: 700px) {
+  .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 960px) {
+  .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.stack { display: grid; gap: 1.15rem; }
+.row { display: flex; align-items: center; flex-wrap: wrap; gap: .7rem; min-width: 0; }
+.row.spread { justify-content: space-between; }
+.mt { margin-top: 1.6rem; }
+
+/* --------------------------------------------------------------------------
+   5. Type roles
+   -------------------------------------------------------------------------- */
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: .75rem;
+  margin: 0 0 1rem;
+  font: 800 10px/1 var(--sans);
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--violet);
+}
+
+.eyebrow::before, .eyebrow::after {
+  content: "";
+  height: 1px;
+  width: 28px;
+  background: color-mix(in srgb, var(--violet) 42%, transparent);
+}
+
+@media (max-width: 560px) {
+  .eyebrow { gap: 0; }
+  .eyebrow::before, .eyebrow::after { display: none; }
+}
+
+.section-head { margin-bottom: clamp(2.2rem, 4vw, 3.2rem); max-width: 62ch; }
+.section-head .lede { font-size: clamp(1.02rem, 1.6vw, 1.14rem); color: var(--fg-dim); }
+.section-head .lede strong { color: var(--fg-mid); font-weight: 650; }
+
+.lede { font-size: 1.08rem; line-height: 1.55; color: var(--fg-mid); }
+.note { font-size: .95rem; line-height: 1.68; }
+.micro { font-size: .82rem; color: var(--fg-faint); }
+
+.label {
+  margin: 0 0 .7rem;
+  font: 800 .68rem/1 var(--sans);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--violet);
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
+.wrap-any { overflow-wrap: anywhere; }
+
+code {
+  font-family: var(--mono);
+  font-size: .86em;
+  padding: .12em .4em;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--inset);
+  color: var(--violet-ink);
+}
+
+.band--deep code { border-color: rgba(255, 255, 255, .12); background: rgba(0, 0, 0, .3); color: #a9ecd3; }
+
+pre.code {
+  margin: 0;
+  padding: 1.1rem 1.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--inset);
+  font: 400 .85rem/1.85 var(--mono);
+  overflow-x: auto;
+}
+
+pre.code code { border: 0; padding: 0; background: none; color: inherit; font-size: 1em; }
+pre.code .c { color: var(--fg-faint); }
+
+/* --------------------------------------------------------------------------
+   6. Mathematics
+
+   Display mathematics is set in a math serif so that Greek, italic variables
+   and the operators share one voice. Variables are italic, operator names are
+   upright, exactly as they are in the paper.
+   -------------------------------------------------------------------------- */
+
+.eq {
+  font-family: var(--math);
+  font-size: clamp(1.08rem, 1.9vw, 1.45rem);
+  line-height: 1.75;
+  color: var(--fg);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 2px;
+}
+
+.eq var { font-style: italic; }
+.eq .fn { font-style: normal; }
+.eq sub, .eq sup { font-size: .64em; font-style: normal; }
+.eq .op { padding-inline: .3em; color: var(--fg-dim); }
+.eq--sm { font-size: clamp(.98rem, 1.4vw, 1.12rem); }
+
+/* A real built-up fraction, so ratios of densities read as ratios rather than
+   as a slash that has to be mentally re-parsed. */
+.eq .frac {
+  display: inline-grid;
+  vertical-align: middle;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.eq .frac > span:first-child { padding: 0 .4em .12em; border-bottom: 1px solid currentColor; }
+.eq .frac > span:last-child { padding: .12em .4em 0; }
+
+.eq-card {
+  margin-block: 1.4rem;
+  padding: clamp(1.2rem, 2.4vw, 1.9rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: linear-gradient(135deg, var(--violet-wash), transparent 60%), var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.eq-card .label { color: var(--flat-ink); }
+.eq-card .note { margin-top: 1rem; margin-bottom: 0; }
+
+/* --------------------------------------------------------------------------
+   7. Header
+   -------------------------------------------------------------------------- */
+
+.top {
+  position: fixed;
+  top: .7rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  width: min(100% - 1.4rem, var(--wrap));
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-inline: .85rem;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease),
+              box-shadow var(--t) var(--ease), backdrop-filter var(--t) var(--ease);
+}
+
+.top.stuck {
+  background: color-mix(in srgb, var(--bg) 74%, transparent);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+}
+
+/* Reading progress, drawn on the header's own bottom edge. */
+.top .progress {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity var(--t) var(--ease);
+}
+
+.top.stuck .progress { opacity: 1; }
+
+.top .progress i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, var(--violet), var(--flat));
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+.brand { display: flex; align-items: center; gap: .65rem; font-weight: 800; letter-spacing: -.02em; }
+.brand:hover { text-decoration: none; }
+
+.brand-mark {
+  width: 32px; height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--violet), var(--flat));
+  color: #fff;
+  font: 850 .74rem/1 var(--sans);
+  letter-spacing: .02em;
+  box-shadow: var(--glow);
+}
+
+.brand-text { display: flex; flex-direction: column; line-height: 1.16; white-space: nowrap; }
+.brand-text b { font-size: .9rem; font-weight: 800; }
+.brand-text span { font-size: .63rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--fg-faint); }
+
+/* The tagline is the first thing to go: between roughly 1024 and 1320 pixels
+   the navigation needs the room more than the subtitle does. */
+@media (max-width: 1320px) { .brand-text span { display: none; } }
+
+.top nav { display: none; gap: .1rem; }
+
+@media (min-width: 1024px) { .top nav { display: flex; } }
+
+.top nav a {
+  padding: .45rem .6rem;
+  border-radius: var(--r-sm);
+  font-size: .84rem;
+  font-weight: 620;
+  white-space: nowrap;
+  color: var(--fg-dim);
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+
+.top nav a:hover { color: var(--fg); background: var(--surface-2); text-decoration: none; }
+.top nav a[aria-current="true"] { color: var(--violet); background: var(--violet-wash); }
+
+.top-actions { display: flex; align-items: center; gap: .5rem; flex: none; }
+
+/* Below roughly 560 pixels the brand, the theme control and a five-word call
+   to action cannot share one bar. The call to action loses its adjective
+   rather than its existence. */
+.btn-short { display: none; }
+
+@media (max-width: 560px) {
+  .btn-full { display: none; }
+  .btn-short { display: inline; }
+  .top { padding-inline: .6rem; gap: .5rem; }
+  .brand-text b { font-size: .82rem; }
+}
+
+@media (max-width: 400px) {
+  .brand-text { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   8. Buttons and controls
+   -------------------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  min-height: 42px;
+  padding: .6rem 1.1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--fg);
+  font: 700 .78rem/1 var(--sans);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform var(--t-fast) var(--ease-spring), box-shadow var(--t) var(--ease),
+              border-color var(--t) var(--ease), color var(--t) var(--ease);
+}
+
+.btn:hover { transform: translateY(-2px); box-shadow: var(--shadow); text-decoration: none; }
+.btn:active { transform: translateY(0); }
+
+.btn.primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--violet), var(--violet-2));
+  color: #fff;
+  box-shadow: 0 10px 26px -12px rgba(91, 70, 224, .9);
+}
+
+.btn.primary:hover { box-shadow: 0 18px 38px -14px rgba(91, 70, 224, .95); }
+
+/* A preset, not a call to action: quieter than .btn but still unmistakably a
+   control, because a borderless label reads as prose. */
+.btn.subtle {
+  min-height: 36px;
+  padding: .45rem .85rem;
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--fg-dim);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: .84rem;
+  font-weight: 620;
+}
+
+.btn.subtle:hover { color: var(--violet); border-color: var(--violet); box-shadow: none; }
+
+.icon-btn {
+  width: 38px; height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--fg-dim);
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+              transform var(--t-fast) var(--ease-spring);
+}
+
+.icon-btn:hover { color: var(--violet); border-color: var(--violet); transform: translateY(-1px); }
+.icon-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn .moon { display: none; }
+
+:root[data-theme="dark"] .icon-btn .sun { display: none; }
+:root[data-theme="dark"] .icon-btn .moon { display: block; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .icon-btn .sun { display: none; }
+  :root:not([data-theme="light"]) .icon-btn .moon { display: block; }
+}
+
+/* Segmented control. State lives in aria-pressed, never in a class. */
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+}
+
+.seg-btn {
+  min-height: 36px;
+  padding: .4rem .9rem;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--fg-dim);
+  font: 650 .82rem/1 var(--sans);
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+
+.seg-btn:hover { color: var(--fg); }
+
+.seg-btn[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--violet);
+  box-shadow: var(--shadow-sm);
+}
+
+select.field-input, input.field-input {
+  min-height: 42px;
+  width: 100%;
+  padding: .5rem .8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  color: var(--fg);
+  font: 620 .88rem/1.4 var(--sans);
+  cursor: pointer;
+}
+
+select.field-input:focus-visible, input.field-input:focus-visible { border-color: var(--violet); }
+
+.field { display: grid; gap: .35rem; margin-bottom: 1rem; }
+.field > span { font-size: .8rem; font-weight: 700; color: var(--fg-dim); }
+
+.switch { display: flex; align-items: center; gap: .6rem; font-size: .88rem; font-weight: 620; cursor: pointer; }
+.switch input { width: 17px; height: 17px; accent-color: var(--violet); cursor: pointer; }
+
+input[type="range"] {
+  width: 100%;
+  height: 26px;
+  margin: .3rem 0 0;
+  background: transparent;
+  accent-color: var(--violet);
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .btn, .seg-btn, .icon-btn, .tab { min-height: 44px; }
+  input[type="range"] { height: 34px; }
+}
+
+/* --------------------------------------------------------------------------
+   9. Cards and panels
+   -------------------------------------------------------------------------- */
+
+.panel {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .8rem;
+  padding: .85rem 1.15rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.panel-head h3 { margin: 0; font-size: .95rem; font-weight: 760; }
+.panel-head .micro { margin: 0; }
+.panel-body { padding: 1.15rem; }
+.panel-body > svg { display: block; width: 100%; height: auto; }
+
+.panel.is-flat { border-color: color-mix(in srgb, var(--flat) 42%, var(--line)); }
+.panel.is-flat .panel-head { background: var(--flat-wash); }
+.panel.is-curve { border-color: color-mix(in srgb, var(--curve) 42%, var(--line)); }
+.panel.is-curve .panel-head { background: var(--curve-wash); }
+
+.card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  transition: transform var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
+}
+
+.card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--violet) 34%, var(--line)); box-shadow: var(--shadow); }
+.card > :last-child { margin-bottom: 0; }
+
+.card-num {
+  position: absolute;
+  top: .1rem;
+  right: .75rem;
+  font: 800 2.6rem/1 var(--mono);
+  color: color-mix(in srgb, var(--violet) 12%, transparent);
+  pointer-events: none;
+}
+
+.band--deep .card {
+  background: rgba(255, 255, 255, .045);
+  border-color: rgba(255, 255, 255, .1);
+  backdrop-filter: blur(10px) saturate(130%);
+  -webkit-backdrop-filter: blur(10px) saturate(130%);
+}
+
+.band--deep .card:hover { border-color: rgba(63, 215, 164, .35); box-shadow: 0 0 40px -14px rgba(63, 215, 164, .5); }
+
+.glyph {
+  width: 42px; height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  margin-bottom: 1.1rem;
+  font: 830 .88rem/1 var(--sans);
+  color: #fff;
+}
+
+.glyph.v { background: var(--violet); }
+.glyph.c { background: var(--curve); }
+.glyph.i { background: var(--info); }
+.glyph.f { background: var(--flat); }
+
+.glyph.ring {
+  border-radius: 50%;
+  border: 2px solid var(--flat);
+  background: none;
+  color: var(--flat);
+  font-size: 1rem;
+}
+
+/* --------------------------------------------------------------------------
+   10. Chips, verdicts, callouts
+   -------------------------------------------------------------------------- */
+
+.chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .4rem .8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font: 500 .8rem/1 var(--mono);
+  color: var(--fg-dim);
+}
+
+.chip b { color: var(--violet-ink); font-weight: 700; }
+
+.verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .32rem .7rem;
+  border-radius: var(--r-pill);
+  font: 700 .74rem/1.3 var(--mono);
+  white-space: nowrap;
+}
+
+.verdict::before {
+  content: "";
+  width: 7px; height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.verdict.flat { color: var(--flat-ink); background: var(--flat-wash); }
+.verdict.curve { color: var(--curve-ink); background: var(--curve-wash); }
+.verdict.block { color: var(--block-ink); background: var(--block-wash); }
+.verdict.info { color: var(--info-ink); background: var(--info-wash); }
+.verdict.muted { color: var(--fg-dim); background: var(--surface-3); }
+
+.callout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: .3rem 1rem;
+  padding: 1.1rem 1.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  color: var(--fg-mid);
+}
+
+.callout p { margin: 0; color: inherit; font-size: .95rem; }
+.callout p + p { margin-top: .6rem; }
+.callout .callout-mark { font-size: 1.05rem; line-height: 1.6; }
+.callout.flat { border-color: color-mix(in srgb, var(--flat) 40%, var(--line)); background: var(--flat-wash); }
+.callout.flat b, .callout.flat .callout-mark { color: var(--flat-ink); }
+.callout.curve { border-color: color-mix(in srgb, var(--curve) 40%, var(--line)); background: var(--curve-wash); }
+.callout.curve b, .callout.curve .callout-mark { color: var(--curve-ink); }
+.callout.block { border-color: color-mix(in srgb, var(--block) 40%, var(--line)); background: var(--block-wash); }
+.callout.block b, .callout.block .callout-mark { color: var(--block-ink); }
+.callout.info { border-color: color-mix(in srgb, var(--info) 40%, var(--line)); background: var(--info-wash); }
+.callout.info b, .callout.info .callout-mark { color: var(--info-ink); }
+
+/* --------------------------------------------------------------------------
+   11. Scroll reveal
+
+   The no-JavaScript state is fully visible. Only once app.js sets html.js do
+   the hidden-then-revealed styles apply.
+   -------------------------------------------------------------------------- */
+
+.reveal { opacity: 1; }
+
+html.js .reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity var(--t-slow) var(--ease), transform var(--t-slow) var(--ease);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+html.js .reveal.revealed { opacity: 1; transform: none; }
+
+/* --------------------------------------------------------------------------
+   12. Hero
+   -------------------------------------------------------------------------- */
+
+/* Two selectors deep on purpose: this has to outrank the
+   `main > section:first-of-type { padding-top: 0 }` rule above, or the fixed
+   header lands on top of the headline. */
+main > section.hero {
+  padding-top: calc(var(--header-h) + clamp(2.6rem, 6vw, 4.6rem));
+  padding-bottom: clamp(3rem, 6vw, 5rem);
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(2rem, 4vw, 3.4rem);
+  align-items: center;
+}
+
+@media (min-width: 1000px) {
+  .hero-grid { grid-template-columns: minmax(0, 1.04fr) minmax(0, .96fr); }
+}
+
+.hero h1 { margin-bottom: .4em; }
+.hero .lede { max-width: 52ch; font-size: clamp(1.05rem, 1.7vw, 1.24rem); }
+.hero-cta { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.8rem 0 1.6rem; }
+
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .7rem;
+  max-width: 600px;
+}
+
+.hero-metrics div {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: .75rem .9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--surface) 64%, transparent);
+}
+
+.hero-metrics b { font: 850 1.5rem/1 var(--mono); color: var(--violet); }
+.hero-metrics span { font-size: .78rem; line-height: 1.24; color: var(--fg-dim); }
+
+.hero-art { position: relative; margin: 0; }
+.hero-art svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+@media (max-width: 620px) {
+  .hero-metrics { grid-template-columns: 1fr; }
+  .hero-cta .btn { flex: 1 1 100%; }
+}
+
+/* --------------------------------------------------------------------------
+   13. Diagram styling
+
+   app.js builds SVG nodes and assigns these classes. Colours never appear as
+   literals in the JavaScript, so both themes work without a redraw.
+   -------------------------------------------------------------------------- */
+
+.viz-plate { fill: var(--inset); stroke: var(--line); }
+.viz-grid { stroke: var(--grid); stroke-width: 1; fill: none; }
+.viz-axis { stroke: var(--axis); stroke-width: 1.3; fill: none; }
+.viz-tick { fill: var(--fg-faint); font: 500 11.5px var(--mono); }
+.viz-label { fill: var(--fg-dim); font: 700 12.5px var(--sans); }
+.viz-title { fill: var(--fg); font: 750 13px var(--sans); }
+
+.viz-curve { fill: none; stroke: var(--curve); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.viz-curve.flat { stroke: var(--flat); }
+.viz-area { fill: var(--curve); opacity: .14; }
+.viz-area.flat { fill: var(--flat); }
+
+.viz-cell { fill: var(--surface-2); stroke: var(--line); }
+.viz-cell.flat { fill: var(--flat-wash); stroke: color-mix(in srgb, var(--flat) 45%, var(--line)); }
+.viz-cell.curve { fill: var(--curve-wash); stroke: color-mix(in srgb, var(--curve) 45%, var(--line)); }
+.viz-cell.block { fill: var(--block-wash); stroke: color-mix(in srgb, var(--block) 45%, var(--line)); }
+
+.viz-node { fill: var(--violet); }
+.viz-node-text { fill: #fff; font: 800 14px var(--sans); text-anchor: middle; }
+.viz-edge { fill: none; stroke: var(--flat); stroke-width: 3; stroke-linecap: round; }
+.viz-edge-text { fill: var(--flat-ink); font: 800 12px var(--sans); text-anchor: middle; }
+
+.viz-val { fill: var(--fg); font: 700 13px var(--mono); text-anchor: middle; }
+.viz-val.dim { fill: var(--fg-faint); font-weight: 500; font-size: 11px; }
+.viz-val.flat { fill: var(--flat-ink); }
+.viz-val.curve { fill: var(--curve-ink); }
+.viz-val.block { fill: var(--block-ink); }
+
+.viz-bar { fill: var(--violet); }
+.viz-bar.flat { fill: var(--flat); }
+.viz-bar.curve { fill: var(--curve); }
+.viz-bar.block { fill: var(--block); }
+.viz-bar.dim { fill: var(--axis); }
+
+/* An outline drawn over a filled bar, so "these two quantities coincide" is
+   something the reader sees rather than something the caption asserts. */
+.viz-outline { fill: none; stroke: var(--flat); stroke-width: 2.5; stroke-dasharray: 5 4; }
+
+.viz-arrow { fill: var(--flat); stroke: none; }
+.viz-beam { fill: none; stroke: var(--axis); stroke-width: 1.6; stroke-dasharray: 4 4; }
+.viz-threshold { stroke: var(--curve); stroke-width: 2; stroke-dasharray: 6 5; }
+.viz-interval { stroke: var(--violet); stroke-width: 3; stroke-linecap: round; }
+.viz-interval.flat { stroke: var(--flat); }
+.viz-interval.curve { stroke: var(--curve); }
+.viz-interval.block { stroke: var(--block); }
+
+.hero-badge { fill: var(--surface); stroke: var(--flat); stroke-width: 2.5; }
+.hero-badge-text { fill: var(--flat-ink); font: 800 26px var(--mono); text-anchor: middle; }
+
+/* The pulse traces the cycle once and repeats: going round the square and
+   returning to the start costs nothing exactly when the face is flat. */
+.hero-pulse {
+  fill: none;
+  stroke: var(--violet);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 70 920;
+  opacity: .5;
+  animation: cycle-trace 6s linear infinite;
+}
+
+@keyframes cycle-trace {
+  from { stroke-dashoffset: 990; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* Wide diagrams scroll in their own box. The right-edge fade is the only
+   affordance a phone gets, and it is removed once nothing is clipped. */
+.viz-wide { overflow-x: auto; }
+
+@media (max-width: 760px) {
+  .viz-wide {
+    -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 30px), transparent 100%);
+    mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 30px), transparent 100%);
+  }
+  .viz-wide > svg { min-width: 560px; }
+}
+
+/* --------------------------------------------------------------------------
+   14. Interactive workbenches
+   -------------------------------------------------------------------------- */
+
+.bench { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.15rem; align-items: start; }
+
+@media (min-width: 1000px) {
+  .bench { grid-template-columns: minmax(0, 336px) minmax(0, 1fr); }
+  .bench--wide-controls { grid-template-columns: minmax(0, 360px) minmax(0, 1fr); }
+}
+
+.control { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: .1rem .6rem; margin-bottom: 1.15rem; }
+.control > label { font-size: .87rem; font-weight: 700; }
+.control > output { font: 700 .88rem/1 var(--mono); color: var(--violet); font-variant-numeric: tabular-nums; }
+.control > input { grid-column: 1 / -1; }
+.control > .micro { grid-column: 1 / -1; margin: .15rem 0 0; }
+
+.readouts { margin-top: .3rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+
+.readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .48rem 0;
+  font-size: .86rem;
+  border-bottom: 1px dashed var(--line);
+}
+
+.readout:last-child { border-bottom: 0; }
+
+/* An interval is too wide to sit beside its label in a narrow control column,
+   so it gets its own line rather than wrapping into a ragged block. */
+.readout--stack { display: grid; gap: .1rem; }
+.readout--stack > strong { justify-self: start; }
+.readout > span { color: var(--fg-dim); }
+.readout > strong { font: 700 .88rem/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--fg); transition: color var(--t) var(--ease); }
+.readout > strong.is-flat { color: var(--flat-ink); }
+.readout > strong.is-curve { color: var(--curve-ink); }
+.readout > strong.is-block { color: var(--block-ink); }
+
+.split-panels { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.15rem; }
+
+@media (min-width: 860px) {
+  .split-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.caption {
+  margin: .8rem 0 0;
+  font-family: var(--math);
+  font-size: 1rem;
+  text-align: center;
+  color: var(--fg-dim);
+}
+
+/* --------------------------------------------------------------------------
+   15. Tabs
+   -------------------------------------------------------------------------- */
+
+.tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.3rem; }
+
+.tab {
+  min-height: 42px;
+  padding: .55rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--fg-dim);
+  font: 640 .86rem/1.2 var(--sans);
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease),
+              border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease-spring);
+}
+
+.tab:hover { color: var(--fg); transform: translateY(-1px); }
+
+.tab[aria-selected="true"] {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--violet), var(--violet-2));
+  color: #fff;
+  box-shadow: 0 10px 24px -14px rgba(91, 70, 224, .95);
+}
+
+.tabpanel { animation: panel-in var(--t-slow) var(--ease) both; }
+
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* --------------------------------------------------------------------------
+   16. Certificate band
+   -------------------------------------------------------------------------- */
+
+/* The biconditional is the headline result, so it is laid out as one: two
+   sides stacked around a turnstile, rather than a single wrapping line in
+   which the double arrow ends up looking like ordinary punctuation. */
+.iff {
+  display: grid;
+  justify-items: center;
+  gap: .5rem;
+  margin-top: 1.6rem;
+  padding: 1.6rem;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: var(--r-lg);
+  background: rgba(255, 255, 255, .05);
+  text-align: center;
+}
+
+.iff p { margin: 0; }
+
+.iff-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem .8rem;
+  font: 700 .95rem/1.4 var(--mono);
+  color: #e7ecf7;
+}
+
+.iff-side b { color: #3fd7a4; }
+.iff-side .iff-op { color: #ffab5c; font-size: 1.2rem; }
+
+.iff-turnstile {
+  font-size: 2rem;
+  line-height: 1;
+  color: #ffab5c;
+}
+
+.iff-out {
+  max-width: 46ch;
+  font: 800 1.06rem/1.4 var(--sans);
+  letter-spacing: -.015em;
+  color: #fff;
+}
+
+/* --------------------------------------------------------------------------
+   17. Laws, pipeline, stack, findings
+   -------------------------------------------------------------------------- */
+
+.law .eq { margin-bottom: .9rem; padding: .75rem .9rem; border-radius: var(--r); background: var(--surface-2); }
+
+.pipeline { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin: 0; padding: 0; counter-reset: step; }
+
+@media (min-width: 760px) { .pipeline { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1080px) { .pipeline { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+.pipeline > li {
+  position: relative;
+  list-style: none;
+  padding: 1.1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  transition: transform var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
+}
+
+.pipeline > li:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--violet) 36%, var(--line)); box-shadow: var(--shadow); }
+
+.pipeline > li::before {
+  counter-increment: step;
+  content: "0" counter(step);
+  display: block;
+  margin-bottom: .5rem;
+  font: 800 .76rem/1 var(--mono);
+  color: var(--violet);
+}
+
+.pipeline h3 { font-size: .97rem; margin-bottom: .35em; }
+.pipeline p { font-size: .81rem; line-height: 1.45; }
+
+@media (min-width: 1080px) {
+  .pipeline > li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -.75rem;
+    width: .75rem;
+    height: 1px;
+    background: var(--line-strong);
+  }
+}
+
+.crates { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .6rem; margin-top: 1.8rem; }
+
+.crates div { padding: .8rem 1rem; border: 1px solid rgba(255, 255, 255, .08); border-radius: var(--r); background: rgba(255, 255, 255, .045); }
+.crates b { display: block; font: 700 .82rem/1 var(--mono); color: #8ee9c6; }
+.crates span { display: block; margin-top: .3rem; font-size: .75rem; line-height: 1.4; color: #a5b1ca; }
+
+.findings { display: grid; gap: .6rem; margin-top: 1.15rem; }
+
+.finding {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: .2rem 1rem;
+  padding: .85rem 1.05rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  animation: panel-in var(--t) var(--ease) both;
+}
+
+.finding code { border: 0; padding: 0; background: none; font-size: .77rem; font-weight: 700; color: var(--fg-dim); white-space: nowrap; }
+.finding p { grid-column: 2; margin: 0; font-size: .86rem; color: var(--fg-mid); }
+.finding.error { border-color: color-mix(in srgb, var(--block) 42%, var(--line)); background: var(--block-wash); }
+.finding.error code { color: var(--block-ink); }
+.finding.warn { border-color: color-mix(in srgb, var(--curve) 42%, var(--line)); background: var(--curve-wash); }
+.finding.warn code { color: var(--curve-ink); }
+.finding.ok { border-color: color-mix(in srgb, var(--flat) 42%, var(--line)); background: var(--flat-wash); }
+.finding.ok code { color: var(--flat-ink); }
+
+@media (max-width: 560px) {
+  .finding { grid-template-columns: minmax(0, 1fr); }
+  .finding p { grid-column: 1; }
+}
+
+.quota-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; margin-bottom: 1.1rem; }
+
+.quota { display: grid; gap: .15rem; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); }
+.quota label { font: 500 .74rem/1 var(--mono); color: var(--fg-dim); }
+.quota input { width: 100%; padding: 0; border: 0; background: none; color: var(--fg); font: 700 1rem/1.4 var(--mono); font-variant-numeric: tabular-nums; }
+.quota input:focus { outline: none; }
+.quota:focus-within { border-color: var(--violet); box-shadow: 0 0 0 3px var(--violet-wash); }
+
+/* --------------------------------------------------------------------------
+   18. Tracks, figures, footer
+   -------------------------------------------------------------------------- */
+
+.track { position: relative; }
+.track .eq { margin: 1rem 0; padding: .75rem .9rem; border-radius: var(--r); background: var(--surface-2); }
+.track.featured { border-color: color-mix(in srgb, var(--flat) 46%, var(--line)); box-shadow: var(--shadow); }
+.track.featured .card-num { color: color-mix(in srgb, var(--flat) 16%, transparent); }
+.rule { width: 42px; height: 3px; border-radius: 3px; background: var(--flat); margin: 1.1rem 0; }
+
+.figure { margin: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.figure img { display: block; width: 100%; background: #fff; }
+.figure figcaption { padding: .8rem 1.1rem; border-top: 1px solid var(--line); font-size: .82rem; color: var(--fg-dim); }
+
+.final-eq {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: .6rem .9rem;
+  margin-top: 1.8rem;
+  padding: 1.8rem;
+  border-radius: var(--r-lg);
+  background: linear-gradient(165deg, #161f38, #0b1120);
+  color: #e7ecf7;
+  font: 700 .92rem/1.4 var(--mono);
+  text-align: center;
+}
+
+.final-eq b { color: #3fd7a4; }
+.final-eq strong { flex-basis: 100%; margin-top: .7rem; font: 800 1.1rem/1.3 var(--sans); color: #ffab5c; }
+
+footer { border-top: 1px solid var(--line); background: var(--bg-deep); padding-block: 2.6rem 2rem; }
+
+.footer-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.6rem; }
+
+@media (min-width: 780px) { .footer-grid { grid-template-columns: 1.5fr 1fr 1fr; } }
+
+.footer-head { margin: 0 0 .7rem; font: 800 .68rem/1 var(--sans); letter-spacing: .22em; text-transform: uppercase; color: var(--fg-faint); }
+.footer-grid ul { margin: 0; padding: 0; list-style: none; display: grid; gap: .45rem; font-size: .89rem; }
+.footer-grid a { color: var(--fg-dim); }
+.footer-grid a:hover { color: var(--violet); }
+
+.footer-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem 1.4rem;
+  justify-content: space-between;
+  margin-top: 2rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+  font-size: .82rem;
+  color: var(--fg-faint);
+}
+
+.noscript-note {
+  margin-bottom: 1.1rem;
+  padding: .9rem 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--info) 40%, var(--line));
+  border-radius: var(--r);
+  background: var(--info-wash);
+  font-size: .87rem;
+  color: var(--info-ink);
+}
+
+/* --------------------------------------------------------------------------
+   19. Reduced motion and print
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+
+  html.js .reveal { opacity: 1; transform: none; }
+  .card:hover, .pipeline > li:hover, .btn:hover, .tab:hover { transform: none; }
+}
+
+@media print {
+  .top, .hero-cta, .tabs, .icon-btn, .seg, input[type="range"], .skip-link { display: none !important; }
+  body { background: #fff; color: #000; }
+  body::before { display: none; }
+  main > section { padding-block: 1.5rem; break-inside: avoid; }
+}

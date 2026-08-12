@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/audit_report.schema.json",
+  "title": "Mechanism Interferometry Audit Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "experiment_id",
+    "mode",
+    "status",
+    "manifest_sha256",
+    "dependency_revisions",
+    "findings",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "run_id": {"type": "string", "minLength": 1},
+    "experiment_id": {"type": "string", "minLength": 1},
+    "mode": {"enum": ["strict", "exploratory"]},
+    "status": {"enum": ["passed", "failed", "abstained", "diagnostic_only"]},
+    "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "dependency_revisions": {
+      "type": "object",
+      "required": ["frankenpandas", "franken_numpy", "frankenscipy", "frankentorch"],
+      "additionalProperties": false,
+      "properties": {
+        "frankenpandas": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "franken_numpy": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "frankenscipy": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "frankentorch": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {"$ref": "evidence_finding.schema.json"}
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    }
+  }
+}

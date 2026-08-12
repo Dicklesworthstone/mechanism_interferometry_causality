@@ -1,0 +1,23 @@
+[package]
+name = "mic-data"
+description = "Validated experiment manifests and FrankenPandas adapters"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+franken = ["dep:frankenpandas"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+mic-design = { path = "../mic-design" }
+frankenpandas = { workspace = true, optional = true }
+
+[lints]
+workspace = true

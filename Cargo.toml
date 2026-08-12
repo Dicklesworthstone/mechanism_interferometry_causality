@@ -1,0 +1,61 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/mic-core",
+  "crates/mic-design",
+  "crates/mic-data",
+  "crates/mic-stats",
+  "crates/mic-model",
+  "crates/mic-audit",
+  "crates/mic-engine",
+  "crates/mic-sim",
+  "crates/mic-cli",
+  "crates/mic-conformance",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+authors = ["Jeffrey Emanuel <Dicklesworthstone@users.noreply.github.com>"]
+license-file = "LICENSE"
+repository = "https://github.com/Dicklesworthstone/mechanism_interferometry_causality"
+homepage = "https://github.com/Dicklesworthstone/mechanism_interferometry_causality"
+
+[workspace.dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151", features = ["preserve_order"] }
+thiserror = "2.0.19"
+sha2 = "0.11.0"
+
+# Reviewed sibling revisions. Individual crates opt in through features.
+frankenpandas = { git = "https://github.com/Dicklesworthstone/frankenpandas", rev = "a9f8d86c9e52923b9b2082d00a65841862d5ca9a", package = "frankenpandas", default-features = false }
+fnp-ndarray = { git = "https://github.com/Dicklesworthstone/franken_numpy", rev = "6964e776528f1e492620ebd627d78d4f958220f4", package = "fnp-ndarray" }
+fnp-random = { git = "https://github.com/Dicklesworthstone/franken_numpy", rev = "6964e776528f1e492620ebd627d78d4f958220f4", package = "fnp-random" }
+fsci-stats = { git = "https://github.com/Dicklesworthstone/frankenscipy", rev = "e259ed002eec05a2eca08d38a0763e0e58b0623c", package = "fsci-stats" }
+fsci-linalg = { git = "https://github.com/Dicklesworthstone/frankenscipy", rev = "e259ed002eec05a2eca08d38a0763e0e58b0623c", package = "fsci-linalg" }
+ft-api = { git = "https://github.com/Dicklesworthstone/frankentorch", rev = "5a3a0e70a2854c08e42ae02d816a78b8f88d912d", package = "ft-api" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# Exact-algebra conformance fixtures assert bitwise float equality on purpose.
+float_cmp = "allow"
+# Sample counts never approach 2^52, so `len() as f64` is exact here.
+cast_precision_loss = "allow"
+similar_names = "allow"
+
+[profile.release-perf]
+inherits = "release"
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+debug = "line-tables-only"
+strip = false
