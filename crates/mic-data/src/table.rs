@@ -1,6 +1,6 @@
 //! Standard-library CSV ingest with cluster-level fingerprints.
 //!
-//! This is the default tabular reader. FrankenPandas remains a feature-gated
+//! This is the default tabular reader. `FrankenPandas` remains a feature-gated
 //! Packet 1 adapter and is not required for four-law diagnostics.
 
 use crate::{ExperimentManifest, ManifestError};
@@ -107,7 +107,9 @@ pub enum TableError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     /// The declared format is not the std CSV reader.
-    #[error("std tabular reader supports csv only, got {0}; parquet/arrow require the franken adapter")]
+    #[error(
+        "std tabular reader supports csv only, got {0}; parquet/arrow require the franken adapter"
+    )]
     UnsupportedFormat(String),
     /// The data file could not be resolved.
     #[error("data file not found: {0}")]
@@ -182,11 +184,7 @@ pub fn load_csv_table(
         if fields.len() != headers.len() {
             return Err(TableError::Parse {
                 row: row_index,
-                message: format!(
-                    "expected {} columns, found {}",
-                    headers.len(),
-                    fields.len()
-                ),
+                message: format!("expected {} columns, found {}", headers.len(), fields.len()),
             });
         }
         rows.push(parse_observation(
@@ -205,11 +203,67 @@ pub fn load_csv_table(
     Ok(summarize(manifest, &path, content_sha256, rows, n_folds))
 }
 
-/// Resolves a declared data path against an optional analysis root.
-pub fn resolve_data_path(
-    declared: &Path,
+/// Untyped CSV used by unsupervised column triage.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawTable {
+    /// Header names in file order.
+    pub headers: Vec<String>,
+    /// Data rows aligned to `headers`.
+    pub rows: Vec<Vec<String>>,
+    /// Resolved path.
+    pub path: PathBuf,
+    /// SHA-256 of the raw file bytes.
+    pub content_sha256: String,
+}
+
+/// Loads a CSV without a manifest. Used only to *propose* designs.
+pub fn load_raw_csv(
+    path: impl AsRef<Path>,
     base_dir: Option<&Path>,
-) -> Result<PathBuf, TableError> {
+) -> Result<RawTable, TableError> {
+    let path = resolve_data_path(path.as_ref(), base_dir)?;
+    let bytes = fs::read(&path)?;
+    let content_sha256 = hex_sha256(&bytes);
+    let text = String::from_utf8(bytes).map_err(|_| TableError::Parse {
+        row: 0,
+        message: "csv is not valid UTF-8".into(),
+    })?;
+    let mut lines = text.lines();
+    let header_line = lines.next().ok_or(TableError::EmptyTable)?;
+    let headers = parse_csv_line(header_line);
+    if headers.is_empty() || headers.iter().all(String::is_empty) {
+        return Err(TableError::Parse {
+            row: 0,
+            message: "csv header is empty".into(),
+        });
+    }
+    let mut rows = Vec::new();
+    for (offset, line) in lines.enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let fields = parse_csv_line(line);
+        if fields.len() != headers.len() {
+            return Err(TableError::Parse {
+                row: offset + 1,
+                message: format!("expected {} columns, found {}", headers.len(), fields.len()),
+            });
+        }
+        rows.push(fields);
+    }
+    if rows.is_empty() {
+        return Err(TableError::EmptyTable);
+    }
+    Ok(RawTable {
+        headers,
+        rows,
+        path,
+        content_sha256,
+    })
+}
+
+/// Resolves a declared data path against an optional analysis root.
+pub fn resolve_data_path(declared: &Path, base_dir: Option<&Path>) -> Result<PathBuf, TableError> {
     let mut candidates = Vec::new();
     candidates.push(declared.to_path_buf());
     if let Some(base) = base_dir {
@@ -267,12 +321,13 @@ fn parse_observation(
         });
     }
     let raw_regime = field(fields, header_index, &manifest.regime_column);
-    let regime_id = regime_lookup.get(raw_regime).cloned().ok_or_else(|| {
-        TableError::Parse {
+    let regime_id = regime_lookup
+        .get(raw_regime)
+        .cloned()
+        .ok_or_else(|| TableError::Parse {
             row: row_index,
             message: format!("unknown regime label {raw_regime:?}"),
-        }
-    })?;
+        })?;
     let included = match header_index.get("included") {
         Some(&index) => parse_flag(&fields[index], row_index)?,
         None => true,
@@ -420,7 +475,11 @@ pub fn fold_for_cluster(seed: u64, cluster_id: &str, n_folds: usize) -> usize {
     let digest = hasher.finalize();
     let mut bytes = [0_u8; 8];
     bytes.copy_from_slice(&digest[..8]);
-    (u64::from_be_bytes(bytes) % n_folds as u64) as usize
+    // Both conversions are total: the remainder is strictly below `n_folds`, which
+    // arrived as a `usize`, so neither direction can truncate on any target width.
+    let modulus = u64::try_from(n_folds).expect("fold count originates from a usize");
+    let fold = u64::from_be_bytes(bytes) % modulus;
+    usize::try_from(fold).expect("fold index is below the fold count, which is a usize")
 }
 
 fn fingerprint_ids(ids: &BTreeSet<String>) -> String {
@@ -454,11 +513,7 @@ fn column_index(headers: &[String]) -> BTreeMap<&str, usize> {
         .collect()
 }
 
-fn field<'a>(
-    fields: &'a [String],
-    header_index: &BTreeMap<&str, usize>,
-    column: &str,
-) -> &'a str {
+fn field<'a>(fields: &'a [String], header_index: &BTreeMap<&str, usize>, column: &str) -> &'a str {
     &fields[header_index[column]]
 }
 

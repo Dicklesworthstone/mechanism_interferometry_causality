@@ -9,8 +9,8 @@ use thiserror::Error;
 
 mod table;
 pub use table::{
-    ClusterFold, IngestReport, Observation, RegimeCount, TableError, TableFingerprint,
-    fold_for_cluster, load_csv_table, resolve_data_path,
+    ClusterFold, IngestReport, Observation, RawTable, RegimeCount, TableError, TableFingerprint,
+    fold_for_cluster, load_csv_table, load_raw_csv, resolve_data_path,
 };
 
 /// Requested inferential track.
