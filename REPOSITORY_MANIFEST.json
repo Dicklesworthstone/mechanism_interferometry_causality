@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T21:31:09Z",
+  "generated_at_utc": "2026-08-12T21:31:27Z",
   "hash_algorithm": "sha256",
   "file_count": 134,
-  "aggregate_sha256": "372dcaab706db7551fad1acf060e98819bd498d38f5c4ae2d344dec7f727ecfb",
+  "aggregate_sha256": "7c6ae5de775c278f0da037753ef2034782853d244e19f050f76c5092dff4f933",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -598,8 +598,8 @@
     },
     {
       "path": "site/app.js",
-      "bytes": 89210,
-      "sha256": "431521904ff02e59f89df932ef6f6387925f0207d53008a5cc0e6148d0b37a8b"
+      "bytes": 89903,
+      "sha256": "c3611d00d5fbba94c2ce780c299851830ab181827eb24868452ac20c489d4f65"
     },
     {
       "path": "site/assets/favicon.svg",

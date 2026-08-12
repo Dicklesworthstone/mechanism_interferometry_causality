@@ -2286,6 +2286,20 @@
     select.addEventListener("change", loadPreset);
     runButton.addEventListener("click", run);
     loadPreset();
+
+    /* A browser has no environment variables, so the smoke test needs a URL
+       param. ?autorun=1 runs the default manifest on load, which is how the
+       deployed host gets checked end to end without a driver; ?preset=N picks
+       a different one. Nothing else on the page reads these. */
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var preset = params.get("preset");
+      if (preset !== null && MANIFEST_PRESETS[Number(preset)]) {
+        select.value = String(Number(preset));
+        loadPreset();
+      }
+      if (params.get("autorun") === "1") { run(); }
+    } catch (ignored) { /* older engines without URLSearchParams simply skip it */ }
   }());
 
 }());
