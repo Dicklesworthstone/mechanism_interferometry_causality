@@ -20,7 +20,7 @@ Consequently every autonomous output carries one of three authority tiers:
 | Tier | Name | Requirements | Serialized as |
 |---|---|---|---|
 | A | Certified | Declared sampling, selection, and clustering contracts supplied by a human or upstream system | `certificate_status` from the strict ledger |
-| B | Corroborated diagnostic | All internally checkable audits pass: design estimability, four-law form or empirically-product-consistent residual products, overlap, lens battery, conservation cross-checks, negative controls where available | `diagnostic_only` plus a typed checklist of individual audit outcomes; deliberately no scalar score and no total ordering, so a reader always sees which gates passed and which were inapplicable |
+| B | Corroborated diagnostic | All internally checkable audits pass: design estimability, four-law form or empirically-product-consistent residual products, overlap, lens battery, master-marginal cross-route checks (same-array conservation recomputation is only algebra consistency and does not qualify), negative controls where available | `diagnostic_only` plus a typed checklist of individual audit outcomes; deliberately no scalar score and no total ordering, so a reader always sees which gates passed and which were inapplicable |
 | C | Proposal | Passive-learner output, quarantined per `PROPOSAL_ADAPTERS.md` | `proposal_only` |
 
 Tier B is the novel operating point: far stronger than a discovery algorithm's edge weight, deliberately weaker than a certificate. The tier system is what lets the crawler be unleashed without supervision: it cannot overclaim, because overclaiming is a type error.
