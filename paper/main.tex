@@ -497,6 +497,7 @@ In the parity example of \cref{sec:parity-placeholder}, the ambiguity is sustain
 The acquisition score in \eqref{eq:active-tilt} has proposal authority only.  It depends on a predictive model for experiments not yet run, so model misspecification can make the ranking poor even when the eventual certificate remains valid.  Before collecting follow-up data, freeze the surviving hypotheses, feasible tilt library, predicted pairwise separations, model and data fingerprints, random seed, and deterministic tie rule; the software artifact binds the complete ordered candidate library with a derived content fingerprint.  Reject candidates that change a different primitive, lack measurable delivery or common support, or would invoke product-factorial inference without verified product odds or an explicit reweighting plan.  The selected tilt is then a new independently randomized regime and re-enters the audit at preflight; neither its predicted separation nor its rank resolves the original multiple-pass state.  If no candidate survives these feasibility gates, the correct output is an explicit experiment-design abstention rather than a forced target.
 
 \subsection{Recovering the DAG from family sets}
+\label{sec:graph-recovery}
 
 If each node receives a sufficiently rich single-target perturbation, orientation gives every family \(\{i\}\cup\pa(i)\) directly.  Even without target labels, the multiset of family sets uniquely determines a DAG.  Process families in topological order.  After removing previously identified nodes, the earliest unidentified node has no unidentified parents, so its reduced family is the singleton containing itself.  Assign it, restore its removed parents, and continue.  A formal proof appears in \cref{app:proofs}.
 
@@ -1031,6 +1032,123 @@ This connects to mechanism-sparsity and intervention-based causal representation
 \nabla_x\ell_e(x)=\nabla_x\log p_e(x)-\nabla_x\log p_0(x),
 \end{equation}
 and the score difference is supported on the same intervened family as the potential.  Score-based methods therefore study the differential of the object used here; the finite potential adds normalization, compositional products, and lattice curvature.
+
+
+\section{From factorial certificates to many-environment tomography}
+\label{sec:tomography}
+
+The factorial certificate is local in intervention space, but its algebra
+suggests a scalable many-environment program.  Let \(e\in\mathcal E\) index
+observed environments, fix a density-ratio reference law \(p_0\), and define the
+function-valued row
+\begin{equation}
+H_e(x)=\log\frac{p_e(x)}{p_0(x)}.
+\label{eq:environment-transport}
+\end{equation}
+A fixed-primitive model has
+\begin{equation}
+H_e(x)=\sum_{j=1}^K A_{ej}\phi_j(x),
+\qquad r_j(x)=\exp\{\phi_j(x)\}.
+\label{eq:environment-factorization}
+\end{equation}
+This display separates three identification problems that must not be
+collapsed: recovering the algebraic factors \(\phi_j\), establishing that each
+factor is a local normalized causal replacement, and assembling the resulting
+families into a graph.
+
+\begin{proposition}[Environment-axis identification]
+\label{prop:environment-axes}
+If the incidence or dosage matrix \(A\) in
+\eqref{eq:environment-factorization} is known and has column rank \(K\), then
+the function-valued factor vector \((\phi_1,\ldots,\phi_K)\) is unique almost
+everywhere.  If instead the environment labels are unknown but all \(2^K\)
+vertices
+\begin{equation}
+\left\{b+\sum_{j=1}^K s_j\phi_j:s\in\{0,1\}^K\right\}
+\end{equation}
+are observed and the \(\phi_j\) are linearly independent, the primitive axes
+and binary codes are identified up to coordinate permutation and bit reversal.
+A separately marked factorial zero vertex fixes the parallelotope origin and
+edge signs; coordinate permutation remains.  Merely choosing an external
+density-ratio reference in \eqref{eq:environment-transport} does not mark a
+factorial vertex unless that law belongs to the observed cube.
+\end{proposition}
+
+The first claim follows by applying a left inverse of \(A\) pointwise.  For the
+second, the observed set is the vertex set of a nondegenerate parallelotope in
+the finite-dimensional span of the \(\phi_j\).  Its convex-hull one-skeleton
+recovers which vertices differ along one primitive direction; only renaming an
+axis or choosing its opposite endpoint remains.  The complete-vertex
+assumption is load-bearing.  A partial unlabeled point cloud retains the usual
+invertible factor-mixing ambiguity, and a learned low-rank representation does
+not define intervention adjacency.  The proposition identifies algebraic
+factors only.  For nonbinary dosage entries, \(\exp\{a\phi_j\}\) need not be a
+normalized conditional replacement even when \(\exp\{\phi_j\}\) is; a dosage
+interpretation requires a separately normalized parametric mechanism path.
+
+Algebraic recovery is still not causal recovery.  For an identified factor let
+\(F_j\) be its minimal coordinate-measurability support and define
+\begin{equation}
+\operatorname{Cand}(j)=
+\left\{v\in F_j:
+\E_0\!\left[\exp\{\phi_j(X)\}\mid X_{F_j\setminus\{v\}}\right]=1
+\ \text{a.s.}\right\}.
+\label{eq:tomography-candidates}
+\end{equation}
+Under unique minimal support, locality, full family-support ratio faithfulness,
+and deletion
+faithfulness, \(F_j=\{t_j\}\cup\pa(t_j)\) and
+\(\operatorname{Cand}(j)=\{t_j\}\).  Conditional normalization is therefore
+the nonlinear step that turns a sparse distribution-shift factor into a
+mechanism replacement.  Once one exact rich family is available for every
+observed node, the peeling argument of \cref{sec:graph-recovery} reconstructs
+the DAG; the reference law must then separately be checked to factorize over
+that DAG.  Missing families, deterministic proxies, latent nodes, cycles, or
+unverified grouping of repeated tilts justify only a partial or stuck result.
+
+The following exact witness shows why none of these clauses is cosmetic.  Let
+\(X,Y\) be independent fair binary variables under \(p_0\), order the states as
+\(00,01,10,11\), and set
+\begin{equation}
+r_1=(3/2,1,1,1/2),
+\qquad
+r_2=(1,3/2,1/2,1).
+\label{eq:flat-noncausal-cube}
+\end{equation}
+Both ratios and their product have \(p_0\)-mean one.  Hence
+\(p_{10}=p_0r_1\), \(p_{01}=p_0r_2\), and
+\(p_{11}=p_0r_1r_2\) are positive normalized laws, the environment transport
+has rank two, and every square curvature vanishes exactly.  Yet, for either
+factor, averaging over either candidate target produces conditional values
+\(5/4\) and \(3/4\), up to order, rather than one.  Neither factor is a
+normalized replacement on any two-node DAG.  Thus exact low rank, global
+normalization, and flat composition together do not imply causality; the local
+conditional-normalization audit is indispensable.
+
+Many large tables also contain a different product: a query-specific
+identification opportunity rather than a recoverable global mechanism family.
+A lottery, threshold, staggered adoption, controller action, or negative-control
+proxy system may identify an ITT, complier effect, local discontinuity effect,
+dynamic response, or proximal effect without identifying a DAG.  The software
+therefore separates a mechanism-family authority ladder from an
+effect-identification authority ladder.  Row structure may nominate a strategy
+and falsify observable implications, but it cannot prove exclusion,
+counterfactual continuity, parallel trends, or proxy completeness.  Exact
+observational twins can preserve every released row while reversing an RD, IV,
+or difference-in-differences effect by changing only the unobserved premise.
+Accordingly, the autonomous router receives a neutralized discovery view, a
+separately content-bound design-authority receipt, and no study identity or
+published result until scoring.  Withholding only that receipt while keeping
+the data bytes fixed must remove causal authority without requiring predictive
+performance to collapse.
+
+The resulting self-driving objective is consequently narrower and more useful
+than ``fit a DAG to a pile of rows'': discover recurring transports and the
+strongest query supported by the available environment family, test every
+observable implication, expose the premise that the rows cannot establish, and
+recommend the cheapest new perturbation or measurement that separates the
+surviving explanations.  Curvature supplies a closure test and a state-search
+direction inside this loop; it does not license the other steps by itself.
 
 \section{Simulation suite}
 
