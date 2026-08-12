@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T20:53:28Z",
+  "generated_at_utc": "2026-08-12T20:54:20Z",
   "hash_algorithm": "sha256",
   "file_count": 126,
-  "aggregate_sha256": "55672456e4483ee0d213842ab08411d32d90f990b1906eed76cce6084678c57d",
+  "aggregate_sha256": "8e60f71295b7c9f3919c7a377627311b6a3f638c555cba8e37ee109a2600902b",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -128,8 +128,8 @@
     },
     {
       "path": "crates/mic-data/src/franken.rs",
-      "bytes": 15822,
-      "sha256": "23b2b27150fa29d3f43cf93e6a178f81caa9f9ffb4972f2326e7f8a72956189a"
+      "bytes": 16106,
+      "sha256": "cd4d7e7d8991eb7c620e4633e1c050b5095865f01a42d476c735d62775306b6f"
     },
     {
       "path": "crates/mic-data/src/lib.rs",
@@ -138,8 +138,8 @@
     },
     {
       "path": "crates/mic-data/src/table.rs",
-      "bytes": 28515,
-      "sha256": "c79a7aa937adf1e378bccabcd263445c4ad6d40d762b8ae326ac68c260c430df"
+      "bytes": 28517,
+      "sha256": "596d402b57cf080fa9caa4628e133324b046e448a2a3e0d0df9146171e21d7eb"
     },
     {
       "path": "crates/mic-design/Cargo.toml",
@@ -158,8 +158,8 @@
     },
     {
       "path": "crates/mic-engine/src/bin/tabular.rs",
-      "bytes": 5290,
-      "sha256": "3becbc0b08a44cfce6adada13834069ddeb68370c0873e49c60d87b75e96e456"
+      "bytes": 5294,
+      "sha256": "da8a5bc6c18b7eb442622aba44341313119d3a3d06b8c27059c864d6653342b8"
     },
     {
       "path": "crates/mic-engine/src/lib.rs",
@@ -173,8 +173,8 @@
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
-      "bytes": 40690,
-      "sha256": "457b6b868acf9cf7135765341e2c5461d299cdeac594b42493dc585a0301b43f"
+      "bytes": 40849,
+      "sha256": "cac4265b23bbd38f95910adc285e95cc46303882b8dc2379c985761c4dfadc2b"
     },
     {
       "path": "crates/mic-model/Cargo.toml",
