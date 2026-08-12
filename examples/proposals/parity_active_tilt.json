@@ -6,6 +6,7 @@
     "P",
     "T"
   ],
+  "candidate_library_fingerprint": "sha256:parity-library-v1",
   "planned_analysis": "four_law",
   "source": {
     "adapter_id": "parity-oracle",
@@ -20,7 +21,9 @@
   },
   "seed": 17,
   "authority": "proposal_only",
+  "status": "recommended",
   "score_semantics": "minimum adapter-predicted separation over all surviving hypothesis pairs; exploratory priority, not probability or confidence",
+  "ranking_policy": "descending worst-case predicted separation; ties prefer lower finite cost over higher or unspecified cost, then lexical candidate_id",
   "rankings": [
     {
       "rank": 1,

@@ -1,71 +1,57 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/proposal_batch.schema.json",
-  "title": "Mechanism Interferometry Active-Tilt Proposal",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/active_tilt_input.schema.json",
+  "title": "Mechanism Interferometry Active-Tilt Input",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "proposal_id",
-    "primitive_id",
-    "surviving_hypotheses",
-    "candidate_library_fingerprint",
-    "planned_analysis",
-    "source",
-    "seed",
-    "authority",
-    "status",
-    "score_semantics",
-    "ranking_policy",
-    "rankings",
-    "rejected",
-    "selected_candidate_id"
-  ],
+  "required": ["request", "candidates"],
   "properties": {
-    "schema_version": { "const": "1.0.0" },
-    "proposal_id": { "$ref": "#/$defs/nonempty" },
-    "primitive_id": { "$ref": "#/$defs/nonempty" },
-    "surviving_hypotheses": {
+    "request": { "$ref": "#/$defs/request" },
+    "candidates": {
       "type": "array",
-      "minItems": 2,
-      "uniqueItems": true,
-      "items": { "$ref": "#/$defs/nonempty" }
-    },
-    "candidate_library_fingerprint": { "$ref": "#/$defs/nonempty" },
-    "planned_analysis": {
-      "enum": ["four_law", "product_factorial"]
-    },
-    "source": { "$ref": "#/$defs/source" },
-    "seed": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 18446744073709551615
-    },
-    "authority": { "const": "proposal_only" },
-    "status": {
-      "enum": ["recommended", "abstained_no_eligible_candidate"]
-    },
-    "score_semantics": { "$ref": "#/$defs/nonempty" },
-    "ranking_policy": { "$ref": "#/$defs/nonempty" },
-    "rankings": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/ranked_tilt" }
-    },
-    "rejected": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/rejected_tilt" }
-    },
-    "selected_candidate_id": {
-      "oneOf": [
-        { "$ref": "#/$defs/nonempty" },
-        { "type": "null" }
-      ]
+      "items": { "$ref": "#/$defs/candidate" }
     }
   },
   "$defs": {
     "nonempty": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "proposal_id",
+        "primitive_id",
+        "surviving_hypotheses",
+        "candidate_library_fingerprint",
+        "planned_analysis",
+        "source",
+        "seed"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0.0" },
+        "proposal_id": { "$ref": "#/$defs/nonempty" },
+        "primitive_id": { "$ref": "#/$defs/nonempty" },
+        "surviving_hypotheses": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonempty" }
+        },
+        "candidate_library_fingerprint": { "$ref": "#/$defs/nonempty" },
+        "planned_analysis": {
+          "enum": ["four_law", "product_factorial"]
+        },
+        "source": { "$ref": "#/$defs/source" },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        }
+      }
     },
     "source": {
       "type": "object",
@@ -104,36 +90,28 @@
         }
       }
     },
-    "ranked_tilt": {
+    "candidate": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "rank",
         "candidate_id",
         "primitive_id",
-        "worst_case_predicted_separation",
-        "predicted_pairwise_separations",
         "measurable_delivery",
         "common_support",
         "design_eligibility",
+        "predicted_pairwise_separations",
         "cost"
       ],
       "properties": {
-        "rank": { "type": "integer", "minimum": 1 },
         "candidate_id": { "$ref": "#/$defs/nonempty" },
         "primitive_id": { "$ref": "#/$defs/nonempty" },
-        "worst_case_predicted_separation": {
-          "type": "number",
-          "minimum": 0
-        },
+        "measurable_delivery": { "type": "boolean" },
+        "common_support": { "type": "boolean" },
+        "design_eligibility": { "$ref": "#/$defs/design_eligibility" },
         "predicted_pairwise_separations": {
           "type": "array",
-          "minItems": 1,
           "items": { "$ref": "#/$defs/pairwise_separation" }
         },
-        "measurable_delivery": { "const": true },
-        "common_support": { "const": true },
-        "design_eligibility": { "$ref": "#/$defs/design_eligibility" },
         "cost": {
           "oneOf": [
             { "type": "number", "minimum": 0 },
@@ -189,29 +167,6 @@
           }
         }
       ]
-    },
-    "rejected_tilt": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["candidate_id", "code", "detail"],
-      "properties": {
-        "candidate_id": { "$ref": "#/$defs/nonempty" },
-        "code": {
-          "enum": [
-            "wrong_primitive",
-            "unmeasurable_delivery",
-            "common_support_failure",
-            "product_design_not_established",
-            "empty_identifier",
-            "invalid_cost",
-            "invalid_hypothesis_pair",
-            "duplicate_hypothesis_pair",
-            "incomplete_hypothesis_pairs",
-            "invalid_predicted_separation"
-          ]
-        },
-        "detail": { "$ref": "#/$defs/nonempty" }
-      }
     }
   }
 }

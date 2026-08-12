@@ -1,0 +1,95 @@
+{
+  "request": {
+    "schema_version": "1.0.0",
+    "proposal_id": "parity-followup",
+    "primitive_id": "replace-target-T",
+    "surviving_hypotheses": [
+      "P",
+      "T"
+    ],
+    "candidate_library_fingerprint": "sha256:parity-library-v1",
+    "planned_analysis": "four_law",
+    "source": {
+      "adapter_id": "parity-oracle",
+      "adapter_revision": "sha256:abc",
+      "source_kind": "exploratory_search",
+      "model_family": "exact-discrete",
+      "data_fingerprint": "sha256:data",
+      "assignment_unit_fingerprint": "sha256:clusters",
+      "fold_fingerprint": "sha256:folds",
+      "hyperparameter_policy": "fixed",
+      "feature_flags": []
+    },
+    "seed": 17
+  },
+  "candidates": [
+    {
+      "candidate_id": "biased-independent-xor-noise",
+      "primitive_id": "replace-target-T",
+      "measurable_delivery": true,
+      "common_support": true,
+      "design_eligibility": {
+        "status": "not_required_for_four_law"
+      },
+      "predicted_pairwise_separations": [
+        {
+          "first": "P",
+          "second": "T",
+          "separation": 0.0
+        }
+      ],
+      "cost": 1.0
+    },
+    {
+      "candidate_id": "asymmetric-target-conditional",
+      "primitive_id": "replace-target-T",
+      "measurable_delivery": true,
+      "common_support": true,
+      "design_eligibility": {
+        "status": "not_required_for_four_law"
+      },
+      "predicted_pairwise_separations": [
+        {
+          "first": "P",
+          "second": "T",
+          "separation": 0.2
+        }
+      ],
+      "cost": 4.0
+    },
+    {
+      "candidate_id": "parent-tilt",
+      "primitive_id": "replace-parent-P",
+      "measurable_delivery": true,
+      "common_support": true,
+      "design_eligibility": {
+        "status": "not_required_for_four_law"
+      },
+      "predicted_pairwise_separations": [
+        {
+          "first": "P",
+          "second": "T",
+          "separation": 1.0
+        }
+      ],
+      "cost": 1.0
+    },
+    {
+      "candidate_id": "hard-target-replacement",
+      "primitive_id": "replace-target-T",
+      "measurable_delivery": true,
+      "common_support": false,
+      "design_eligibility": {
+        "status": "not_required_for_four_law"
+      },
+      "predicted_pairwise_separations": [
+        {
+          "first": "P",
+          "second": "T",
+          "separation": 0.9
+        }
+      ],
+      "cost": 2.0
+    }
+  ]
+}

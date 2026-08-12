@@ -109,6 +109,8 @@ pub struct ActiveTiltRequest {
     pub primitive_id: String,
     /// Labels of all surviving deletion hypotheses.
     pub surviving_hypotheses: Vec<String>,
+    /// Content fingerprint of the frozen feasible-tilt library and predictions.
+    pub candidate_library_fingerprint: String,
     /// Planned confirmatory inference track.
     pub planned_analysis: PlannedAnalysis,
     /// Adapter provenance.
@@ -215,6 +217,16 @@ pub enum ProposalAuthority {
     ProposalOnly,
 }
 
+/// Operational state of a proposal batch, never a causal verdict.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProposalStatus {
+    /// At least one candidate survived the proposal-layer feasibility gates.
+    Recommended,
+    /// No candidate survived; another library or design is required.
+    AbstainedNoEligibleCandidate,
+}
+
 /// Serializable active-tilt proposal artifact.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ActiveTiltProposal {
@@ -226,6 +238,8 @@ pub struct ActiveTiltProposal {
     pub primitive_id: String,
     /// Surviving hypotheses in canonical sorted order.
     pub surviving_hypotheses: Vec<String>,
+    /// Content fingerprint binding the output to the frozen candidate library.
+    pub candidate_library_fingerprint: String,
     /// Planned confirmatory analysis.
     pub planned_analysis: PlannedAnalysis,
     /// Adapter provenance.
@@ -234,8 +248,12 @@ pub struct ActiveTiltProposal {
     pub seed: u64,
     /// Fixed epistemic authority.
     pub authority: ProposalAuthority,
+    /// Explicit operational status of this proposal batch.
+    pub status: ProposalStatus,
     /// Meaning of the primary score.
     pub score_semantics: String,
+    /// Frozen deterministic ordering and tie-breaking policy.
+    pub ranking_policy: String,
     /// Accepted candidates in deterministic order.
     pub rankings: Vec<RankedTilt>,
     /// Candidates rejected at the proposal boundary.
@@ -315,17 +333,25 @@ pub fn rank_active_tilts(
         })
         .collect();
     let selected_candidate_id = rankings.first().map(|ranked| ranked.candidate_id.clone());
+    let status = if selected_candidate_id.is_some() {
+        ProposalStatus::Recommended
+    } else {
+        ProposalStatus::AbstainedNoEligibleCandidate
+    };
 
     Ok(ActiveTiltProposal {
         schema_version: request.schema_version.clone(),
         proposal_id: request.proposal_id.clone(),
         primitive_id: request.primitive_id.clone(),
         surviving_hypotheses: hypotheses.into_iter().collect(),
+        candidate_library_fingerprint: request.candidate_library_fingerprint.clone(),
         planned_analysis: request.planned_analysis,
         source: request.source.clone(),
         seed: request.seed,
         authority: ProposalAuthority::ProposalOnly,
+        status,
         score_semantics: "minimum adapter-predicted separation over all surviving hypothesis pairs; exploratory priority, not probability or confidence".into(),
+        ranking_policy: "descending worst-case predicted separation; ties prefer lower finite cost over higher or unspecified cost, then lexical candidate_id".into(),
         rankings,
         rejected,
         selected_candidate_id,
@@ -341,6 +367,10 @@ fn validate_request(request: &ActiveTiltRequest) -> Result<BTreeSet<String>, Pro
     for (name, value) in [
         ("proposal_id", request.proposal_id.as_str()),
         ("primitive_id", request.primitive_id.as_str()),
+        (
+            "candidate_library_fingerprint",
+            request.candidate_library_fingerprint.as_str(),
+        ),
         ("adapter_id", request.source.adapter_id.as_str()),
         ("adapter_revision", request.source.adapter_revision.as_str()),
         ("model_family", request.source.model_family.as_str()),
@@ -446,17 +476,25 @@ fn validate_analysis_eligibility(
     request: &ActiveTiltRequest,
     candidate: &ActiveTiltCandidate,
 ) -> Result<(), (TiltRejectionCode, String)> {
+    match &candidate.design_eligibility {
+        DesignEligibility::ProductOddsVerified { audit_id } if audit_id.trim().is_empty() => {
+            return Err((
+                TiltRejectionCode::EmptyIdentifier,
+                "product-odds audit identifier must not be empty".into(),
+            ));
+        }
+        DesignEligibility::ReweightedToProduct { plan_id } if plan_id.trim().is_empty() => {
+            return Err((
+                TiltRejectionCode::EmptyIdentifier,
+                "product-design reweighting plan identifier must not be empty".into(),
+            ));
+        }
+        _ => {}
+    }
     if request.planned_analysis == PlannedAnalysis::ProductFactorial {
         match &candidate.design_eligibility {
-            DesignEligibility::ProductOddsVerified { audit_id } if !audit_id.trim().is_empty() => {}
-            DesignEligibility::ReweightedToProduct { plan_id } if !plan_id.trim().is_empty() => {}
             DesignEligibility::ProductOddsVerified { .. }
-            | DesignEligibility::ReweightedToProduct { .. } => {
-                return Err((
-                    TiltRejectionCode::EmptyIdentifier,
-                    "product-design evidence identifier must not be empty".into(),
-                ));
-            }
+            | DesignEligibility::ReweightedToProduct { .. } => {}
             DesignEligibility::NotRequiredForFourLaw | DesignEligibility::NotEstablished => {
                 return Err((
                     TiltRejectionCode::ProductDesignNotEstablished,
@@ -582,6 +620,7 @@ mod tests {
             proposal_id: "parity-followup".into(),
             primitive_id: "replace-target-T".into(),
             surviving_hypotheses: vec!["T".into(), "P".into()],
+            candidate_library_fingerprint: "sha256:candidates".into(),
             planned_analysis: track,
             source: source(),
             seed: 17,
@@ -618,6 +657,7 @@ mod tests {
         );
         assert_eq!(proposal.rankings[0].rank, 1);
         assert_eq!(proposal.authority, ProposalAuthority::ProposalOnly);
+        assert_eq!(proposal.status, ProposalStatus::Recommended);
         assert_eq!(proposal.seed, 17);
         assert!(proposal.score_semantics.contains("not probability"));
     }
@@ -630,6 +670,10 @@ mod tests {
         let proposal = rank_active_tilts(&request(PlannedAnalysis::FourLaw), &[wrong, hard])
             .expect("auditable rejection batch");
         assert!(proposal.rankings.is_empty());
+        assert_eq!(
+            proposal.status,
+            ProposalStatus::AbstainedNoEligibleCandidate
+        );
         assert_eq!(proposal.rejected[0].code, TiltRejectionCode::WrongPrimitive);
         assert_eq!(
             proposal.rejected[1].code,
@@ -723,6 +767,21 @@ mod tests {
         assert_eq!(
             proposal.selected_candidate_id.as_deref(),
             Some("product-eligible")
+        );
+    }
+
+    #[test]
+    fn empty_design_evidence_reference_is_rejected_on_every_track() {
+        let mut candidate = candidate("bad-reference", "replace-target-T", 0.2);
+        candidate.design_eligibility = DesignEligibility::ProductOddsVerified {
+            audit_id: "".into(),
+        };
+        let proposal = rank_active_tilts(&request(PlannedAnalysis::FourLaw), &[candidate])
+            .expect("invalid evidence belongs in an auditable rejection batch");
+        assert_eq!(proposal.rejected[0].code, TiltRejectionCode::EmptyIdentifier);
+        assert_eq!(
+            proposal.status,
+            ProposalStatus::AbstainedNoEligibleCandidate
         );
     }
 }

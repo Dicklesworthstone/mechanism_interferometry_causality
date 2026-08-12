@@ -36,6 +36,7 @@ fn run(args: &[String]) -> Result<(), String> {
         "validate-manifest" => validate_manifest(&args[1..]),
         "preflight" => preflight(&args[1..]),
         "orient" => orient(&args[1..]),
+        "propose-tilt" => propose_tilt(&args[1..]),
         "help" | "--help" | "-h" => {
             print_help();
             Ok(())
@@ -196,6 +197,27 @@ fn orient(args: &[String]) -> Result<(), String> {
     write_json_value(&value, output.as_deref())
 }
 
+/// Input contract for `mic propose-tilt`.
+#[derive(Debug, Deserialize)]
+struct ProposeTiltInput {
+    request: mic_proposal::ActiveTiltRequest,
+    candidates: Vec<mic_proposal::ActiveTiltCandidate>,
+}
+
+fn propose_tilt(args: &[String]) -> Result<(), String> {
+    let path = args
+        .first()
+        .ok_or("usage: mic propose-tilt INPUT.json [--output PATH]")?;
+    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let input: ProposeTiltInput =
+        serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    let proposal = mic_proposal::rank_active_tilts(&input.request, &input.candidates)
+        .map_err(|error| error.to_string())?;
+    let value = serde_json::to_value(proposal).map_err(|error| error.to_string())?;
+    let output = option_value(args, "--output").map(PathBuf::from);
+    write_json_value(&value, output.as_deref())
+}
+
 fn print_json(value: &impl serde::Serialize) -> Result<(), String> {
     println!(
         "{}",
@@ -248,6 +270,7 @@ fn print_help() {
            mic validate-manifest MANIFEST.json\n\
            mic preflight MANIFEST.json [--output PATH]\n\
            mic orient INPUT.json [--output PATH]\n\
+           mic propose-tilt INPUT.json [--output PATH]\n\
            mic version"
     );
 }
