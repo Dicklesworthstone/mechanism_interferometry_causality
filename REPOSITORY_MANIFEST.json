@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T21:26:51Z",
+  "generated_at_utc": "2026-08-12T21:29:17Z",
   "hash_algorithm": "sha256",
   "file_count": 134,
-  "aggregate_sha256": "05fbb779955243d9831c1f88cead813667f56aa3f99dfd01265cf415e32a7e0b",
+  "aggregate_sha256": "372dcaab706db7551fad1acf060e98819bd498d38f5c4ae2d344dec7f727ecfb",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -43,8 +43,8 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 59045,
-      "sha256": "6b8505e16013fdc00c06d59e4592cb922852940ada18f57c01f2e73b4800457b"
+      "bytes": 59054,
+      "sha256": "728cd1783d5cecc993a8656db9caccd9d48ffcaa69045d13e22bde9b856d7f7d"
     },
     {
       "path": "Cargo.toml",
@@ -153,8 +153,8 @@
     },
     {
       "path": "crates/mic-engine/Cargo.toml",
-      "bytes": 645,
-      "sha256": "169152be636999c9f58be6582a539dc433e29b24a09b599dcbff845ec0c02883"
+      "bytes": 667,
+      "sha256": "90b2cd4941415dbf64b78a3d8872a7a4f70a88892341ec792ed6a17b446a427d"
     },
     {
       "path": "crates/mic-engine/src/bin/tabular.rs",
@@ -163,8 +163,8 @@
     },
     {
       "path": "crates/mic-engine/src/lib.rs",
-      "bytes": 38965,
-      "sha256": "f5eb002fe5220b53fef54ceaffa0f8968215c920042b71db729a690af9976fe3"
+      "bytes": 41245,
+      "sha256": "011c3c5468079545b457c969de3fbf051cb025e7b9d7888dc9d5dbc47f08317d"
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
@@ -263,8 +263,8 @@
     },
     {
       "path": "docs/INFERENCE_PROTOCOL.md",
-      "bytes": 13244,
-      "sha256": "1b1ed6d0d6732cd90c646ee236aa3ca496b83c5f4517947d1b8a414305332a3d"
+      "bytes": 13699,
+      "sha256": "5bbf51ca1cf582154ddab663a71f10b0f98b6fc82d8e5e47e84ce206e8f45b79"
     },
     {
       "path": "docs/PARTIAL_DESIGNS.md",
@@ -278,8 +278,8 @@
     },
     {
       "path": "docs/ROADMAP.md",
-      "bytes": 5387,
-      "sha256": "2488cdba9a0edff93bf0d5c1b2dfafd3add056804a8fb68e89cf8d1916adebb3"
+      "bytes": 5578,
+      "sha256": "862475cce6826d8b831cfe0f191fad775cc1647c451473728d22f1cd609f03ab"
     },
     {
       "path": "docs/SECURITY_AND_REPRODUCIBILITY.md",
@@ -528,8 +528,8 @@
     },
     {
       "path": "schemas/four_law_report.schema.json",
-      "bytes": 3426,
-      "sha256": "63516671222971df7b155a1dd677c8936549365fbea42c289e57eef385433243"
+      "bytes": 3754,
+      "sha256": "a99c7ca580a6809b8a2c1aba4782c8d03947da3c40b719a0984b413492737db5"
     },
     {
       "path": "schemas/orientation_input.schema.json",
@@ -553,8 +553,8 @@
     },
     {
       "path": "scripts/check_repo.py",
-      "bytes": 36683,
-      "sha256": "b248809a371ae3e5acd8d442e28f9a3d8df21a4ed619f88c4e24544330f64b44"
+      "bytes": 37161,
+      "sha256": "5dc1ac4b7b021ba97b73e91ae2f9bb80c00da91273c1a5e4a7640ca2ba3fdf6e"
     },
     {
       "path": "scripts/generate_example_data.py",
@@ -588,8 +588,8 @@
     },
     {
       "path": "site/README.md",
-      "bytes": 3599,
-      "sha256": "cf7b30b133685b0870be1ab7c6471cb5ab88c421782046d66fbceb7ca0ea705c"
+      "bytes": 4916,
+      "sha256": "5bd84bc44b495623f439fb0e8c67dd9db2375710db4c99c8294594cb3faac87a"
     },
     {
       "path": "site/_headers",
