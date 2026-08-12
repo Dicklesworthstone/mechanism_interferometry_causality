@@ -521,11 +521,11 @@ def validate_no_placeholders() -> None:
     pattern = re.compile(r"\b(?:TODO|TBD|FIXME|XXX)\b|Rest of your code|Previous code")
     ignored_suffixes = {".pdf", ".png", ".csv"}
     ignored_names = {"main.log", "main.aux", "main.bbl", "main.bcf", "main.blg", "main.fls", "main.out", "main.run.xml", "main.toc", "main.fdb_latexmk"}
-    for path in ROOT.rglob("*"):
-        relative_parts = path.relative_to(ROOT).parts
-        if any(part in IGNORED_DIRECTORIES for part in relative_parts):
-            continue
-        if not path.is_file() or path == Path(__file__).resolve() or path.suffix in ignored_suffixes or path.name in ignored_names:
+    # Same git-sourced path set as the manifest: the ban applies to content the
+    # repository actually ships, not to a contributor's untracked scratch files or to
+    # whatever a virtualenv happens to vendor.
+    for path in manifest_paths():
+        if path == Path(__file__).resolve() or path.suffix in ignored_suffixes or path.name in ignored_names:
             continue
         try:
             text = path.read_text(encoding="utf-8")
