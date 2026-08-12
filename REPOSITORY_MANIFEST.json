@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T21:31:27Z",
+  "generated_at_utc": "2026-08-12T21:52:04Z",
   "hash_algorithm": "sha256",
-  "file_count": 134,
-  "aggregate_sha256": "7c6ae5de775c278f0da037753ef2034782853d244e19f050f76c5092dff4f933",
+  "file_count": 136,
+  "aggregate_sha256": "745237739b6f12cc57e60fa402f9f2f3ce9c7feb6aa0cd74a571778c53ca8259",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -43,13 +43,13 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 59054,
-      "sha256": "728cd1783d5cecc993a8656db9caccd9d48ffcaa69045d13e22bde9b856d7f7d"
+      "bytes": 59013,
+      "sha256": "83da36a26ec7ac6acc180e2f15fa72d30bb5f88378c73557187533c616c7145c"
     },
     {
       "path": "Cargo.toml",
       "bytes": 2470,
-      "sha256": "95b1c9d3fa29395ee9709d2a62dea16367eedec5bc17744b8c3f73b4d7221376"
+      "sha256": "8601114a6cf408d41cce91359134c496194760e12b688ae79b167693003d7ff0"
     },
     {
       "path": "LICENSE",
@@ -108,8 +108,8 @@
     },
     {
       "path": "crates/mic-conformance/src/lib.rs",
-      "bytes": 12778,
-      "sha256": "ac6d2e9c5a736d5871875502a82fe7b30e65e2f593107e566ba1f4c2dfa641c3"
+      "bytes": 16366,
+      "sha256": "3a3dad34de79c64daee56ac1916baf27c8b4245d6868476c8e4ceda24052dda2"
     },
     {
       "path": "crates/mic-core/Cargo.toml",
@@ -128,8 +128,8 @@
     },
     {
       "path": "crates/mic-data/src/franken.rs",
-      "bytes": 16106,
-      "sha256": "cd4d7e7d8991eb7c620e4633e1c050b5095865f01a42d476c735d62775306b6f"
+      "bytes": 16957,
+      "sha256": "9e77185b04e9b77f9e8fad14fe982d99b694e30bd457430797594d534361bc50"
     },
     {
       "path": "crates/mic-data/src/lib.rs",
@@ -168,8 +168,8 @@
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 28504,
-      "sha256": "043d6d23b434af21f11b2c1a1a706facd3b416dfb7970ff7a9c1525ebce33cff"
+      "bytes": 46059,
+      "sha256": "9cd4b676bdee3a65e62116366c6582656bb8f2b394f513d7ed091301a514edf2"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
@@ -193,8 +193,8 @@
     },
     {
       "path": "crates/mic-proposal/src/lib.rs",
-      "bytes": 34439,
-      "sha256": "8504f28972f68776fdb7fcfa991eaf7ea80f7df2c3af94898260de54588bb437"
+      "bytes": 35077,
+      "sha256": "fd7d366ce01a7ae81850e92ecb9d047bd374caf6f04547bf99fb25d26affdb11"
     },
     {
       "path": "crates/mic-sim/Cargo.toml",
@@ -203,8 +203,8 @@
     },
     {
       "path": "crates/mic-sim/src/lib.rs",
-      "bytes": 7907,
-      "sha256": "3cda28ff838ee7b1d2f9b47154799dad7f7b5f010f0babc4e81a4835d356b9fb"
+      "bytes": 11864,
+      "sha256": "ee0ab2f3eee95298f2d3e89a727b8b15804722e295d59b1ff5ebf8d9a01f4e97"
     },
     {
       "path": "crates/mic-stats/Cargo.toml",
@@ -218,13 +218,13 @@
     },
     {
       "path": "crates/mic-wasm/Cargo.toml",
-      "bytes": 845,
-      "sha256": "af98e2dd6efc6da8c3dca2b544343c66bf6166da4687632c6c47c1ccaf7053d2"
+      "bytes": 942,
+      "sha256": "60e0abf6cb5d505f02095081967967eadb9abcc2bf1fef8c06de17f2dd3d0c89"
     },
     {
       "path": "crates/mic-wasm/src/lib.rs",
-      "bytes": 12717,
-      "sha256": "32fd4c91bb71af40ded3c4ac0c61f81ae1a8d9cd631d9a6d0ef203ab5a5bdff5"
+      "bytes": 12915,
+      "sha256": "1eaef2b121399ce3f0964db6cf3695b0f463e9a03ac1a43bff37cf10fe16397e"
     },
     {
       "path": "docs/AUTONOMOUS_MODE.md",
@@ -232,9 +232,19 @@
       "sha256": "6d3a3f7b77e41260cb4b68ac6b27526fcf281bff8ffd6e5e64acc1184a8b001f"
     },
     {
+      "path": "docs/CAUSAL_TOMOGRAPHY.md",
+      "bytes": 17471,
+      "sha256": "5287984c97c2b6fbe3b06d87cb932958c9c819d2cac68e2351d551397c1f14d5"
+    },
+    {
       "path": "docs/DATASET_ELIGIBILITY.md",
       "bytes": 7488,
       "sha256": "9f8545ce211bf879ebcc1a810bb791f234425fa1ba0776f975f562413ffa72e6"
+    },
+    {
+      "path": "docs/DATASET_GAUNTLET.md",
+      "bytes": 13563,
+      "sha256": "07f03937cb7207a8dc81fa9378a9ef3346d0b02ae54e29d87767ecf5b9addce3"
     },
     {
       "path": "docs/EXPERIMENTAL_PROTOCOL.md",
@@ -249,12 +259,12 @@
     {
       "path": "docs/FRANKEN_INTEGRATION.md",
       "bytes": 5083,
-      "sha256": "9e866c31c5a41e846c0e47a90ba7ce2dcc1260aec8dd3e14f87da4e811fd83f0"
+      "sha256": "4b3bf01fb954c3d781af70c83e523981aaeaeb044c79b9467c14efc4eed6f463"
     },
     {
       "path": "docs/HYPOTHESIS_SLATE.md",
-      "bytes": 10296,
-      "sha256": "f19ef24a77b02ef1e6532c5f94bd3cd5b0f861ebb3fa9cd235bb2ee9899a659f"
+      "bytes": 10801,
+      "sha256": "9b4e1ac9ebb4ddfe7f5d503dcbdc0af013b79cc1eb39a1e82b4c5c41ab57a825"
     },
     {
       "path": "docs/IMPLEMENTATION_BLUEPRINT.md",
@@ -548,8 +558,8 @@
     },
     {
       "path": "scripts/build_wasm.sh",
-      "bytes": 2360,
-      "sha256": "5043a51ceb42f6efa165b91e0beeed0831b94b7131b1dcf6d063e64d15614393"
+      "bytes": 2853,
+      "sha256": "af89c69642ab4bd50b95ac80f0c4782cd4962b66e5312613d85ba6a5cb160e9b"
     },
     {
       "path": "scripts/check_repo.py",
@@ -598,8 +608,8 @@
     },
     {
       "path": "site/app.js",
-      "bytes": 89903,
-      "sha256": "c3611d00d5fbba94c2ce780c299851830ab181827eb24868452ac20c489d4f65"
+      "bytes": 87293,
+      "sha256": "c06b0b569c8e9ab441550ca61648b20a1152dc4b7e7acffddcec4e980e5b2262"
     },
     {
       "path": "site/assets/favicon.svg",
@@ -633,8 +643,8 @@
     },
     {
       "path": "site/index.html",
-      "bytes": 103451,
-      "sha256": "ccf5ad1de6d15a6026b0aa12b9a9319699edc33992802809ee958c96cf13a85b"
+      "bytes": 103660,
+      "sha256": "b3b052ac6bb13c019abf54b2092c1ecc943a346cafa9743a77b36e62f6b417fa"
     },
     {
       "path": "site/mechanism_interferometry.pdf",
@@ -653,8 +663,8 @@
     },
     {
       "path": "site/pkg/mic_bg.wasm",
-      "bytes": 293426,
-      "sha256": "0f9d9728f2a020a235897eff14bf7107e967a21cb2f34ea44a2a59a39c91e884"
+      "bytes": 310325,
+      "sha256": "8843206a71729befba3b517f89e4293c2a2bf2a6d87494a2d4dea776011d1e13"
     },
     {
       "path": "site/pkg/mic_bg.wasm.d.ts",
