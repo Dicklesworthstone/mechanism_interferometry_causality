@@ -39,7 +39,7 @@
       "evidence_id": "ev_relevance",
       "relative_path": "design_diagnostic_receipt.json",
       "content_sha256": "30e89ad9955e3c8dfe3a016abad31132175ffb53c94748243350982f3e4f57ab",
-      "evidence_class": "empirical_diagnostic",
+      "evidence_class": "design_diagnostic_receipt",
       "covers_premises": ["positivity", "relevance"]
     }
   ],

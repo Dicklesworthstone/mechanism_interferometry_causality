@@ -164,7 +164,11 @@
         },
         "content_sha256": {"$ref": "#/$defs/sha256"},
         "evidence_class": {
-          "enum": ["external_design_assertion", "empirical_diagnostic"]
+          "enum": [
+            "external_design_assertion",
+            "empirical_diagnostic",
+            "design_diagnostic_receipt"
+          ]
         },
         "covers_premises": {
           "type": "array",

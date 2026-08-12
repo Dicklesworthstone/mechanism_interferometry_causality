@@ -4,7 +4,7 @@
   "generated_at_utc": "2026-08-12T23:00:00Z",
   "hash_algorithm": "sha256",
   "file_count": 154,
-  "aggregate_sha256": "45f7994a649f7bc6cc204bab7feec2c7a93b067a9df7e23da3d46846fe87bdf3",
+  "aggregate_sha256": "3990fac3a843b4c2cb530ab6a2a13033fc4076821c85cd68dfeb71349daca264",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -233,8 +233,8 @@
     },
     {
       "path": "docs/CAUSAL_TOMOGRAPHY.md",
-      "bytes": 23025,
-      "sha256": "1e511e2405de3577494ccb8d06e5c485c0f976f05f8bb3e4d4dfa070045d0893"
+      "bytes": 26259,
+      "sha256": "aa8bd12eeee3007d0a7cd78bd386ee9775cc4731c92573f58b96f65c207c7bb7"
     },
     {
       "path": "docs/DATASET_ELIGIBILITY.md",
@@ -243,8 +243,8 @@
     },
     {
       "path": "docs/DATASET_GAUNTLET.md",
-      "bytes": 21798,
-      "sha256": "a7c145f175f7339cffefe14b6096e011620e8b25508397efd80c58f27981eb21"
+      "bytes": 24764,
+      "sha256": "21249c33962674032a599730e6906cd617746d30ea0c6cd8d7a66c1183ef1b12"
     },
     {
       "path": "docs/EXPERIMENTAL_PROTOCOL.md",
@@ -303,13 +303,13 @@
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/README.md",
-      "bytes": 2004,
-      "sha256": "18a4b8e3b7593dca6cf4fd56525b95114e4062ab8eb1e645c3a417eedacb8ac4"
+      "bytes": 2091,
+      "sha256": "64ef0192a6f0e6669d11681aac6ac1e9cc2ccbc90b4e1cefd9dc563d10268762"
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/authorized_design_receipt.json",
-      "bytes": 4386,
-      "sha256": "25dec7c565f84c16ffa26f39144ae15c28308f4ce01c9d8769ab61573ee871aa"
+      "bytes": 4391,
+      "sha256": "a58648651e9e41813d589a486b01d911a02af4f2695818c0f2059e3dc58f446b"
     },
     {
       "path": "examples/benchmarks/authority_ablation_template/blind_design_receipt.json",
@@ -553,18 +553,18 @@
     },
     {
       "path": "paper/main.pdf",
-      "bytes": 537648,
-      "sha256": "c99bf1777c3168617afee5d04a3d975cbe1168a3e0698bfb04d327627d974cba"
+      "bytes": 539748,
+      "sha256": "0219dbd0fadb7ecd42f00722a7c50e0ae6727f5bb75145ff4167a8851e8dae6b"
     },
     {
       "path": "paper/main.tex",
-      "bytes": 92029,
-      "sha256": "d4f58d4490149363872228d019715a9c40f45d34a96214c4b9c6bdd016f94d97"
+      "bytes": 93100,
+      "sha256": "808b8c7c94b40f6cdfae5b4b5f3e69f5b93c4eae55b5edc1ed1cba0b69a40c57"
     },
     {
       "path": "paper/references.bib",
-      "bytes": 12285,
-      "sha256": "2c93b15d78d5fbfc292805527790b8d3083933c206d1b9f4298f1cf3b154f937"
+      "bytes": 12744,
+      "sha256": "5730eecdc03558dfd4df8d8db32867fc183c3d2851c0ee9ec96684822570d344"
     },
     {
       "path": "pyproject.toml",
@@ -608,8 +608,8 @@
     },
     {
       "path": "schemas/design_authority_receipt.schema.json",
-      "bytes": 7456,
-      "sha256": "8fc077829011a2be57ec2daa05bb05767cf2d6a1e205a40026e34537a55b2320"
+      "bytes": 7533,
+      "sha256": "fc24c6fa49bf7f9b839fc2496e20f32b87a4684411829b3cbb3d61c205e277e4"
     },
     {
       "path": "schemas/design_diagnostic_receipt.schema.json",
@@ -653,8 +653,8 @@
     },
     {
       "path": "scripts/check_repo.py",
-      "bytes": 77078,
-      "sha256": "8f61e4d586cc3b303fd80a98d1c0c497c9a288ea763fda34831b84086ae5b930"
+      "bytes": 78200,
+      "sha256": "5654f9bffe77351b1efab0031f4efade426a0d7715ec324dd3ecb3dedcd13c64"
     },
     {
       "path": "scripts/generate_example_data.py",
@@ -738,8 +738,8 @@
     },
     {
       "path": "site/mechanism_interferometry.pdf",
-      "bytes": 537648,
-      "sha256": "c99bf1777c3168617afee5d04a3d975cbe1168a3e0698bfb04d327627d974cba"
+      "bytes": 539748,
+      "sha256": "0219dbd0fadb7ecd42f00722a7c50e0ae6727f5bb75145ff4167a8851e8dae6b"
     },
     {
       "path": "site/pkg/mic.d.ts",

@@ -333,6 +333,20 @@ def authority_template_semantic_errors(
         require(evidence_path.is_file(), "evidence path is missing")
         if evidence_path.is_file():
             require(evidence.get("content_sha256") == sha256(evidence_path), "stale evidence hash")
+    diagnostic_evidence = [
+        item
+        for item in evidence_items
+        if set(item.get("covers_premises", [])) & {"relevance", "positivity"}
+    ]
+    require(
+        len(diagnostic_evidence) == 1
+        and diagnostic_evidence[0].get("relative_path")
+        == "design_diagnostic_receipt.json"
+        and diagnostic_evidence[0].get("content_sha256") == sha256(diagnostic_path)
+        and diagnostic_evidence[0].get("evidence_class")
+        == "design_diagnostic_receipt",
+        "relevance and positivity are not bound to the design diagnostic receipt",
+    )
 
     route_contracts: dict[tuple[object, object, object], dict[str, str]] = {
         ("randomized_encouragement", "recorded_randomization", "offer_itt"): {
@@ -375,7 +389,7 @@ def authority_template_semantic_errors(
         for premise in premises:
             evidence = evidence_by_id.get(premise.get("evidence_ref"), {})
             expected_class = (
-                "empirical_diagnostic"
+                "design_diagnostic_receipt"
                 if premise.get("status") == "empirically_checked_not_design_authority"
                 else "external_design_assertion"
             )
@@ -916,7 +930,7 @@ def validate_schemas_and_manifests() -> None:
                     )
                     evidence = evidence_by_id.get(evidence_ref, {})
                     expected_class = (
-                        "empirical_diagnostic"
+                        "design_diagnostic_receipt"
                         if premise.get("status") == "empirically_checked_not_design_authority"
                         else "external_design_assertion"
                     )
@@ -1055,6 +1069,15 @@ def validate_schemas_and_manifests() -> None:
             check(
                 template_rejected(routing_view, wrong_evidence_subject, blind, oracle),
                 "wrong-evidence-subject adversary passed the real validator",
+            )
+            raw_csv_as_diagnostic = copy.deepcopy(authorized)
+            raw_evidence = raw_csv_as_diagnostic["premise_evidence"][2]
+            raw_evidence["relative_path"] = "routing_data.csv"
+            raw_evidence["content_sha256"] = sha256(routing_data_path)
+            raw_evidence["evidence_class"] = "empirical_diagnostic"
+            check(
+                template_rejected(routing_view, raw_csv_as_diagnostic, blind, oracle),
+                "raw-CSV diagnostic laundering passed the real validator",
             )
             leaky_identifier = copy.deepcopy(routing_view)
             leaky_identifier["benchmark_id"] = "randomized_encouragement_late"

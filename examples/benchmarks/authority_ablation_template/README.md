@@ -12,8 +12,9 @@ evidence that relevance passed.
 An eventual runner must copy only `routing_data.csv` and `routing_view.json`
 into an isolated neutral path. `routing_data.csv` contains discovery units only;
 `confirmation_data.csv`, `source_table.csv`, and `oracle.json` stay sealed until
-strategy freeze. In the authorized condition it separately mounts
-`authorized_design_receipt.json`; in the blind condition it mounts
+strategy freeze. In the authorized condition the trusted harness verifies and
+separately mounts `authorized_design_receipt.json` plus exactly its three
+content-bound evidence files; in the blind condition it mounts only
 `blind_design_receipt.json`. It must never mount this directory wholesale:
 `oracle.json` is a sibling for repository conformance only and its
 `declared_sealed_not_executed` field is not an access-control mechanism.

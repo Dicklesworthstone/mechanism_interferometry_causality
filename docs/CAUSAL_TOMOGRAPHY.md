@@ -71,6 +71,41 @@ tensor factorization of `H_e` is non-unique under invertible mixing of its
 factors. Sparsity, low rank, neural disentanglement, or a compact code length do
 not by themselves turn those factors into causal mechanisms.
 
+### Where directional information can enter
+
+Causality is not one statistical asymmetry. It is the claim that some part of a
+generative system can be changed while other mechanisms retain their meaning,
+and that the resulting response transports across contexts. A general-purpose
+system should therefore search for several distinct **sources of directional
+information**, preserve their different premises, and intersect their surviving
+model classes:
+
+| Source | Observable leverage | What supplies direction | No-claim boundary |
+|---|---|---|---|
+| Delivered action or natural experiment | randomized offers, cutoffs, outages, controller commands, policy timing | externally bound assignment or boundary-condition semantics | rows may discover the opportunity but cannot manufacture the assignment contract |
+| Recurrent environment shifts | sparse changes repeated across backgrounds, invariant conditionals, flat combinations | stability of autonomous mechanisms plus sufficiently diverse shifts | arbitrary low rank or environment predictability is not a causal factorization |
+| Temporal/spatial propagation | known source time and location, response fronts, impulse recurrence | an exogenous source and verified forward paths with calibrated sensor latency | lag prediction alone gives neither direction nor adjacency |
+| Local mechanism algebra | conditional normalization, deletion equivalence, common support, curvature closure | existence of a localized normalized replacement and, separately, target semantics | one deletion pass cannot establish that only one mechanism changed |
+| Specialized structural model | additive noise, linear shift interventions, non-Gaussianity, proxy bridges, monotone dynamics | an explicit restricted model class with its own falsifiers | model-family agreement is sensitivity evidence, not universal causal authority |
+| Active disambiguation | a newly randomized tilt or measurement chosen to separate surviving models | intervention delivery and an independently collected confirmation law | acquisition scores never become evidence about the data used to choose them |
+
+These routes are complementary. Joint Causal Inference makes context variables
+explicit; invariant prediction searches for predictors whose response mechanism
+survives environments; sparse-mechanism methods exploit the number and diversity
+of changed conditionals; and BackShift identifies a linear cyclic system from
+covariance changes under a particular unknown-shift model. Each can be a scout
+adapter. None is silently promoted into the complete-cube MIC theorem, and a
+restricted-model result carries its model class in the answer type.
+
+This yields a practical definition of “self-driving”: inspect a pile for all
+available sources above, freeze a library of candidate questions on discovery
+units, kill candidates whose observable implications fail, and return the
+strongest still-licensed claim. The output may be an oriented mechanism family,
+an ancestor relation, a query-specific effect, an equivalence class, or a request
+for one missing action or measurement. Refusing to output a total DAG is correct
+when the information needed to choose among observationally equivalent worlds is
+not present.
+
 ### Sparse stable mechanisms: a graph-scoring signal
 
 Suppose a common causally sufficient DAG generates all environments and only a
