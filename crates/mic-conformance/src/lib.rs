@@ -8,8 +8,9 @@ mod tests {
     use mic_data::{DataSource, ExperimentManifest, InferenceTrack, RegimeSpec, SelectionContract};
     use mic_design::{DesignPoint, audit_design, audit_sampling_odds};
     use mic_engine::{
-        LensEstimate, PreflightPolicy, PreflightStatus, audit_lens_battery, audit_orientation,
-        run_preflight,
+        FourLawPolicy, LensEstimate, PreflightPolicy, PreflightStatus, SurveyAuthority,
+        SurveyPolicy, audit_lens_battery, audit_orientation, run_preflight, run_tabular_audit,
+        run_unsupervised_survey,
     };
     use mic_model::PosteriorSquare;
     use mic_sim::exact_suite;
@@ -271,5 +272,33 @@ mod tests {
         let audit = audit_orientation(&deletions, 0.02, 0.1, "orientation", &mut ledger).unwrap();
         assert_eq!(audit.outcome, OrientationOutcome::Underpowered);
         assert_eq!(ledger.status(true), CertificateStatus::Abstained);
+    }
+
+    #[test]
+    fn histogram_four_law_is_ready_on_nonproduct_quotas_and_never_certifies() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let curved = ExperimentManifest::from_json_path(
+            root.join("examples/configs/four_law_nonproduct.json"),
+        )
+        .unwrap();
+        let report = run_tabular_audit(
+            &curved,
+            FourLawPolicy::default(),
+            PreflightPolicy::default(),
+            Some(&root),
+        )
+        .unwrap();
+        assert_eq!(report.preflight.status, PreflightStatus::Ready);
+        assert!(report.preflight.four_law_eligible);
+        assert!(!report.preflight.product_factorial_eligible);
+        assert_eq!(report.status, CertificateStatus::Abstained);
+        assert!(report.four_law[0].max_abs_kappa > 0.8);
+        let markdown = report.narrative().markdown;
+        assert!(markdown.starts_with("# Mechanism Interferometry report"));
+        assert!(markdown.contains("## Certificate status: `abstained`"));
+        assert!(
+            markdown.find("## Abstentions").unwrap()
+                < markdown.find("## Informational findings").unwrap()
+        );
     }
 }

@@ -10,14 +10,17 @@ repository.workspace = true
 
 [dependencies]
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 mic-audit = { path = "../mic-audit" }
+mic-core = { path = "../mic-core" }
 mic-data = { path = "../mic-data" }
 mic-design = { path = "../mic-design" }
 mic-stats = { path = "../mic-stats" }
 
-[dev-dependencies]
-serde_json.workspace = true
+[[bin]]
+name = "mic-tabular"
+path = "src/bin/tabular.rs"
 
 [lints]
 workspace = true

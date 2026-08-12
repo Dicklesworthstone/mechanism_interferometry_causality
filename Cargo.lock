@@ -1362,6 +1362,7 @@ name = "mic-engine"
 version = "0.1.0"
 dependencies = [
  "mic-audit",
+ "mic-core",
  "mic-data",
  "mic-design",
  "mic-stats",
@@ -1410,6 +1411,7 @@ dependencies = [
  "fsci-stats",
  "mic-core",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 

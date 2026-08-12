@@ -6,6 +6,9 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
+mod report;
+pub use report::{NarrativeReport, render_narrative};
+
 /// Execution policy.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -178,6 +181,12 @@ pub mod code {
     pub const NON_SQUARE_CONTRASTS_REQUIRED: &str = "non_square_contrasts_required";
     /// Certified projections disagree across the declared estimator lens battery.
     pub const ESTIMATOR_FAMILY_DISAGREEMENT: &str = "estimator_family_disagreement";
+    /// A cluster appears under more than one regime.
+    pub const CLUSTER_SPANS_REGIMES: &str = "cluster_spans_regimes";
+    /// A declared regime has no included clusters.
+    pub const MISSING_REGIME_DATA: &str = "missing_regime_data";
+    /// Histogram four-law common support is empty.
+    pub const EMPTY_COMMON_SUPPORT: &str = "empty_common_support";
 }
 
 #[cfg(test)]

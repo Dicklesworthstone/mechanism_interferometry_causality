@@ -1,0 +1,482 @@
+//! Unsupervised Stage 0–1 survey: column triage and a testability atlas.
+//!
+//! Authority is permanently `proposal_only`. Selection cannot be established
+//! from rows, so this path never certifies.
+
+use crate::EngineError;
+use mic_data::{RawTable, load_raw_csv};
+use mic_design::{
+    DesignPoint, ObservedDesign, SamplingOddsAudit, audit_sampling_odds, observed_design_from_rows,
+};
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
+
+/// Permanent authority of an unsupervised survey artifact.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SurveyAuthority {
+    /// May decide what square to audit next. May not decide what is true.
+    ProposalOnly,
+}
+
+/// How a column was triaged.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ColumnRole {
+    /// Identifier-shaped; candidate randomization unit.
+    ClusterCandidate,
+    /// Low-cardinality assigned-looking factor; candidate design bit or encoding.
+    ContextCandidate,
+    /// Remaining numeric or high-cardinality features.
+    StateCandidate,
+    /// Constant or empty; recorded so nothing is dropped silently.
+    Excluded,
+}
+
+/// One column after Stage 0 scoring.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ColumnTriage {
+    /// Header name.
+    pub column: String,
+    /// Assigned role.
+    pub role: ColumnRole,
+    /// Distinct non-empty values.
+    pub n_unique: usize,
+    /// Distinct values divided by row count.
+    pub uniqueness: f64,
+    /// Why the role was chosen.
+    pub reason: String,
+}
+
+/// One discovered interferometer (a pair of context bits, or a bitstring column).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct InterferometerProposal {
+    /// Stable identifier.
+    pub interferometer_id: String,
+    /// Source columns that induce the bits.
+    pub context_columns: Vec<String>,
+    /// Observed design geometry.
+    pub design: ObservedDesign,
+    /// Product-odds audit when all four corners of a 2-factor square are present.
+    pub sampling: Option<SamplingOddsAudit>,
+    /// Whether a complete 2-factor square is observed.
+    pub complete_square: bool,
+    /// Whether pooled odds are empirically product (estimated quotas, not known).
+    pub empirically_product: bool,
+    /// Smallest retained corner count.
+    pub min_corner_count: usize,
+    /// Ranking score: complete square first, then min corner count.
+    pub priority: f64,
+    /// Why this is or is not immediately auditable.
+    pub note: String,
+}
+
+/// Stage 0–1 survey of a raw table.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SurveyReport {
+    /// Schema version.
+    pub schema_version: String,
+    /// Always `proposal_only`.
+    pub authority: SurveyAuthority,
+    /// Why certification is impossible from rows alone.
+    pub wall: String,
+    /// File fingerprint.
+    pub table_sha256: String,
+    /// Resolved path.
+    pub path: String,
+    /// Row count.
+    pub n_rows: usize,
+    /// Column triage.
+    pub columns: Vec<ColumnTriage>,
+    /// Coarsest cluster-candidate column, if any.
+    pub inferred_cluster_column: Option<String>,
+    /// Ranked interferometers.
+    pub interferometers: Vec<InterferometerProposal>,
+    /// Human-readable next action.
+    pub next_step: String,
+}
+
+/// Policy for the unsupervised survey.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct SurveyPolicy {
+    /// Maximum unique values for a context candidate.
+    pub max_context_uniques: usize,
+    /// Minimum unique values for a context candidate.
+    pub min_context_uniques: usize,
+    /// Minimum rows (or clusters) to retain a corner.
+    pub min_corner_count: usize,
+    /// Maximum context pairs to emit.
+    pub max_pairs: usize,
+}
+
+impl Default for SurveyPolicy {
+    fn default() -> Self {
+        Self {
+            max_context_uniques: 16,
+            min_context_uniques: 2,
+            min_corner_count: 2,
+            max_pairs: 32,
+        }
+    }
+}
+
+/// Triages columns and lists testable squares. Does not estimate κ and does not certify.
+pub fn run_unsupervised_survey(
+    path: impl AsRef<Path>,
+    base_dir: Option<&Path>,
+    declared_cluster: Option<&str>,
+    policy: SurveyPolicy,
+) -> Result<SurveyReport, EngineError> {
+    if policy.min_corner_count == 0 || policy.max_pairs == 0 {
+        return Err(EngineError::InvalidTabular(
+            "survey policy min_corner_count and max_pairs must be positive".into(),
+        ));
+    }
+    let table = load_raw_csv(path, base_dir)?;
+    let columns = triage_columns(&table, policy);
+    let inferred_cluster = declared_cluster
+        .map(ToOwned::to_owned)
+        .or_else(|| coarsest_cluster(&columns));
+    let interferometers =
+        discover_interferometers(&table, &columns, inferred_cluster.as_deref(), policy)?;
+    let next_step = if interferometers.iter().any(|item| item.complete_square) {
+        "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Do not treat this atlas as orientation.".into()
+    } else {
+        "No complete square was observed. Add the missing corners or collect a factorial follow-up. The atlas is a design proposal, not a graph.".into()
+    };
+    Ok(SurveyReport {
+        schema_version: "1.0.0".into(),
+        authority: SurveyAuthority::ProposalOnly,
+        wall: "State-independent within-regime selection cannot be established from observed rows. This survey cannot issue a certificate.".into(),
+        table_sha256: table.content_sha256,
+        path: table.path.display().to_string(),
+        n_rows: table.rows.len(),
+        columns,
+        inferred_cluster_column: inferred_cluster,
+        interferometers,
+        next_step,
+    })
+}
+
+fn triage_columns(table: &RawTable, policy: SurveyPolicy) -> Vec<ColumnTriage> {
+    let n = table.rows.len().max(1) as f64;
+    table
+        .headers
+        .iter()
+        .enumerate()
+        .map(|(index, name)| {
+            let uniques = unique_values(table, index);
+            let n_unique = uniques.len();
+            let uniqueness = n_unique as f64 / n;
+            let lower = name.to_ascii_lowercase();
+            let looks_like_id = lower.contains("id")
+                || lower.ends_with("_key")
+                || lower.contains("uuid")
+                || uniqueness >= 0.98;
+            let constant = n_unique <= 1;
+            let bitstring = looks_like_bitstring(&uniques);
+            let (role, reason) = if constant {
+                (
+                    ColumnRole::Excluded,
+                    "constant or empty; recorded so it is not silently dropped".into(),
+                )
+            } else if looks_like_id {
+                (
+                    ColumnRole::ClusterCandidate,
+                    "identifier-shaped or nearly unique; candidate randomization unit".into(),
+                )
+            } else if bitstring {
+                (
+                    ColumnRole::ContextCandidate,
+                    "values are equal-length bit strings; candidate encoded factorial design"
+                        .into(),
+                )
+            } else if n_unique >= policy.min_context_uniques
+                && n_unique <= policy.max_context_uniques
+            {
+                (
+                    ColumnRole::ContextCandidate,
+                    format!("{n_unique} distinct values; candidate assigned context factor"),
+                )
+            } else {
+                (
+                    ColumnRole::StateCandidate,
+                    "high-cardinality or numeric-looking remainder; treated as state".into(),
+                )
+            };
+            ColumnTriage {
+                column: name.clone(),
+                role,
+                n_unique,
+                uniqueness,
+                reason,
+            }
+        })
+        .collect()
+}
+
+fn coarsest_cluster(columns: &[ColumnTriage]) -> Option<String> {
+    columns
+        .iter()
+        .filter(|column| column.role == ColumnRole::ClusterCandidate)
+        .min_by(|left, right| {
+            left.n_unique
+                .cmp(&right.n_unique)
+                .then_with(|| left.column.cmp(&right.column))
+        })
+        .map(|column| column.column.clone())
+}
+
+fn discover_interferometers(
+    table: &RawTable,
+    columns: &[ColumnTriage],
+    cluster_column: Option<&str>,
+    policy: SurveyPolicy,
+) -> Result<Vec<InterferometerProposal>, EngineError> {
+    let context: Vec<&ColumnTriage> = columns
+        .iter()
+        .filter(|column| column.role == ColumnRole::ContextCandidate)
+        .collect();
+    let mut proposals = Vec::new();
+
+    for column in &context {
+        let values = unique_values(table, header_index(table, &column.column)?);
+        if looks_like_bitstring(&values)
+            && let Some(proposal) =
+                bitstring_interferometer(table, &column.column, cluster_column, policy)?
+        {
+            proposals.push(proposal);
+        }
+    }
+
+    let binary: Vec<&ColumnTriage> = context
+        .iter()
+        .copied()
+        .filter(|column| column.n_unique == 2)
+        .collect();
+    for i in 0..binary.len() {
+        for j in (i + 1)..binary.len() {
+            if proposals.len() >= policy.max_pairs {
+                break;
+            }
+            if let Some(proposal) = pair_interferometer(
+                table,
+                &binary[i].column,
+                &binary[j].column,
+                cluster_column,
+                policy,
+            )? {
+                proposals.push(proposal);
+            }
+        }
+    }
+
+    proposals.sort_by(|left, right| {
+        right
+            .priority
+            .partial_cmp(&left.priority)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left.interferometer_id.cmp(&right.interferometer_id))
+    });
+    proposals.truncate(policy.max_pairs);
+    Ok(proposals)
+}
+
+fn bitstring_interferometer(
+    table: &RawTable,
+    column: &str,
+    cluster_column: Option<&str>,
+    policy: SurveyPolicy,
+) -> Result<Option<InterferometerProposal>, EngineError> {
+    let index = header_index(table, column)?;
+    let assignments = cluster_collapsed_bits(table, cluster_column, |row| {
+        DesignPoint::parse(&row[index]).ok().map(|point| point.bits)
+    })?;
+    propose(
+        format!("bitstring:{column}"),
+        vec![column.to_string()],
+        &assignments,
+        policy,
+        "encoded factorial column; treat bits as candidate primitives, not as a certified design",
+    )
+}
+
+fn pair_interferometer(
+    table: &RawTable,
+    first: &str,
+    second: &str,
+    cluster_column: Option<&str>,
+    policy: SurveyPolicy,
+) -> Result<Option<InterferometerProposal>, EngineError> {
+    let i = header_index(table, first)?;
+    let j = header_index(table, second)?;
+    let first_levels = sorted_uniques(table, i);
+    let second_levels = sorted_uniques(table, j);
+    if first_levels.len() != 2 || second_levels.len() != 2 {
+        return Ok(None);
+    }
+    let assignments = cluster_collapsed_bits(table, cluster_column, |row| {
+        Some(vec![row[i] == first_levels[1], row[j] == second_levels[1]])
+    })?;
+    propose(
+        format!("pair:{first}+{second}"),
+        vec![first.to_string(), second.to_string()],
+        &assignments,
+        policy,
+        "two binary context columns; a complete square is a candidate four-law interferometer",
+    )
+}
+
+fn propose(
+    interferometer_id: String,
+    context_columns: Vec<String>,
+    assignments: &[Vec<bool>],
+    policy: SurveyPolicy,
+    note: &str,
+) -> Result<Option<InterferometerProposal>, EngineError> {
+    if assignments.is_empty() {
+        return Ok(None);
+    }
+    let design = observed_design_from_rows(assignments, policy.min_corner_count)?;
+    let complete_square =
+        design.points.len() == 4 && design.points.iter().all(|point| point.dimension() == 2);
+    let sampling = if complete_square {
+        let mut rho = [0.0; 4];
+        for (point, proportion) in design.points.iter().zip(&design.proportions) {
+            let slot = corner_slot(point);
+            if let Some(index) = slot {
+                rho[index] = *proportion;
+            }
+        }
+        if rho.iter().all(|value| *value > 0.0) {
+            Some(audit_sampling_odds(rho, 1e-10)?)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let empirically_product = sampling.is_some_and(|audit| audit.is_product);
+    let min_corner_count = design.counts.iter().copied().min().unwrap_or(0);
+    let priority = f64::from(u32::from(complete_square)) * 1_000.0
+        + min_corner_count as f64
+        + f64::from(u32::from(empirically_product)) * 50.0;
+    Ok(Some(InterferometerProposal {
+        interferometer_id,
+        context_columns,
+        design,
+        sampling,
+        complete_square,
+        empirically_product,
+        min_corner_count,
+        priority,
+        note: note.to_string(),
+    }))
+}
+
+fn cluster_collapsed_bits(
+    table: &RawTable,
+    cluster_column: Option<&str>,
+    bits_for_row: impl Fn(&[String]) -> Option<Vec<bool>>,
+) -> Result<Vec<Vec<bool>>, EngineError> {
+    if let Some(cluster) = cluster_column {
+        let cluster_index = header_index(table, cluster)?;
+        let mut seen: BTreeMap<String, Vec<bool>> = BTreeMap::new();
+        let mut conflicts = BTreeSet::new();
+        for row in &table.rows {
+            let Some(bits) = bits_for_row(row) else {
+                continue;
+            };
+            let id = row[cluster_index].clone();
+            if let Some(existing) = seen.get(&id) {
+                if existing != &bits {
+                    conflicts.insert(id);
+                }
+            } else {
+                seen.insert(id, bits);
+            }
+        }
+        if !conflicts.is_empty() {
+            return Err(EngineError::InvalidTabular(format!(
+                "cluster column {cluster} spans multiple design corners for {} clusters",
+                conflicts.len()
+            )));
+        }
+        Ok(seen.into_values().collect())
+    } else {
+        Ok(table
+            .rows
+            .iter()
+            .filter_map(|row| bits_for_row(row))
+            .collect())
+    }
+}
+
+fn unique_values(table: &RawTable, index: usize) -> BTreeSet<String> {
+    table
+        .rows
+        .iter()
+        .map(|row| row[index].clone())
+        .filter(|value| !value.is_empty())
+        .collect()
+}
+
+fn sorted_uniques(table: &RawTable, index: usize) -> Vec<String> {
+    unique_values(table, index).into_iter().collect()
+}
+
+fn looks_like_bitstring(values: &BTreeSet<String>) -> bool {
+    if values.is_empty() {
+        return false;
+    }
+    let width = values.iter().next().map(String::len).unwrap_or(0);
+    width >= 2
+        && values
+            .iter()
+            .all(|value| value.len() == width && value.chars().all(|ch| ch == '0' || ch == '1'))
+}
+
+fn header_index(table: &RawTable, name: &str) -> Result<usize, EngineError> {
+    table
+        .headers
+        .iter()
+        .position(|header| header == name)
+        .ok_or_else(|| EngineError::InvalidTabular(format!("column {name} is not in the table")))
+}
+
+fn corner_slot(point: &DesignPoint) -> Option<usize> {
+    if point.dimension() != 2 {
+        return None;
+    }
+    Some(usize::from(point.bits[0]) + 2 * usize::from(point.bits[1]))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn workspace_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    }
+
+    #[test]
+    fn discrete_fixture_survey_finds_the_encoded_square() {
+        let report = run_unsupervised_survey(
+            "examples/data/four_law_discrete.csv",
+            Some(&workspace_root()),
+            Some("cluster_id"),
+            SurveyPolicy::default(),
+        )
+        .unwrap();
+        assert_eq!(report.authority, SurveyAuthority::ProposalOnly);
+        assert!(
+            report
+                .interferometers
+                .iter()
+                .any(|item| item.complete_square && item.context_columns == ["regime"])
+        );
+        assert!(report.wall.contains("cannot issue a certificate"));
+    }
+}

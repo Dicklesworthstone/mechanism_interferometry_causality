@@ -2,7 +2,7 @@
 //! Fail-closed preflight orchestration for mechanism-interferometry analyses.
 
 use mic_audit::{EvidenceLedger, ExecutionMode, Finding, Severity, code};
-use mic_data::{ExperimentManifest, InferenceTrack, ManifestError, SelectionContract};
+use mic_data::{ExperimentManifest, InferenceTrack, ManifestError, SelectionContract, TableError};
 use mic_design::{
     DesignAudit, DesignError, DesignPoint, SamplingOddsAudit, SquareFace, audit_design,
     audit_sampling_odds,
@@ -10,6 +10,17 @@ use mic_design::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
+
+mod survey;
+mod tabular;
+pub use survey::{
+    ColumnRole, ColumnTriage, InterferometerProposal, SurveyAuthority, SurveyPolicy, SurveyReport,
+    run_unsupervised_survey,
+};
+pub use tabular::{
+    CellCurvature, ColumnProjection, FourLawFaceAudit, FourLawPolicy, ProjectionSpec,
+    TabularAuditReport, TabularIngestSummary, run_tabular_audit,
+};
 
 /// Numerical and policy settings for preflight validation.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -109,6 +120,12 @@ pub enum EngineError {
     /// An overlap-audit input was structurally invalid.
     #[error("overlap audit is invalid: {0}")]
     InvalidOverlap(String),
+    /// Tabular ingest failed.
+    #[error(transparent)]
+    Table(#[from] TableError),
+    /// The histogram four-law projection rejected its inputs.
+    #[error("tabular four-law audit is invalid: {0}")]
+    InvalidTabular(String),
 }
 
 /// Serializable result of the deletion-orientation audit.
