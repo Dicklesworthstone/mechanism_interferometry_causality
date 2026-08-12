@@ -1303,10 +1303,12 @@ dependencies = [
 name = "mic-cli"
 version = "0.1.0"
 dependencies = [
+ "mic-audit",
  "mic-data",
  "mic-design",
  "mic-engine",
  "mic-sim",
+ "mic-stats",
  "serde",
  "serde_json",
 ]
@@ -1374,6 +1376,15 @@ dependencies = [
  "mic-core",
  "mic-design",
  "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "mic-proposal"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 

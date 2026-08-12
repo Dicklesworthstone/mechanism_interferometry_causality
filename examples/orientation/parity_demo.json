@@ -1,0 +1,20 @@
+{
+  "epsilon": 0.05,
+  "full_discrepancy": 0.82,
+  "min_full_discrepancy": 0.1,
+  "strict": true,
+  "deletions": [
+    {
+      "variable": "P",
+      "relative_discrepancy": 0.012,
+      "lower": 0.0,
+      "upper": 0.03
+    },
+    {
+      "variable": "T",
+      "relative_discrepancy": 0.009,
+      "lower": 0.0,
+      "upper": 0.028
+    }
+  ]
+}
