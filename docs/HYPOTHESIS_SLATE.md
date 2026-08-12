@@ -94,6 +94,17 @@ guide construct, not `replicate_id`. Do not invent a column. Declare the
 actual randomization unit, or the survey must serialize
 `cluster_unit_basis: row` and stay `proposal_only`.
 
+**Identities-only technical-state projection (bb-ule, 2026-08-12).** On the
+hash-checked CBL/CNN1 square, clustered at construct × `gemgroup`, the
+*fold-specific P0-weighted mean* κ sign-flips across gemgroups (pooled +0.59;
+folds −0.21 … +0.88). That is scalar-summary instability on changing occupancy
+sets, not a proven cellwise-field failure. Compositional raw `Z = Σ pA pB / p0`
+is 1.160 (residual +0.160), not a self-normalized `E0[r_A]=1`. The
+four-corner `ln(348·2536/(663·480))=+1.020` is post-selection **row-count**
+odds, not assignment odds. This kills an identities-only κ *figure* as the
+paper lead. Eligibility-table facts survive. Artifact:
+`~/brennerbot_sessions/mic-empirical-figure/evidence/packs/EV-pack-H-001.md`.
+
 ## Modes of reasoning (lead-agent synthesis, no NTM)
 
 Selected because this is a **scientific audit system**, not a product CRUD app.

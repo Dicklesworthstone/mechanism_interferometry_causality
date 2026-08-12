@@ -64,7 +64,10 @@ Packet 1 FrankenPandas ingest. Packet 1 should attach to the same
   graphs may only propose pairs (`authority: proposal_only`).
 - Honest status today: **eligible as a design**. Data are not in-repo.
   `mic-tabular ingest` against the template path abstains with
-  `data file not found`.
+  `data file not found`. Identities-only UMI/coverage *mean* κ on CBL/CNN1
+  sign-flips across gemgroups as a fold-specific scalar (slate bb-ule).
+  The four-corner `+1.020` is post-selection row-count odds, not assignment
+  odds. Raw `Z=1.160`.
 
 ## 2. NCI-ALMANAC / DrugComb combination screens
 
