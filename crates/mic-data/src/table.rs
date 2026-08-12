@@ -603,7 +603,7 @@ fn parse_flag(raw: &str, row: usize) -> Result<bool, TableError> {
 
 /// Tokenizes one CSV line with the standard reader's own rules.
 ///
-/// Exposed for the FrankenPandas adapter, which needs header names before it can build a
+/// Exposed for the `FrankenPandas` adapter, which needs header names before it can build a
 /// per-column dtype override. Both readers must agree on what the header names are before
 /// they can be compared on anything else.
 pub(crate) fn parse_csv_header_line(line: &str) -> Result<Vec<String>, String> {
