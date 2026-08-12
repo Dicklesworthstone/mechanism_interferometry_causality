@@ -47,6 +47,9 @@ pub enum DesignError {
     /// A supplied matrix was ragged.
     #[error("matrix rows must have equal length")]
     RaggedMatrix,
+    /// A family set was empty or contained an empty node name.
+    #[error("family sets must be nonempty and contain nonempty node names")]
+    InvalidFamily,
 }
 
 /// One Boolean factorial design corner.
@@ -326,6 +329,211 @@ pub fn null_space_basis(
     Ok(basis)
 }
 
+/// One design corner observed in raw data but excluded by the support threshold.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DroppedCorner {
+    /// The under-supported corner.
+    pub point: DesignPoint,
+    /// Number of rows observed at that corner.
+    pub count: usize,
+}
+
+/// Design structure discovered from raw context assignments.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ObservedDesign {
+    /// Retained corners in canonical order.
+    pub points: Vec<DesignPoint>,
+    /// Row counts per retained corner.
+    pub counts: Vec<usize>,
+    /// Empirical proportions over retained rows; these are estimates, never
+    /// declared quotas, and downstream grades must treat them as such.
+    pub proportions: Vec<f64>,
+    /// Corners observed below the support threshold, excluded and reported.
+    pub dropped: Vec<DroppedCorner>,
+    /// Total rows supplied, including rows at dropped corners.
+    pub total_rows: usize,
+    /// Minimum per-corner count required for retention.
+    pub minimum_count: usize,
+}
+
+/// Discovers the observed design induced by raw per-row context assignments.
+///
+/// Each row is the bit vector of a candidate context set for one observation
+/// (or one cluster, when the caller has already collapsed to the randomization
+/// unit, which is the recommended usage).  Corners with fewer than
+/// `minimum_count` rows are excluded from the design and reported in
+/// `dropped`, because a nominally observed but empty corner produces
+/// degenerate regime laws.  Proportions are renormalized over retained rows.
+pub fn observed_design_from_rows(
+    rows: &[Vec<bool>],
+    minimum_count: usize,
+) -> Result<ObservedDesign, DesignError> {
+    if rows.is_empty() {
+        return Err(DesignError::EmptyDesign);
+    }
+    let dimension = rows[0].len();
+    if dimension == 0 {
+        return Err(DesignError::EmptyPoint);
+    }
+    let mut tallies: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
+    for row in rows {
+        if row.len() != dimension {
+            return Err(DesignError::DimensionMismatch {
+                expected: dimension,
+                actual: row.len(),
+            });
+        }
+        *tallies.entry(row.clone()).or_insert(0) += 1;
+    }
+    let threshold = minimum_count.max(1);
+    let mut points = Vec::new();
+    let mut counts = Vec::new();
+    let mut dropped = Vec::new();
+    for (bits, count) in tallies {
+        let point = DesignPoint::new(bits)?;
+        if count >= threshold {
+            points.push(point);
+            counts.push(count);
+        } else {
+            dropped.push(DroppedCorner { point, count });
+        }
+    }
+    if points.is_empty() {
+        return Err(DesignError::EmptyDesign);
+    }
+    let retained: usize = counts.iter().sum();
+    let proportions = counts
+        .iter()
+        .map(|&count| count as f64 / retained as f64)
+        .collect();
+    Ok(ObservedDesign {
+        points,
+        counts,
+        proportions,
+        dropped,
+        total_rows: rows.len(),
+        minimum_count: threshold,
+    })
+}
+
+/// One target identified by the peeling reconstruction.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct OrientedFamily {
+    /// The identified target node.
+    pub target: String,
+    /// Union of the recovered parent sets over every tilt of this target.
+    /// Under undercoverage the union reveals parents an individual tilt missed;
+    /// it can also retain unaffected nondescendants, so downstream pruning
+    /// still applies.
+    pub parents: BTreeSet<String>,
+    /// Distinct per-tilt parent sets when the tilts disagreed; empty when every
+    /// tilt produced the same support, so disagreement is never hidden inside
+    /// the union.
+    pub support_variants: Vec<BTreeSet<String>>,
+}
+
+/// Result of peeling a multiset of unlabeled family sets into a DAG.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum PeelingOutcome {
+    /// Every family received a unique target; assignment order is topological.
+    Complete {
+        /// Oriented families in assignment order.
+        families: Vec<OrientedFamily>,
+    },
+    /// Peeling stalled; the remaining families admit no forced assignment.
+    Stuck {
+        /// Families oriented before the stall, in assignment order.
+        assigned: Vec<OrientedFamily>,
+        /// Families that could not be reduced to a unique unidentified node.
+        unassigned: Vec<BTreeSet<String>>,
+    },
+}
+
+/// Reconstructs target assignments from unlabeled family sets by peeling.
+///
+/// Each input set is a localized family `{target} ∪ parents` with the target
+/// label unknown.  Node labels are canonicalized by trimming surrounding
+/// whitespace.  In every round, all families whose members are identified
+/// except exactly one are assigned that node as target simultaneously, so
+/// repeated tilts of one node resolve together; families naming the same
+/// target within a round are grouped into one record whose parent set is the
+/// union of supports, with the distinct per-tilt supports preserved whenever
+/// they disagree.  On a family multiset generated by a DAG with adequate
+/// coverage the assignment is unique, one record per node, in topological
+/// order.  Families that reduce to zero unidentified members, and stalls where
+/// no family reduces to exactly one, return the conservative `Stuck` state
+/// instead of a forced orientation.
+pub fn peel_families(families: &[BTreeSet<String>]) -> Result<PeelingOutcome, DesignError> {
+    if families.is_empty() {
+        return Err(DesignError::InvalidFamily);
+    }
+    let mut remaining: Vec<BTreeSet<String>> = Vec::with_capacity(families.len());
+    for family in families {
+        let canonical: BTreeSet<String> =
+            family.iter().map(|node| node.trim().to_owned()).collect();
+        if canonical.is_empty() || canonical.iter().any(String::is_empty) {
+            return Err(DesignError::InvalidFamily);
+        }
+        remaining.push(canonical);
+    }
+    let mut identified: BTreeSet<String> = BTreeSet::new();
+    let mut assigned: Vec<OrientedFamily> = Vec::new();
+    loop {
+        let mut next_remaining = Vec::new();
+        let mut round: BTreeMap<String, Vec<BTreeSet<String>>> = BTreeMap::new();
+        for family in remaining {
+            let unidentified: Vec<&String> = family
+                .iter()
+                .filter(|node| !identified.contains(*node))
+                .collect();
+            if unidentified.len() == 1 {
+                let target = unidentified[0].clone();
+                let parents: BTreeSet<String> = family
+                    .iter()
+                    .filter(|node| **node != target)
+                    .cloned()
+                    .collect();
+                round.entry(target).or_default().push(parents);
+            } else {
+                next_remaining.push(family);
+            }
+        }
+        if round.is_empty() {
+            return Ok(if next_remaining.is_empty() {
+                PeelingOutcome::Complete { families: assigned }
+            } else {
+                PeelingOutcome::Stuck {
+                    assigned,
+                    unassigned: next_remaining,
+                }
+            });
+        }
+        for (target, supports) in round {
+            identified.insert(target.clone());
+            let mut distinct: Vec<BTreeSet<String>> = Vec::new();
+            for support in &supports {
+                if !distinct.contains(support) {
+                    distinct.push(support.clone());
+                }
+            }
+            distinct.sort();
+            let parents: BTreeSet<String> = distinct.iter().flatten().cloned().collect();
+            let support_variants = if distinct.len() > 1 {
+                distinct
+            } else {
+                Vec::new()
+            };
+            assigned.push(OrientedFamily {
+                target,
+                parents,
+                support_variants,
+            });
+        }
+        remaining = next_remaining;
+    }
+}
+
 /// Estimability class of one pairwise interaction field on an observed design.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -365,6 +573,9 @@ pub struct AliasAudit {
     pub general_contrast_pairs: usize,
     /// Lack-of-fit dimensions not spanned by any observed square contrast.
     pub untested_lack_of_fit_dimension: usize,
+    /// Canonicalized contrast vectors, in point order, spanning the lack-of-fit
+    /// directions that no observed square contrast reaches.
+    pub untested_contrasts: Vec<Vec<f64>>,
 }
 
 /// Classifies every pairwise interaction field by estimability on the observed design.
@@ -435,13 +646,44 @@ pub fn audit_interaction_aliasing(
 
     let main_rank = matrix_rank(main_effects_matrix(points), tolerance)?;
     let lack_of_fit_dimension = corner_count.saturating_sub(main_rank);
+    let lack_of_fit_basis = null_space_basis(transpose(&main_effects_matrix(points))?, tolerance)?;
+    let untested_contrasts = completion_beyond_span(&lack_of_fit_basis, &face_vectors, tolerance);
     Ok(AliasAudit {
         pairs,
         fully_aliased_pairs,
         square_testable_pairs,
         general_contrast_pairs,
         untested_lack_of_fit_dimension: lack_of_fit_dimension.saturating_sub(face_rank),
+        untested_contrasts,
     })
+}
+
+/// Canonical basis of the part of `space` outside the span of `covered`.
+fn completion_beyond_span(
+    space: &[Vec<f64>],
+    covered: &[Vec<f64>],
+    tolerance: f64,
+) -> Vec<Vec<f64>> {
+    let mut orthonormal: Vec<Vec<f64>> = Vec::new();
+    for vector in covered {
+        let residual = orthogonal_residual(vector, &orthonormal);
+        let magnitude = norm(&residual);
+        if magnitude > tolerance {
+            orthonormal.push(residual.iter().map(|value| value / magnitude).collect());
+        }
+    }
+    let mut completion = Vec::new();
+    for vector in space {
+        let residual = orthogonal_residual(vector, &orthonormal);
+        let magnitude = norm(&residual);
+        if magnitude > tolerance {
+            orthonormal.push(residual.iter().map(|value| value / magnitude).collect());
+            let mut canonical = orthonormal[orthonormal.len() - 1].clone();
+            canonicalize_vector(&mut canonical, tolerance);
+            completion.push(canonical);
+        }
+    }
+    completion
 }
 
 /// Orthonormalizes the columns of a row-major matrix by modified Gram-Schmidt.
@@ -693,6 +935,31 @@ mod tests {
         for pair in &audit.pairs {
             assert!(pair.testable_component_norm > 0.1);
         }
+        assert_eq!(audit.untested_contrasts.len(), 2);
+        let matrix = main_effects_matrix(&points);
+        for contrast in &audit.untested_contrasts {
+            // Each reported direction is a genuine lack-of-fit contrast: it
+            // annihilates the intercept and every main-effect column.
+            for column in 0..4 {
+                let dot: f64 = matrix
+                    .iter()
+                    .zip(contrast)
+                    .map(|(row, &weight)| row[column] * weight)
+                    .sum();
+                assert!(dot.abs() < 1e-10);
+            }
+        }
+    }
+
+    #[test]
+    fn complete_cube_has_no_untested_contrasts() {
+        let points: Vec<_> = (0_u8..8)
+            .map(|value| {
+                DesignPoint::new((0..3).map(|bit| value & (1 << bit) != 0).collect()).unwrap()
+            })
+            .collect();
+        let audit = audit_interaction_aliasing(&points, 1e-12).unwrap();
+        assert!(audit.untested_contrasts.is_empty());
     }
 
     #[test]
@@ -718,6 +985,144 @@ mod tests {
         let audit = audit_interaction_aliasing(&points, 1e-12).unwrap();
         assert_eq!(audit.fully_aliased_pairs, 1);
         assert_eq!(audit.untested_lack_of_fit_dimension, 0);
+    }
+
+    #[test]
+    fn observed_design_discovers_square_and_reports_dropped_corner() {
+        let mut rows = Vec::new();
+        rows.extend(std::iter::repeat_n(vec![false, false], 40));
+        rows.extend(std::iter::repeat_n(vec![true, false], 30));
+        rows.extend(std::iter::repeat_n(vec![false, true], 20));
+        rows.extend(std::iter::repeat_n(vec![true, true], 10));
+        rows.push(vec![true, true]);
+        let observed = observed_design_from_rows(&rows, 5).unwrap();
+        assert_eq!(observed.points.len(), 4);
+        assert_eq!(observed.counts, vec![40, 20, 30, 11]);
+        assert!((observed.proportions.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+        assert!(observed.dropped.is_empty());
+        let audit = audit_design(&observed.points, 1e-12).unwrap();
+        assert_eq!(audit.square_faces.len(), 1);
+
+        let mut sparse = rows.clone();
+        sparse.truncate(90);
+        sparse.push(vec![true, true]);
+        let observed = observed_design_from_rows(&sparse, 5).unwrap();
+        assert_eq!(observed.points.len(), 3);
+        assert_eq!(observed.dropped.len(), 1);
+        assert_eq!(observed.dropped[0].count, 1);
+        assert_eq!(observed.total_rows, 91);
+        let audit = audit_design(&observed.points, 1e-12).unwrap();
+        assert!(audit.square_faces.is_empty());
+    }
+
+    #[test]
+    fn observed_design_rejects_ragged_rows() {
+        let error = observed_design_from_rows(&[vec![true], vec![true, false]], 1).unwrap_err();
+        assert!(matches!(error, DesignError::DimensionMismatch { .. }));
+    }
+
+    fn family(members: &[&str]) -> BTreeSet<String> {
+        members.iter().map(|name| (*name).to_string()).collect()
+    }
+
+    #[test]
+    fn peeling_recovers_chain_and_collider() {
+        let chain = [family(&["A"]), family(&["A", "B"]), family(&["B", "C"])];
+        let outcome = peel_families(&chain).unwrap();
+        let PeelingOutcome::Complete { families } = outcome else {
+            panic!("chain should peel completely");
+        };
+        assert_eq!(families.len(), 3);
+        assert_eq!(families[0].target, "A");
+        assert_eq!(families[1].target, "B");
+        assert_eq!(families[1].parents, family(&["A"]));
+        assert_eq!(families[2].target, "C");
+        assert_eq!(families[2].parents, family(&["B"]));
+
+        let collider = [family(&["A"]), family(&["B"]), family(&["A", "B", "C"])];
+        let PeelingOutcome::Complete { families } = peel_families(&collider).unwrap() else {
+            panic!("collider should peel completely");
+        };
+        assert_eq!(families[2].target, "C");
+        assert_eq!(families[2].parents, family(&["A", "B"]));
+    }
+
+    #[test]
+    fn peeling_groups_repeated_tilts_into_one_record() {
+        let sets = [family(&["A"]), family(&["A", "B"]), family(&["A", "B"])];
+        let PeelingOutcome::Complete { families } = peel_families(&sets).unwrap() else {
+            panic!("repeated tilts should peel completely");
+        };
+        assert_eq!(families.len(), 2);
+        assert_eq!(families[1].target, "B");
+        assert_eq!(families[1].parents, family(&["A"]));
+        assert!(families[1].support_variants.is_empty());
+    }
+
+    #[test]
+    fn peeling_unions_disagreeing_supports_and_preserves_variants() {
+        let sets = [
+            family(&["A"]),
+            family(&["C"]),
+            family(&["A", "B"]),
+            family(&["C", "B"]),
+        ];
+        let PeelingOutcome::Complete { families } = peel_families(&sets).unwrap() else {
+            panic!("disagreeing tilts should peel completely into one grouped record");
+        };
+        assert_eq!(families.len(), 3);
+        let target_b = families
+            .iter()
+            .find(|oriented| oriented.target == "B")
+            .expect("B must be oriented exactly once");
+        assert_eq!(target_b.parents, family(&["A", "C"]));
+        assert_eq!(
+            target_b.support_variants,
+            vec![family(&["A"]), family(&["C"])]
+        );
+        assert_eq!(
+            families
+                .iter()
+                .filter(|oriented| oriented.target == "B")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn peeling_canonicalizes_whitespace_labels() {
+        let sets = [family(&["A"]), family(&[" A ", "B"])];
+        let PeelingOutcome::Complete { families } = peel_families(&sets).unwrap() else {
+            panic!("trimmed labels should unify");
+        };
+        assert_eq!(families[1].target, "B");
+        assert_eq!(families[1].parents, family(&["A"]));
+    }
+
+    #[test]
+    fn peeling_stalls_conservatively_without_a_source_family() {
+        let sets = [family(&["A", "B"]), family(&["B", "C"])];
+        let PeelingOutcome::Stuck {
+            assigned,
+            unassigned,
+        } = peel_families(&sets).unwrap()
+        else {
+            panic!("sourceless multiset must stall");
+        };
+        assert!(assigned.is_empty());
+        assert_eq!(unassigned.len(), 2);
+    }
+
+    #[test]
+    fn peeling_rejects_empty_families() {
+        assert!(matches!(
+            peel_families(&[]).unwrap_err(),
+            DesignError::InvalidFamily
+        ));
+        assert!(matches!(
+            peel_families(&[BTreeSet::new()]).unwrap_err(),
+            DesignError::InvalidFamily
+        ));
     }
 
     #[test]
