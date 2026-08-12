@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-12T18:44:58Z",
+  "generated_at_utc": "2026-08-12T18:45:38Z",
   "hash_algorithm": "sha256",
   "file_count": 118,
-  "aggregate_sha256": "7454703ff69730efec8650844a589e4af87736c50ccb8e613469e64f82ce6dc0",
+  "aggregate_sha256": "0644bc1fe297b60f20d5dd5659fc21c2a769999bc1ae975179f2736cf3fd18b4",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -178,8 +178,8 @@
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
-      "bytes": 31723,
-      "sha256": "d7f8a28392939798d63caf329817503f7ead5189f8255ee5a500986277ca9b16"
+      "bytes": 31846,
+      "sha256": "52d61f5967015d708297a8b3bead748c7c9d0323ffc6c5c4e587605761d00aba"
     },
     {
       "path": "crates/mic-model/Cargo.toml",
