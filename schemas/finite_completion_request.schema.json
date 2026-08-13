@@ -22,7 +22,7 @@
       ],
       "properties": {
         "law_semantics": {
-          "enum": ["exact_or_simulated_population", "estimated_point_tables"]
+          "const": "exact_or_simulated_population"
         },
         "state_cardinalities": {
           "type": "array",

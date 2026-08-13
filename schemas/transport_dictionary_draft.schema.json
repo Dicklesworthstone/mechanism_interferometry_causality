@@ -186,8 +186,8 @@
               "items": { "pattern": "^env_[0-9]{3,}$" }
             },
             "observed_anchor_rank": { "type": "integer", "minimum": 0, "maximum": 64 },
-            "amplitudes_calibrated": { "type": "boolean" },
-            "anchor_labels_assigned": { "type": "boolean" }
+            "amplitudes_calibrated": { "const": false },
+            "anchor_labels_assigned": { "const": false }
           }
         },
         {

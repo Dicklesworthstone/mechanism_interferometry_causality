@@ -23,6 +23,7 @@
     "strict": {"type": "boolean"},
     "inference_track": {"enum": ["four_law", "product_factorial", "both"]},
     "selection": {
+      "description": "Caller declaration only; strict readiness requires separately resolved content-bound evidence.",
       "enum": [
         "state_independent_within_regime",
         "modeled",

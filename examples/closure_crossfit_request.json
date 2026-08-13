@@ -1,6 +1,7 @@
 {
-  "schema_version": "1.0.0",
-  "declared_independent_unit": "synthetic_cluster",
+  "schema_version": "1.1.0",
+  "declared_dependence_unit": "synthetic_experimental_unit",
+  "declared_assignment_episode": "synthetic_assignment_episode",
   "sampling_proportions": [0.25, 0.25, 0.25, 0.25],
   "config": {
     "seed": 29,
@@ -13,13 +14,13 @@
     }
   },
   "samples": [
-    {"features": [0.0], "class": 0, "cluster_id": "class-0-candidate-4"},
-    {"features": [0.0], "class": 0, "cluster_id": "class-0-candidate-0"},
-    {"features": [0.0], "class": 1, "cluster_id": "class-1-candidate-0"},
-    {"features": [0.0], "class": 1, "cluster_id": "class-1-candidate-5"},
-    {"features": [0.0], "class": 2, "cluster_id": "class-2-candidate-1"},
-    {"features": [0.0], "class": 2, "cluster_id": "class-2-candidate-0"},
-    {"features": [1.0], "class": 3, "cluster_id": "class-3-candidate-1"},
-    {"features": [1.0], "class": 3, "cluster_id": "class-3-candidate-0"}
+    {"features": [0.0], "class": 0, "dependence_unit_id": "class-0-candidate-4", "assignment_episode_id": "class-0-candidate-4-period-0"},
+    {"features": [0.0], "class": 0, "dependence_unit_id": "class-0-candidate-0", "assignment_episode_id": "class-0-candidate-0-period-0"},
+    {"features": [0.0], "class": 1, "dependence_unit_id": "class-1-candidate-0", "assignment_episode_id": "class-1-candidate-0-period-0"},
+    {"features": [0.0], "class": 1, "dependence_unit_id": "class-1-candidate-5", "assignment_episode_id": "class-1-candidate-5-period-0"},
+    {"features": [0.0], "class": 2, "dependence_unit_id": "class-2-candidate-1", "assignment_episode_id": "class-2-candidate-1-period-0"},
+    {"features": [0.0], "class": 2, "dependence_unit_id": "class-2-candidate-0", "assignment_episode_id": "class-2-candidate-0-period-0"},
+    {"features": [1.0], "class": 3, "dependence_unit_id": "class-3-candidate-1", "assignment_episode_id": "class-3-candidate-1-period-0"},
+    {"features": [1.0], "class": 3, "dependence_unit_id": "class-3-candidate-0", "assignment_episode_id": "class-3-candidate-0-period-0"}
   ]
 }

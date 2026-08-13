@@ -56,6 +56,85 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def framed_json_sha256(domain: bytes, value: object) -> str:
+    """Matches MIC's fixed-width framed serde-JSON fingerprints for fixtures."""
+    encoded = json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    digest = hashlib.sha256()
+    digest.update(domain)
+    digest.update(struct.pack("<Q", len(encoded)))
+    digest.update(encoded)
+    return digest.hexdigest()
+
+
+def transport_dictionary_library_sha256(attempts: list[dict]) -> str:
+    """Recomputes the Rust proposal freezer's complete-attempt-library binding."""
+    digest = hashlib.sha256()
+    digest.update(b"mic-transport-dictionary-library-v1\0")
+
+    def usize(value: int) -> None:
+        digest.update(struct.pack("<Q", value))
+
+    def text(value: str) -> None:
+        encoded = value.encode("utf-8")
+        usize(len(encoded))
+        digest.update(encoded)
+
+    usize(len(attempts))
+    source_kinds = {
+        "preregistered_domain_model": 0,
+        "passive_learner": 1,
+        "previous_independent_audit": 2,
+        "exploratory_search": 3,
+    }
+    for attempt in attempts:
+        text(attempt["attempt_id"])
+        text(attempt["specification_sha256"])
+        outcome = attempt["outcome"]
+        status = outcome["status"]
+        if status in {"not_run", "rejected"}:
+            digest.update(bytes([0 if status == "not_run" else 1]))
+            text(outcome["reason"])
+            continue
+        digest.update(b"\x02")
+        candidate = outcome["candidate"]
+        source = candidate["source"]
+        text(source["adapter_id"])
+        text(source["adapter_revision"])
+        digest.update(bytes([source_kinds[source["source_kind"]]]))
+        text(source["model_family"])
+        text(source["data_fingerprint"])
+        text(source["assignment_unit_fingerprint"])
+        text(source["fold_fingerprint"])
+        text(source["hyperparameter_policy"])
+        usize(len(source["feature_flags"]))
+        for flag in source["feature_flags"]:
+            text(flag)
+        text(json.dumps(candidate["algebraic_case"], separators=(",", ":")))
+        usize(len(candidate["atoms"]))
+        for atom in candidate["atoms"]:
+            text(atom["atom_id"])
+            text(atom["artifact_sha256"])
+            digest.update(struct.pack("<Q", atom["artifact_bytes"]))
+            text(atom["media_type"])
+            text(atom["support_id"])
+        usize(len(candidate["codes"]))
+        for row in candidate["codes"]:
+            text(row["environment_id"])
+            usize(len(row["coefficients"]))
+            for coefficient in row["coefficients"]:
+                digest.update(struct.pack("<d", coefficient))
+        diagnostics = candidate["diagnostics"]
+        for field in (
+            "training_reconstruction_loss",
+            "heldout_discovery_loss",
+            "description_length",
+        ):
+            digest.update(struct.pack("<d", diagnostics[field]))
+        usize(diagnostics["fit_iterations"])
+        digest.update(bytes([bool(candidate["support_aliasing_detected"])]))
+    return digest.hexdigest()
+
+
 def unique_field(items: list[dict], field: str) -> bool:
     values = [item.get(field) for item in items]
     return len(values) == len(set(values))
@@ -733,6 +812,7 @@ def required_files() -> None:
         "site/app.js",
         "site/mechanism_interferometry.pdf",
         "schemas/experiment_manifest.schema.json",
+        "schemas/selection_evidence_receipt.schema.json",
         "schemas/evidence_finding.schema.json",
         "schemas/audit_report.schema.json",
         "schemas/active_tilt_input.schema.json",
@@ -760,6 +840,8 @@ def required_files() -> None:
         "examples/combination_confirmation_request.json",
         "examples/transport_refit_request.json",
         "examples/finite_completion_request.json",
+        "examples/selection_evidence/feature_flag_selection_receipt.json",
+        "examples/selection_evidence/feature_flag_sampling_record.txt",
         "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
         "examples/scout_inputs/self_driving_request.json",
@@ -815,6 +897,7 @@ def validate_schemas_and_manifests() -> None:
         schemas[path.name] = document
 
     manifest_schema = schemas.get("experiment_manifest.schema.json")
+    selection_evidence_schema = schemas.get("selection_evidence_receipt.schema.json")
     orientation_schema = schemas.get("orientation_input.schema.json")
     closure_crossfit_schema = schemas.get("closure_crossfit_request.schema.json")
     primitive_transport_schema = schemas.get("primitive_transport_request.schema.json")
@@ -839,6 +922,47 @@ def validate_schemas_and_manifests() -> None:
     scalar_response_schema = schemas.get("scalar_response_contract.schema.json")
 
     check(closure_crossfit_schema is not None, "closure-crossfit schema was not loaded")
+    check(selection_evidence_schema is not None, "selection-evidence schema was not loaded")
+    if selection_evidence_schema is not None:
+        selection_receipt = load_json(
+            ROOT / "examples" / "selection_evidence" / "feature_flag_selection_receipt.json"
+        )
+        selection_validator = Draft202012Validator(selection_evidence_schema)
+        for error in sorted(
+            selection_validator.iter_errors(selection_receipt), key=lambda item: list(item.path)
+        ):
+            location = ".".join(str(part) for part in error.path) or "<root>"
+            fail(f"selection-evidence schema violation at {location}: {error.message}")
+        if isinstance(selection_receipt, dict):
+            selection_manifest = load_json(
+                ROOT / "examples" / "configs" / "feature_flag_pilot.json"
+            )
+            check(
+                selection_receipt.get("manifest_canonical_sha256")
+                == hashlib.sha256(
+                    json.dumps(
+                        selection_manifest,
+                        separators=(",", ":"),
+                        ensure_ascii=False,
+                    ).encode("utf-8")
+                ).hexdigest(),
+                "selection-evidence receipt manifest hash drifted",
+            )
+            check(
+                selection_receipt.get("data_content_sha256")
+                == sha256(ROOT / "examples" / "data" / "feature_flag_pilot.csv"),
+                "selection-evidence receipt data hash drifted",
+            )
+            check(
+                selection_receipt.get("authority_source_sha256")
+                == sha256(
+                    ROOT
+                    / "examples"
+                    / "selection_evidence"
+                    / "feature_flag_sampling_record.txt"
+                ),
+                "selection-evidence authority-source hash drifted",
+            )
     if closure_crossfit_schema is not None:
         closure_request = load_json(ROOT / "examples" / "closure_crossfit_request.json")
         closure_validator = Draft202012Validator(closure_crossfit_schema)
@@ -871,6 +995,34 @@ def validate_schemas_and_manifests() -> None:
                     for value in sample.get("features", [])
                 ),
                 "closure-crossfit features must be finite",
+            )
+            episode_roles: dict[str, tuple[str, int]] = {}
+            episode_roles_consistent = True
+            for sample in samples:
+                if not isinstance(sample, dict):
+                    continue
+                episode = sample.get("assignment_episode_id")
+                role = (sample.get("dependence_unit_id"), sample.get("class"))
+                if episode in episode_roles and episode_roles[episode] != role:
+                    episode_roles_consistent = False
+                elif isinstance(episode, str):
+                    episode_roles[episode] = role
+            check(
+                episode_roles_consistent,
+                "closure-crossfit assignment episode crosses dependence unit or corner",
+            )
+            sample_schema = closure_crossfit_schema["properties"]["samples"]["items"]
+            check(
+                sample_schema["properties"]["dependence_unit_id"].get("maxLength") == 1024
+                and sample_schema["properties"]["assignment_episode_id"].get("maxLength") == 1024,
+                "closure-crossfit schema does not cap both unit identifiers",
+            )
+            check(
+                closure_crossfit_schema["properties"]["config"]["properties"]["seed"].get(
+                    "maximum"
+                )
+                == 18446744073709551615,
+                "closure-crossfit schema accepts a seed outside Rust u64",
             )
             unknown = copy.deepcopy(closure_request)
             unknown["certificate_eligible"] = True
@@ -1192,8 +1344,57 @@ def validate_schemas_and_manifests() -> None:
                 "shift_library_fingerprint"
             ):
                 errors.append("dictionary proposal shift-library fingerprint is stale")
+            if proposal.get("proposal_id") != draft.get("proposal_id"):
+                errors.append("dictionary proposal identifier is detached from its draft")
             if proposal.get("attempts") != draft.get("attempts"):
                 errors.append("dictionary proposal does not retain the complete attempt library")
+            planned_attempts = plan.get("attempt_specification_sha256s", [])
+            realized_attempts = [
+                attempt.get("specification_sha256")
+                for attempt in draft.get("attempts", [])
+                if isinstance(attempt, dict)
+            ]
+            if planned_attempts != realized_attempts:
+                errors.append("dictionary attempt library is detached from its preregistered plan")
+            if proposal.get("contract_requests") != draft.get("contract_requests"):
+                errors.append("dictionary proposal contract requests are detached from its draft")
+            if proposal.get("next_queries") != draft.get("next_queries"):
+                errors.append("dictionary proposal next queries are detached from its draft")
+            if proposal.get("reference_policy") != plan.get("reference_policy"):
+                errors.append("dictionary proposal reference policy is detached from its plan")
+            if proposal.get("code_policy") != plan.get("code_policy"):
+                errors.append("dictionary proposal code policy is detached from its plan")
+            if proposal.get("ranking_rule") != plan.get("ranking_rule"):
+                errors.append("dictionary proposal ranking rule is detached from its plan")
+            expected_ranked = sorted(
+                (
+                    (
+                        attempt["outcome"]["candidate"]["diagnostics"]["heldout_discovery_loss"],
+                        attempt["outcome"]["candidate"]["diagnostics"]["description_length"],
+                        attempt["attempt_id"],
+                    )
+                    for attempt in draft.get("attempts", [])
+                    if isinstance(attempt, dict)
+                    and isinstance(attempt.get("outcome"), dict)
+                    and attempt["outcome"].get("status") == "completed"
+                )
+            )
+            if proposal.get("ranked_completed_attempt_ids") != [row[2] for row in expected_ranked]:
+                errors.append("dictionary completed-attempt ranking is stale")
+            expected_plan_fingerprint = framed_json_sha256(
+                b"mic-dictionary-search-plan-v1\0", plan
+            )
+            if proposal.get("search_plan_fingerprint") != expected_plan_fingerprint:
+                errors.append("dictionary proposal search-plan fingerprint is stale")
+            execution = draft.get("execution")
+            if not isinstance(execution, dict) or proposal.get(
+                "execution_binding_fingerprint"
+            ) != framed_json_sha256(b"mic-dictionary-execution-v1\0", execution):
+                errors.append("dictionary proposal execution fingerprint is stale")
+            if proposal.get("draft_fingerprint") != framed_json_sha256(
+                b"mic-transport-dictionary-draft-v1\0", draft
+            ):
+                errors.append("dictionary proposal draft fingerprint is stale")
             if proposal.get("seed") != scout_request.get("seed"):
                 errors.append("dictionary proposal seed is detached from the discovery request")
             incomplete = any(
@@ -1206,10 +1407,17 @@ def validate_schemas_and_manifests() -> None:
             )
             if incomplete and "general_linear_mixing" not in proposal.get("ambiguities", []):
                 errors.append("incomplete unknown codes dropped general-linear ambiguity")
-            if proposal.get("candidate_library_fingerprint") != (
-                "b670f208cb1f210f9e78daa654ca6ef4b7c98e043caf8789ec0c0fe81d059b1a"
-            ):
+            if "support_uniqueness_unverified" not in proposal.get("ambiguities", []):
+                errors.append("dictionary proposal dropped unverified support uniqueness")
+            attempts = draft.get("attempts")
+            if not isinstance(attempts, list) or proposal.get(
+                "candidate_library_fingerprint"
+            ) != transport_dictionary_library_sha256(attempts):
                 errors.append("dictionary candidate-library fingerprint is stale")
+            if proposal.get("input_claims_verified") is not False:
+                errors.append("dictionary proposal promoted unverified inputs")
+            if proposal.get("algebraic_recovery_verified") is not False:
+                errors.append("dictionary proposal promoted algebraic recovery")
             return errors
 
         if (
@@ -1255,6 +1463,37 @@ def validate_schemas_and_manifests() -> None:
             stale_library["candidate_library_fingerprint"] = "0" * 64
             mutations.append(
                 ("stale dictionary library", dictionary_plan, dictionary_draft, stale_library)
+            )
+            changed_source_kind_draft = copy.deepcopy(dictionary_draft)
+            changed_source_kind_draft["attempts"][0]["outcome"]["candidate"]["source"][
+                "source_kind"
+            ] = "preregistered_domain_model"
+            changed_source_kind_proposal = copy.deepcopy(dictionary_proposal)
+            changed_source_kind_proposal["attempts"][0]["outcome"]["candidate"]["source"][
+                "source_kind"
+            ] = "preregistered_domain_model"
+            mutations.append(
+                (
+                    "changed dictionary provenance class",
+                    dictionary_plan,
+                    changed_source_kind_draft,
+                    changed_source_kind_proposal,
+                )
+            )
+            omitted_attempt = copy.deepcopy(dictionary_draft)
+            omitted_attempt["attempts"] = omitted_attempt["attempts"][:-1]
+            mutations.append(
+                ("omitted dictionary attempt", dictionary_plan, omitted_attempt, dictionary_proposal)
+            )
+            changed_action = copy.deepcopy(dictionary_proposal)
+            changed_action["next_queries"][0]["priority_semantics"] = "changed action"
+            mutations.append(
+                ("changed dictionary action", dictionary_plan, dictionary_draft, changed_action)
+            )
+            stale_plan = copy.deepcopy(dictionary_proposal)
+            stale_plan["search_plan_fingerprint"] = "0" * 64
+            mutations.append(
+                ("stale dictionary search plan", dictionary_plan, dictionary_draft, stale_plan)
             )
             for name, candidate_plan, candidate_draft, candidate_proposal in mutations:
                 check(
@@ -1789,7 +2028,7 @@ def validate_schemas_and_manifests() -> None:
     if four_law_report_schema is not None:
         four_law_validator = Draft202012Validator(four_law_report_schema)
         four_law_report = {
-            "schema_version": "2.1.0",
+            "schema_version": "2.2.0",
             "experiment_id": "schema-conformance",
             "status": "abstained",
             "gates": {
@@ -1812,13 +2051,13 @@ def validate_schemas_and_manifests() -> None:
             },
             "information_content": {
                 "n_rows": 0,
-                "n_unit_labels": 0,
-                "units_are_rows": False,
+                "n_candidate_group_labels": 0,
+                "candidate_groups_are_rows": False,
                 "n_distinct_supported_regimes": 0,
-                "n_complete_testable_squares": 0,
-                "units_per_corner_min": None,
-                "units_per_corner_max": None,
-                "confirmation_count_ready": False,
+                "n_complete_design_squares": 0,
+                "candidate_group_labels_per_corner_min": None,
+                "candidate_group_labels_per_corner_max": None,
+                "candidate_group_count_floor_met": False,
                 "note": "count-only readiness; no confirmation authority",
             },
             "four_law": [],
@@ -1854,15 +2093,15 @@ def validate_schemas_and_manifests() -> None:
         malformed_manifest_binding["preflight"]["manifest_canonical_sha256"] = "not-a-sha256"
         invalid_four_law_reports.append(malformed_manifest_binding)
         forged_count_ready = copy.deepcopy(four_law_report)
-        forged_count_ready["information_content"]["confirmation_count_ready"] = True
+        forged_count_ready["information_content"]["candidate_group_count_floor_met"] = True
         invalid_four_law_reports.append(forged_count_ready)
         hidden_count_ready = copy.deepcopy(four_law_report)
         hidden_count_ready["information_content"].update(
             {
-                "n_complete_testable_squares": 1,
-                "units_per_corner_min": 2,
-                "units_per_corner_max": 2,
-                "confirmation_count_ready": False,
+                "n_complete_design_squares": 1,
+                "candidate_group_labels_per_corner_min": 2,
+                "candidate_group_labels_per_corner_max": 2,
+                "candidate_group_count_floor_met": False,
             }
         )
         invalid_four_law_reports.append(hidden_count_ready)

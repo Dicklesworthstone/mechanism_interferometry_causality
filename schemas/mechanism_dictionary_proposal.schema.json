@@ -93,7 +93,9 @@
           "general_linear_mixing",
           "rank_degeneracy",
           "almost_everywhere_support_aliasing",
-          "external_atom_independence_unverified"
+          "support_uniqueness_unverified",
+          "external_atom_independence_unverified",
+          "reference_origin_unverified"
         ]
       }
     },

@@ -17,7 +17,7 @@
     "ledger"
   ],
   "properties": {
-    "schema_version": {"const": "2.1.0"},
+    "schema_version": {"const": "2.2.0"},
     "experiment_id": {"type": "string", "minLength": 1},
     "status": {
       "enum": ["abstained", "diagnostic_only"],
@@ -77,26 +77,26 @@
       "additionalProperties": false,
       "required": [
         "n_rows",
-        "n_unit_labels",
-        "units_are_rows",
+        "n_candidate_group_labels",
+        "candidate_groups_are_rows",
         "n_distinct_supported_regimes",
-        "n_complete_testable_squares",
-        "units_per_corner_min",
-        "units_per_corner_max",
-        "confirmation_count_ready",
+        "n_complete_design_squares",
+        "candidate_group_labels_per_corner_min",
+        "candidate_group_labels_per_corner_max",
+        "candidate_group_count_floor_met",
         "note"
       ],
       "properties": {
         "n_rows": {"type": "integer", "minimum": 0},
-        "n_unit_labels": {"type": "integer", "minimum": 0},
-        "units_are_rows": {"type": "boolean"},
+        "n_candidate_group_labels": {"type": "integer", "minimum": 0},
+        "candidate_groups_are_rows": {"type": "boolean"},
         "n_distinct_supported_regimes": {"type": "integer", "minimum": 0},
-        "n_complete_testable_squares": {"type": "integer", "minimum": 0},
-        "units_per_corner_min": {"type": ["integer", "null"], "minimum": 0},
-        "units_per_corner_max": {"type": ["integer", "null"], "minimum": 0},
-        "confirmation_count_ready": {
+        "n_complete_design_squares": {"type": "integer", "minimum": 0},
+        "candidate_group_labels_per_corner_min": {"type": ["integer", "null"], "minimum": 0},
+        "candidate_group_labels_per_corner_max": {"type": ["integer", "null"], "minimum": 0},
+        "candidate_group_count_floor_met": {
           "type": "boolean",
-          "description": "Count-only readiness; does not establish assignment-unit authority or an untouched confirmation split."
+          "description": "Count-only design-support property; does not establish assignment-unit authority, independence, or an untouched confirmation split."
         },
         "note": {"type": "string", "minLength": 1}
       }
@@ -120,7 +120,7 @@
       "if": {
         "properties": {
           "information_content": {
-            "properties": {"confirmation_count_ready": {"const": true}}
+            "properties": {"candidate_group_count_floor_met": {"const": true}}
           }
         }
       },
@@ -128,9 +128,9 @@
         "properties": {
           "information_content": {
             "properties": {
-              "n_complete_testable_squares": {"minimum": 1},
-              "units_per_corner_min": {"type": "integer", "minimum": 2},
-              "units_per_corner_max": {"type": "integer", "minimum": 2}
+              "n_complete_design_squares": {"minimum": 1},
+              "candidate_group_labels_per_corner_min": {"type": "integer", "minimum": 2},
+              "candidate_group_labels_per_corner_max": {"type": "integer", "minimum": 2}
             }
           }
         }
@@ -141,8 +141,8 @@
         "properties": {
           "information_content": {
             "properties": {
-              "n_complete_testable_squares": {"minimum": 1},
-              "units_per_corner_min": {"type": "integer", "minimum": 2}
+              "n_complete_design_squares": {"minimum": 1},
+              "candidate_group_labels_per_corner_min": {"type": "integer", "minimum": 2}
             }
           }
         }
@@ -150,7 +150,7 @@
       "then": {
         "properties": {
           "information_content": {
-            "properties": {"confirmation_count_ready": {"const": true}}
+            "properties": {"candidate_group_count_floor_met": {"const": true}}
           }
         }
       }

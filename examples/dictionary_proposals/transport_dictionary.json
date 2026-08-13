@@ -4,12 +4,14 @@
   "proposal_id": "dictionary_001",
   "request_fingerprint": "626b32b3fabb6030e34880989ee18f9567a5cfc411c6a201927aa751a48b8980",
   "shift_library_fingerprint": "bfdc19b67942f65acb8b3faed5c4cd98aa82235c0ddf8a7524cb9f2607ff479b",
-  "search_plan_fingerprint": "84bebbbb54ab76ac3d66bb14a2c669cddb4986917bce6cdefbd595da8ca4e3c0",
+  "search_plan_fingerprint": "6a69c7e00098be4995f2ca02e3ebca35b15ffc91f3b56d2b1ba81206bd5b3938",
   "execution_binding_fingerprint": "76d3c816e1901e80e5e37a3f4eee0e2eb5f24c6c251516b0c041a7c7244dfde6",
-  "candidate_library_fingerprint": "b670f208cb1f210f9e78daa654ca6ef4b7c98e043caf8789ec0c0fe81d059b1a",
+  "candidate_library_fingerprint": "24d387720267b6461eb044edcb87d17854a393c7a825f30ea82fe9f29f6ae74e",
+  "draft_fingerprint": "9d52bbed5c1f7f995f0fa04cc0e75939b3398133b1490c4a16070439745c8cc8",
   "authority": "proposal_only",
   "certificate_eligible": false,
   "input_claims_verified": false,
+  "algebraic_recovery_verified": false,
   "causal_family_status": "not_evaluated",
   "mechanism_identity": "not_established",
   "target_identity": "not_established",
@@ -33,9 +35,9 @@
             "adapter_revision": "1111111111111111111111111111111111111111111111111111111111111111",
             "source_kind": "exploratory_search",
             "model_family": "fixed_transport_fixture",
-            "data_fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
-            "assignment_unit_fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
-            "fold_fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+            "data_fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "assignment_unit_fingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "fold_fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
             "hyperparameter_policy": "fixed_fixture",
             "feature_flags": []
           },
@@ -79,8 +81,12 @@
       }
     }
   ],
+  "ranked_completed_attempt_ids": [
+    "attempt_001"
+  ],
   "ambiguities": [
-    "general_linear_mixing"
+    "general_linear_mixing",
+    "support_uniqueness_unverified"
   ],
   "contract_requests": [
     {

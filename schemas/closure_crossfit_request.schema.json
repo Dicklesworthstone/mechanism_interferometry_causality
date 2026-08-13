@@ -6,14 +6,16 @@
   "additionalProperties": false,
   "required": [
     "schema_version",
-    "declared_independent_unit",
+    "declared_dependence_unit",
+    "declared_assignment_episode",
     "sampling_proportions",
     "config",
     "samples"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
-    "declared_independent_unit": {"type": "string", "minLength": 1},
+    "schema_version": {"const": "1.1.0"},
+    "declared_dependence_unit": {"type": "string", "minLength": 1, "maxLength": 1024},
+    "declared_assignment_episode": {"type": "string", "minLength": 1, "maxLength": 1024},
     "sampling_proportions": {
       "type": "array",
       "minItems": 4,
@@ -25,7 +27,7 @@
       "additionalProperties": false,
       "required": ["seed", "n_folds", "fit"],
       "properties": {
-        "seed": {"type": "integer", "minimum": 0},
+        "seed": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
         "n_folds": {"type": "integer", "minimum": 2},
         "fit": {
           "type": "object",
@@ -51,14 +53,15 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["features", "class", "cluster_id"],
+        "required": ["features", "class", "dependence_unit_id", "assignment_episode_id"],
         "properties": {
           "features": {
             "type": "array",
             "items": {"type": "number"}
           },
           "class": {"type": "integer", "minimum": 0, "maximum": 3},
-          "cluster_id": {"type": "string", "minLength": 1}
+          "dependence_unit_id": {"type": "string", "minLength": 1, "maxLength": 1024},
+          "assignment_episode_id": {"type": "string", "minLength": 1, "maxLength": 1024}
         }
       }
     }
