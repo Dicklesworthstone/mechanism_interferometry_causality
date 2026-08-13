@@ -25,9 +25,12 @@ complete catalog square with no same-target tilt family → orientation
 rectangle enumeration exist. Survey 1.1.0 prints information-content and
 stamps every atlas square `orientation=untestable`. Exact `δ = p_AB-p_A p_B/p_0`
 and `κ̃ = κ + Δlogπ − ΔlogZ` plus Γ-intervals live in `mic-core` as
-`DiagnosticOnly`. Still blocked: RoseLark's identified-set *theorem*, the
-gated estimator, Chambers hidden-sensor collection, dictionary learning,
-tomography. Γ-intervals do not refute H-002.
+`DiagnosticOnly`. `rank_missing_boolean_corners` ranks the next cell by
+identified-set reduction, then lack-of-fit gain (`D={00,11}` → collect `01` or
+`10`; the three-corner L → collect `11` to create a testable contrast).
+Histogram four-law now reports exact `δ` beside `κ`. Still blocked: RoseLark's
+identified-set *theorem*, the gated estimator, Chambers hidden-sensor
+collection, dictionary learning, tomography. Γ-intervals do not refute H-002.
 
 ## Question of record
 
