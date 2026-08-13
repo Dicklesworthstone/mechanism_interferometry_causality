@@ -45,7 +45,7 @@ pub enum StatsError {
 /// A non-diagnostic value is not certificate authority by itself. The engine
 /// must resolve the referenced audit identifier and fingerprint against its
 /// evidence ledger before a projection can contribute to a certificate.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProductDesignGrade {
     /// Corner masses were checked directly and have product pooled odds.
@@ -337,21 +337,53 @@ fn validate_sha256_fingerprint(value: &str, name: &'static str) -> Result<String
 }
 
 /// Studentized projected generalized covariance estimate.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct GcmEstimate {
     /// Mean weighted residual product.
-    pub estimate: f64,
+    estimate: f64,
     /// Estimated standard error of the mean.
-    pub standard_error: f64,
+    standard_error: f64,
     /// Studentized statistic.
-    pub z_score: f64,
+    z_score: f64,
     /// Number of observations.
-    pub sample_size: usize,
+    sample_size: usize,
     /// Product-design audit reference or diagnostic-only reason.
     ///
     /// A non-diagnostic grade still requires engine-side evidence-ledger
     /// resolution before this projection has certificate authority.
-    pub design_evidence: ProductDesignEvidence,
+    design_evidence: ProductDesignEvidence,
+}
+
+impl GcmEstimate {
+    /// Mean residual-product projection.
+    #[must_use]
+    pub fn estimate(&self) -> f64 {
+        self.estimate
+    }
+
+    /// Standard error of the mean projection.
+    #[must_use]
+    pub fn standard_error(&self) -> f64 {
+        self.standard_error
+    }
+
+    /// Studentized projection.
+    #[must_use]
+    pub fn z_score(&self) -> f64 {
+        self.z_score
+    }
+
+    /// Number of observation rows used by this primitive.
+    #[must_use]
+    pub fn sample_size(&self) -> usize {
+        self.sample_size
+    }
+
+    /// Structurally validated but engine-unresolved product-design reference.
+    #[must_use]
+    pub fn design_evidence(&self) -> &ProductDesignEvidence {
+        &self.design_evidence
+    }
 }
 
 /// Computes a cross-fitted weighted residual-product projection with explicit design evidence.
@@ -763,20 +795,40 @@ pub enum EquivalenceStatus {
 }
 
 /// One classified deletion hypothesis.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct DeletionEquivalence {
     /// Deleted coordinate name.
-    pub variable: String,
+    variable: String,
     /// Point estimate of the relative deletion discrepancy.
-    pub relative_discrepancy: f64,
+    relative_discrepancy: f64,
     /// Simultaneous lower confidence bound.
-    pub lower: f64,
+    lower: f64,
     /// Simultaneous upper confidence bound.
-    pub upper: f64,
+    upper: f64,
     /// Equivalence tolerance the bounds were compared against.
-    pub epsilon: f64,
+    epsilon: f64,
     /// Tri-state classification.
-    pub status: EquivalenceStatus,
+    status: EquivalenceStatus,
+}
+
+impl DeletionEquivalence {
+    /// Deleted coordinate named by this classified comparison.
+    #[must_use]
+    pub fn variable(&self) -> &str {
+        &self.variable
+    }
+
+    /// Tri-state simultaneous-equivalence classification.
+    #[must_use]
+    pub fn status(&self) -> EquivalenceStatus {
+        self.status
+    }
+
+    /// Common preregistered equivalence tolerance.
+    #[must_use]
+    pub fn epsilon(&self) -> f64 {
+        self.epsilon
+    }
 }
 
 /// Classifies one deletion from simultaneous bounds and a preregistered tolerance.
@@ -838,14 +890,15 @@ pub fn classify_deletion(
     })
 }
 
-/// Five-state orientation outcome of the deletion pass-count audit.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Five-state numerical pass-pattern outcome of the deletion audit.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum OrientationOutcome {
-    /// Exactly one deletion is certified invariant and every competitor is certified changed.
-    UniqueTarget {
-        /// The oriented target coordinate.
-        target: String,
+    /// Exactly one deletion passes and every competitor is certified changed.
+    /// This does not by itself establish a causal target.
+    UniquePassPattern {
+        /// The sole passing deleted coordinate.
+        variable: String,
     },
     /// No deletion is certified invariant and every deletion is certified changed.
     NoPass,
@@ -868,8 +921,9 @@ pub enum OrientationOutcome {
 /// Precedence is conservative: an underpowered intervention abstains before any
 /// counting; two certified passes are reported as multiple passes even if other
 /// deletions are unresolved, because the ambiguity is already fatal; any
-/// remaining unresolved deletion blocks orientation.  Only the unique-target
-/// state orients a family.
+/// remaining unresolved deletion blocks interpretation. A unique pass pattern
+/// still requires independently established single-target semantics and
+/// deletion faithfulness before it can orient a family.
 pub fn orient_from_deletions(
     deletions: &[DeletionEquivalence],
     full_discrepancy: f64,
@@ -930,30 +984,80 @@ pub fn orient_from_deletions(
         return Ok(OrientationOutcome::Undetermined { unresolved });
     }
     match passes.into_iter().next() {
-        Some(target) => Ok(OrientationOutcome::UniqueTarget { target }),
+        Some(variable) => Ok(OrientationOutcome::UniquePassPattern { variable }),
         None => Ok(OrientationOutcome::NoPass),
     }
 }
 
 /// Reference simultaneous multiplier bounds for a vector of cluster-mean statistics.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct SimultaneousBounds {
     /// Per-statistic cluster means.
-    pub means: Vec<f64>,
+    means: Vec<f64>,
     /// Per-statistic standard errors of the cluster mean.
-    pub standard_errors: Vec<f64>,
+    standard_errors: Vec<f64>,
     /// Max-statistic critical value shared by every coordinate.
-    pub critical_value: f64,
+    critical_value: f64,
     /// Simultaneous lower bounds, floored at zero for nonnegative statistics.
-    pub lower: Vec<f64>,
+    lower: Vec<f64>,
     /// Simultaneous upper bounds.
-    pub upper: Vec<f64>,
+    upper: Vec<f64>,
     /// Number of multiplier replicates.
-    pub replicates: usize,
+    replicates: usize,
     /// Nominal simultaneous coverage level in (0, 1).
-    pub confidence: f64,
+    confidence: f64,
     /// Deterministic seed recorded for the evidence ledger.
-    pub seed: u64,
+    seed: u64,
+}
+
+impl SimultaneousBounds {
+    /// Cluster-mean point estimates in frozen statistic order.
+    #[must_use]
+    pub fn means(&self) -> &[f64] {
+        &self.means
+    }
+
+    /// Cluster-robust standard errors in frozen statistic order.
+    #[must_use]
+    pub fn standard_errors(&self) -> &[f64] {
+        &self.standard_errors
+    }
+
+    /// Shared max-statistic critical value.
+    #[must_use]
+    pub fn critical_value(&self) -> f64 {
+        self.critical_value
+    }
+
+    /// Simultaneous lower bounds in frozen statistic order.
+    #[must_use]
+    pub fn lower(&self) -> &[f64] {
+        &self.lower
+    }
+
+    /// Simultaneous upper bounds in frozen statistic order.
+    #[must_use]
+    pub fn upper(&self) -> &[f64] {
+        &self.upper
+    }
+
+    /// Number of deterministic multiplier replicates.
+    #[must_use]
+    pub fn replicates(&self) -> usize {
+        self.replicates
+    }
+
+    /// Nominal simultaneous coverage.
+    #[must_use]
+    pub fn confidence(&self) -> f64 {
+        self.confidence
+    }
+
+    /// Deterministic multiplier seed.
+    #[must_use]
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
 }
 
 /// Authority ceiling of the cluster-multiplier four-law witness procedure.
@@ -1349,6 +1453,16 @@ pub struct FourLawWitnessConfig {
     pub independent_unit: String,
 }
 
+/// Frozen witness contributions from one declared independent unit in one law.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct FourLawUnitContribution {
+    /// Stable highest-dependence-unit identifier, shared across arms when applicable.
+    pub dependence_unit_id: String,
+    /// One value per frozen witness.
+    pub values: Vec<f64>,
+}
+
 /// Simultaneous cluster-multiplier bounds for frozen four-law witnesses.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -1398,21 +1512,26 @@ impl FourLawWitnessBounds {
 
 /// Computes the symmetrized four-law witness moment with stratified cluster multipliers.
 ///
-/// Each row is one declared independent unit and each column is one witness.
+/// Each item is one declared independent unit and its vector contains one value
+/// per witness.
 /// `joint_w` contains cluster means of `w` in the untouched `AB` law;
 /// `a_w_r_b` contains cluster means of `w r_B` in law `A`; and `b_w_r_a`
 /// contains cluster means of `w r_A` in law `B`. The estimate is
 /// `E_AB[w] - (E_A[w r_B] + E_B[w r_A]) / 2`. Ratios and an adaptive witness
 /// must be learned on separate folds before these contributions are formed.
 ///
-/// The implementation resamples the declared units within each law using a
-/// deterministic Rademacher multiplier max statistic. It is a reference
+/// The implementation forms one influence vector over the union of declared
+/// units and applies one deterministic Rademacher sign per unit. Thus a unit
+/// appearing in several crossover arms retains its covariance instead of being
+/// resampled independently in each arm. Duplicate unit IDs within an arm are
+/// rejected: callers must aggregate all rows/episodes to the declared unit first.
+/// It is a reference
 /// asymptotic procedure, not certificate authority, until the repository's
 /// cluster-size/overlap/misspecification coverage gauntlet is complete.
 pub fn four_law_cluster_multiplier_bounds(
-    joint_w: &[Vec<f64>],
-    a_w_r_b: &[Vec<f64>],
-    b_w_r_a: &[Vec<f64>],
+    joint_w: &[FourLawUnitContribution],
+    a_w_r_b: &[FourLawUnitContribution],
+    b_w_r_a: &[FourLawUnitContribution],
     config: &FourLawWitnessConfig,
 ) -> Result<FourLawWitnessBounds, StatsError> {
     let width = validate_witness_groups(joint_w, a_w_r_b, b_w_r_a)?;
@@ -1438,21 +1557,22 @@ pub fn four_law_cluster_multiplier_bounds(
         });
     }
 
-    let joint_means = column_means(joint_w, width);
-    let a_means = column_means(a_w_r_b, width);
-    let b_means = column_means(b_w_r_a, width);
+    let joint_means = contribution_column_means(joint_w, width);
+    let a_means = contribution_column_means(a_w_r_b, width);
+    let b_means = contribution_column_means(b_w_r_a, width);
     let estimates = (0..width)
         .map(|column| joint_means[column] - a_means[column].midpoint(b_means[column]))
         .collect::<Vec<_>>();
-    let joint_centered = center_columns(joint_w, &joint_means);
-    let a_centered = center_columns(a_w_r_b, &a_means);
-    let b_centered = center_columns(b_w_r_a, &b_means);
+    let influence =
+        four_law_unit_influence(joint_w, a_w_r_b, b_w_r_a, &joint_means, &a_means, &b_means);
+    let n_union_units = influence.len();
     let standard_errors = (0..width)
         .map(|column| {
-            let joint = variance_of_mean(&joint_centered, column);
-            let a = variance_of_mean(&a_centered, column);
-            let b = variance_of_mean(&b_centered, column);
-            (joint + 0.25 * (a + b)).sqrt()
+            let squares = influence
+                .iter()
+                .map(|row| row[column].powi(2))
+                .collect::<Vec<_>>();
+            (n_union_units as f64 / (n_union_units - 1) as f64 * compensated_sum(&squares)).sqrt()
         })
         .collect::<Vec<_>>();
     if let Some(column) = standard_errors
@@ -1462,10 +1582,8 @@ pub fn four_law_cluster_multiplier_bounds(
         return Err(StatsError::DegenerateColumn { column });
     }
 
-    let mut max_statistics = stratified_witness_max_statistics(
-        &joint_centered,
-        &a_centered,
-        &b_centered,
+    let mut max_statistics = shared_unit_witness_max_statistics(
+        &influence,
         &standard_errors,
         config.replicates,
         config.seed,
@@ -1502,59 +1620,71 @@ pub fn four_law_cluster_multiplier_bounds(
 }
 
 fn validate_witness_groups(
-    joint: &[Vec<f64>],
-    a: &[Vec<f64>],
-    b: &[Vec<f64>],
+    joint: &[FourLawUnitContribution],
+    a: &[FourLawUnitContribution],
+    b: &[FourLawUnitContribution],
 ) -> Result<usize, StatsError> {
-    if joint.len() < 2 || a.len() < 2 || b.len() < 2 || joint[0].is_empty() {
+    if joint.len() < 2 || a.len() < 2 || b.len() < 2 || joint[0].values.is_empty() {
         return Err(StatsError::Shape);
     }
-    let width = joint[0].len();
-    if joint
-        .iter()
-        .chain(a)
-        .chain(b)
-        .any(|row| row.len() != width || row.iter().any(|value| !value.is_finite()))
-    {
-        return Err(StatsError::MatrixShape);
+    let width = joint[0].values.len();
+    for arm in [joint, a, b] {
+        let mut ids = std::collections::BTreeSet::new();
+        if arm.iter().any(|row| {
+            row.dependence_unit_id.trim().is_empty()
+                || !ids.insert(row.dependence_unit_id.as_str())
+                || row.values.len() != width
+                || row.values.iter().any(|value| !value.is_finite())
+        }) {
+            return Err(StatsError::MatrixShape);
+        }
     }
     Ok(width)
 }
 
-fn column_means(rows: &[Vec<f64>], width: usize) -> Vec<f64> {
+fn contribution_column_means(rows: &[FourLawUnitContribution], width: usize) -> Vec<f64> {
     let count = rows.len() as f64;
     (0..width)
         .map(|column| {
-            let values = rows.iter().map(|row| row[column]).collect::<Vec<_>>();
+            let values = rows
+                .iter()
+                .map(|row| row.values[column])
+                .collect::<Vec<_>>();
             compensated_sum(&values) / count
         })
         .collect()
 }
 
-fn center_columns(rows: &[Vec<f64>], means: &[f64]) -> Vec<Vec<f64>> {
-    rows.iter()
-        .map(|row| {
-            row.iter()
-                .zip(means)
-                .map(|(value, mean)| value - mean)
-                .collect()
-        })
-        .collect()
+fn four_law_unit_influence(
+    joint: &[FourLawUnitContribution],
+    a: &[FourLawUnitContribution],
+    b: &[FourLawUnitContribution],
+    joint_means: &[f64],
+    a_means: &[f64],
+    b_means: &[f64],
+) -> Vec<Vec<f64>> {
+    let width = joint_means.len();
+    let mut by_unit = BTreeMap::<&str, Vec<f64>>::new();
+    for (rows, means, coefficient) in [
+        (joint, joint_means, 1.0),
+        (a, a_means, -0.5),
+        (b, b_means, -0.5),
+    ] {
+        let count = rows.len() as f64;
+        for row in rows {
+            let influence = by_unit
+                .entry(row.dependence_unit_id.as_str())
+                .or_insert_with(|| vec![0.0; width]);
+            for column in 0..width {
+                influence[column] += coefficient * (row.values[column] - means[column]) / count;
+            }
+        }
+    }
+    by_unit.into_values().collect()
 }
 
-fn variance_of_mean(centered: &[Vec<f64>], column: usize) -> f64 {
-    let count = centered.len() as f64;
-    let squares = centered
-        .iter()
-        .map(|row| row[column].powi(2))
-        .collect::<Vec<_>>();
-    compensated_sum(&squares) / (count - 1.0) / count
-}
-
-fn stratified_witness_max_statistics(
-    joint: &[Vec<f64>],
-    a: &[Vec<f64>],
-    b: &[Vec<f64>],
+fn shared_unit_witness_max_statistics(
+    influence: &[Vec<f64>],
     standard_errors: &[f64],
     replicates: usize,
     seed: u64,
@@ -1562,15 +1692,14 @@ fn stratified_witness_max_statistics(
     let mut generator = SplitMix64::new(seed);
     let mut output = Vec::with_capacity(replicates);
     for _ in 0..replicates {
-        let joint_signs = rademacher_signs(joint.len(), &mut generator);
-        let a_signs = rademacher_signs(a.len(), &mut generator);
-        let b_signs = rademacher_signs(b.len(), &mut generator);
+        let signs = rademacher_signs(influence.len(), &mut generator);
         let mut maximum = 0.0_f64;
         for (column, standard_error) in standard_errors.iter().enumerate() {
-            let joint_delta = signed_column_mean(joint, &joint_signs, column);
-            let a_delta = signed_column_mean(a, &a_signs, column);
-            let b_delta = signed_column_mean(b, &b_signs, column);
-            let delta = joint_delta - a_delta.midpoint(b_delta);
+            let delta = influence
+                .iter()
+                .zip(&signs)
+                .map(|(row, sign)| row[column] * sign)
+                .sum::<f64>();
             maximum = maximum.max(delta.abs() / standard_error);
         }
         output.push(maximum);
@@ -1588,15 +1717,6 @@ fn rademacher_signs(count: usize, generator: &mut SplitMix64) -> Vec<f64> {
             }
         })
         .collect()
-}
-
-fn signed_column_mean(rows: &[Vec<f64>], signs: &[f64], column: usize) -> f64 {
-    let terms = rows
-        .iter()
-        .zip(signs)
-        .map(|(row, sign)| row[column] * sign)
-        .collect::<Vec<_>>();
-    compensated_sum(&terms) / rows.len() as f64
 }
 
 /// Deterministic Rademacher multiplier bootstrap for reference simultaneous mean bounds.
@@ -2064,7 +2184,9 @@ mod tests {
                 .unwrap();
         assert_eq!(
             unique,
-            OrientationOutcome::UniqueTarget { target: "t".into() }
+            OrientationOutcome::UniquePassPattern {
+                variable: "t".into()
+            }
         );
 
         let parity = orient_from_deletions(&[invariant("P"), invariant("T")], 1.0, 0.1).unwrap();
@@ -2130,17 +2252,29 @@ mod tests {
 
     #[test]
     fn four_law_witness_multiplier_is_seeded_cluster_honest_and_signed() {
-        let a = vec![
+        let raw_a = vec![
             vec![1.0, 2.0],
             vec![2.0, 1.0],
             vec![3.0, 4.0],
             vec![4.0, 3.0],
         ];
-        let b = a.clone();
-        let joint = a
+        let raw_b = raw_a.clone();
+        let raw_joint = raw_a
             .iter()
             .map(|row| vec![row[0] + 0.5, row[1] - 0.25])
             .collect::<Vec<_>>();
+        let arm = |prefix: &str, rows: Vec<Vec<f64>>| {
+            rows.into_iter()
+                .enumerate()
+                .map(|(index, values)| FourLawUnitContribution {
+                    dependence_unit_id: format!("{prefix}{index}"),
+                    values,
+                })
+                .collect::<Vec<_>>()
+        };
+        let a = arm("a", raw_a);
+        let b = arm("b", raw_b);
+        let joint = arm("j", raw_joint);
         let config = FourLawWitnessConfig {
             replicates: 999,
             confidence: 0.95,
@@ -2160,6 +2294,40 @@ mod tests {
         assert_eq!(
             first.calibration,
             WitnessCalibrationStatus::ReferenceMultiplierNotCoverageValidated
+        );
+    }
+
+    #[test]
+    fn crossover_units_share_one_multiplier_sign_and_duplicates_are_rejected() {
+        let arm = |values: [f64; 4]| {
+            values
+                .into_iter()
+                .enumerate()
+                .map(|(index, value)| FourLawUnitContribution {
+                    dependence_unit_id: format!("u{index}"),
+                    values: vec![value],
+                })
+                .collect::<Vec<_>>()
+        };
+        let joint = arm([2.0, 4.0, 5.0, 9.0]);
+        let a = arm([1.0, 3.0, 7.0, 8.0]);
+        let b = arm([4.0, 2.0, 6.0, 10.0]);
+        let config = FourLawWitnessConfig {
+            replicates: 199,
+            confidence: 0.9,
+            seed: 77,
+            witness_family_sha256: SOURCE_FINGERPRINT.into(),
+            independent_unit: "subject".into(),
+        };
+        let first = four_law_cluster_multiplier_bounds(&joint, &a, &b, &config).unwrap();
+        let second = four_law_cluster_multiplier_bounds(&joint, &a, &b, &config).unwrap();
+        assert_eq!(first, second);
+
+        let mut duplicate = a.clone();
+        duplicate.push(a[0].clone());
+        assert_eq!(
+            four_law_cluster_multiplier_bounds(&joint, &duplicate, &b, &config).unwrap_err(),
+            StatsError::MatrixShape
         );
     }
 
