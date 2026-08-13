@@ -216,8 +216,23 @@ GitHub (`pierre-haessig/ausgrid-solar-data`). HeartSteps V1 suggestions are
 public on `klasnja/HeartStepsV1` (decision-point unit). BDG2 weather/meters
 via GitHub LFS, not the 595 MB Zenodo zip. JUMP well/plate metadata from the
 public repo, no images. DREAM4 size-10 from the GeneNetWeaver SourceForge
-archive. Still blocked: NutNet Dryad 401, DrugComb 150–193 MB dumps, Oregon
-microdata, scPerturb/sci-Plex/Replogle matrices.
+archive. Still blocked after mirrors: NutNet Dryad 401, DrugComb 150–193 MB
+dumps, Oregon microdata, scPerturb/sci-Plex/Replogle matrices.
+
+**Replacements (same day, different datasets).** Not more mirrors.
+
+| Hole | Replacement | Atlas | Honest reading |
+|---|---|---|---|
+| NutNet N×P | MASS `npk` 24-plot 2^{3-1} + Gomez rice split-split 135 | pairwise N×P/N×K/P×K complete; `nitro×mgmt` complete | Fractional three-way hole; not a grassland network |
+| DrugComb | langli-lab Phase I `dose_level`/`observed_dlt` 7790 | `drug_a_on×drug_b_on` complete, not product | Escalation catalog, not Bliss/Loewe |
+| Oregon OHIE | STAR kindergarten 5871; IHDP NPCI-1 747; NHEFS 1629 | class×lunch / treat×cov complete; quit×sex complete | STAR is class-size RCT; IHDP is simulator; NHEFS **abstain** |
+| EarthScope PH5 | IRIS IU.ANMO BHZ 2010-02-27 Chile hour, 3600 s | missing corner `10` | One receiver; no source inversion |
+| FLUXNET login | REddyProc DE-Tha 1998 (11151); HF004 EMS 4000 | `rg×tair` / `par×tair` complete, not product | Diurnal common driver; public, no AmeriFlux login |
+| sci-Plex / Replogle | GEO GSE92742 LINCS sig_info 8000 | `trt×cell` complete | Labels only; no landmark matrix |
+| UVA/Padova / OhioT1DM | UCI 70-patient diary 3861 | `insulin_day×meal_more` complete | SMBG+insulin notes, not pump/CGM physics. Hospital 130-US extract kept and labeled **not** T1D |
+
+Script: `scripts/public_extracts/process_replacements.py`. Session ledger updated.
+Cedar Creek/BioCON/EDI still 403. GDSC2 xlsx landed (20 MB) and was not parsed.
 
 ## Modes of reasoning (lead-agent synthesis, no NTM)
 

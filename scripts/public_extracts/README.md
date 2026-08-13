@@ -8,6 +8,8 @@ build token-context CSVs, run `mic-tabular survey`, and write receipts.
 
 ```bash
 python3 scripts/public_extracts/process_extracts.py
+python3 scripts/public_extracts/process_alts.py
+python3 scripts/public_extracts/process_replacements.py
 ```
 
 Do not commit NOAA/NASA/Zenodo payloads into `site/` or `paper/`.
