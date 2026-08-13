@@ -14,6 +14,7 @@ use thiserror::Error;
 
 mod survey;
 mod tabular;
+pub use mic_design::{ModularCompletionClass, OrientationTestability};
 pub use survey::{
     CausalInformationContent, ClusterUnitBasis, ColumnRole, ColumnTriage, InterferometerProposal,
     SurveyAuthority, SurveyPolicy, SurveyReport, run_unsupervised_survey,

@@ -7,8 +7,9 @@
 use crate::EngineError;
 use mic_data::{RawTable, load_raw_csv};
 use mic_design::{
-    DesignPoint, ObservedDesign, SamplingOddsAudit, audit_design, audit_sampling_odds,
-    observed_design_from_rows,
+    DesignPoint, FamilyClassificationInput, ModularCompletionClass, ObservedDesign,
+    OrientationTestability, SamplingOddsAudit, audit_design, audit_sampling_odds,
+    classify_observed_family, observed_design_from_rows, orientation_testability,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -86,6 +87,10 @@ pub struct InterferometerProposal {
     pub min_corner_count: usize,
     /// Pointwise lack-of-fit dimension of the retained corners, when defined.
     pub lack_of_fit_dimension: Option<usize>,
+    /// Modular-completion class. Survey never supplies laws, so this is untestable.
+    pub modular_completion: ModularCompletionClass,
+    /// Orientation testability. Catalog squares with no tilt family are untestable.
+    pub orientation: OrientationTestability,
     /// Ranking score: complete square first, then min corner count.
     pub priority: f64,
     /// Why this is or is not immediately auditable.
@@ -442,6 +447,26 @@ fn propose(
     let lack_of_fit_dimension = audit_design(&design.points, 1e-10)
         .ok()
         .map(|audit| audit.lack_of_fit_dimension);
+    let family = classify_observed_family(
+        FamilyClassificationInput {
+            points: &design.points,
+            same_target_tilt_count: 0,
+            distinct_root_targets: true,
+            baseline_combo_laws: None,
+        },
+        1e-10,
+    )
+    .ok();
+    let modular_completion = family
+        .as_ref()
+        .map_or(ModularCompletionClass::Untestable, |item| {
+            item.modular_completion
+        });
+    let orientation = family
+        .as_ref()
+        .map_or_else(|| orientation_testability(0), |item| item.orientation);
+    debug_assert_ne!(modular_completion, ModularCompletionClass::Unique);
+    debug_assert_eq!(orientation, OrientationTestability::Untestable);
     let near_square = design
         .points
         .first()
@@ -465,6 +490,8 @@ fn propose(
         empirically_product,
         min_corner_count,
         lack_of_fit_dimension,
+        modular_completion,
+        orientation,
         priority,
         note,
     }))
@@ -490,8 +517,8 @@ fn information_content(
         .iter()
         .filter(|item| item.complete_square)
         .count();
-    let (confirmatory_units_per_corner_min, confirmatory_units_per_corner_max) = headline
-        .map_or((None, None), |item| {
+    let (confirmatory_units_per_corner_min, confirmatory_units_per_corner_max) =
+        headline.map_or((None, None), |item| {
             (
                 item.design.counts.iter().copied().min(),
                 item.design.counts.iter().copied().max(),
@@ -511,7 +538,7 @@ fn information_content(
 
 fn survey_next_step(interferometers: &[InterferometerProposal]) -> String {
     if interferometers.iter().any(|item| item.complete_square) {
-        return "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Do not treat this atlas as orientation.".into();
+        return "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Orientation is untestable: this atlas has no same-target tilt family. Do not treat this atlas as orientation.".into();
     }
     if let Some(item) = interferometers
         .iter()
@@ -1029,6 +1056,12 @@ mod tests {
                 .contains("Do not treat this atlas as orientation"),
             "atlas next_step must refuse orientation: {}",
             report.next_step
+        );
+        assert!(report.next_step.contains("Orientation is untestable"));
+        assert_eq!(square.orientation, OrientationTestability::Untestable);
+        assert_eq!(
+            square.modular_completion,
+            ModularCompletionClass::Untestable
         );
         let wire = serde_json::to_value(report).expect("survey report must serialize");
         let actual: BTreeSet<&str> = wire
