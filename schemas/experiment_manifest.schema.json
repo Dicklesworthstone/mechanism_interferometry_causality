@@ -23,7 +23,7 @@
     "strict": {"type": "boolean"},
     "inference_track": {"enum": ["four_law", "product_factorial", "both"]},
     "selection": {
-      "description": "Caller declaration only; strict readiness requires separately resolved content-bound evidence.",
+      "description": "Caller declaration only. Content-bound caller evidence establishes provenance, not scientific authority; strict readiness additionally requires a trusted-harness attestation.",
       "enum": [
         "state_independent_within_regime",
         "modeled",

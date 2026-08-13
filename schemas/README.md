@@ -1,7 +1,7 @@
 # Schemas
 
 - `experiment_manifest.schema.json` validates analysis inputs and design declarations.
-- `selection_evidence_receipt.schema.json` binds a state-independence or validated-model premise to the exact manifest, analyzed data, and external authority-source bytes. The receipt is resolved by the engine; the manifest declaration alone never satisfies readiness.
+- `selection_evidence_receipt.schema.json` binds a declared state-independence or model premise to the exact manifest, analyzed data, and external source bytes. Shape validation and the shipped content resolver establish provenance only; neither the manifest nor arbitrary caller-supplied receipt bytes satisfy strict readiness without a trusted-harness attestation.
 - `evidence_finding.schema.json` defines stable reason-coded findings.
 - `audit_report.schema.json` defines the final content-addressed report envelope.
 - `four_law_report.schema.json` defines the histogram four-law tabular diagnostic (never a certificate).

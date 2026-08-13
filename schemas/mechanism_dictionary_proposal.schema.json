@@ -85,6 +85,7 @@
     "ambiguities": {
       "type": "array",
       "uniqueItems": true,
+      "contains": {"const": "support_uniqueness_unverified"},
       "items": {
         "enum": [
           "coordinate_permutation",
@@ -173,6 +174,183 @@
             }
           },
           "next_queries": { "minItems": 1 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "attempts": {
+            "contains": {
+              "properties": {
+                "outcome": {
+                  "properties": {
+                    "candidate": {
+                      "properties": {
+                        "algebraic_case": {
+                          "properties": {"case": {"const": "marked_pure_anchors"}},
+                          "required": ["case"]
+                        }
+                      },
+                      "required": ["algebraic_case"]
+                    }
+                  },
+                  "required": ["candidate"]
+                }
+              },
+              "required": ["outcome"]
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "ambiguities": {
+            "allOf": [
+              {"contains": {"const": "external_atom_independence_unverified"}},
+              {"contains": {"const": "conventional_scale"}},
+              {"contains": {"const": "coordinate_permutation"}}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "attempts": {
+            "contains": {
+              "properties": {
+                "outcome": {
+                  "properties": {
+                    "candidate": {
+                      "properties": {
+                        "algebraic_case": {
+                          "properties": {"case": {"const": "complete_binary_cube"}},
+                          "required": ["case"]
+                        }
+                      },
+                      "required": ["algebraic_case"]
+                    }
+                  },
+                  "required": ["candidate"]
+                }
+              },
+              "required": ["outcome"]
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "ambiguities": {
+            "allOf": [
+              {"contains": {"const": "external_atom_independence_unverified"}},
+              {"contains": {"const": "coordinate_permutation"}},
+              {"contains": {"const": "bit_complement"}}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "attempts": {
+            "contains": {
+              "properties": {
+                "outcome": {
+                  "properties": {
+                    "candidate": {
+                      "properties": {
+                        "algebraic_case": {
+                          "properties": {
+                            "case": {"const": "complete_binary_cube"},
+                            "marked_zero": {"const": true}
+                          },
+                          "required": ["case", "marked_zero"]
+                        }
+                      },
+                      "required": ["algebraic_case"]
+                    }
+                  },
+                  "required": ["candidate"]
+                }
+              },
+              "required": ["outcome"]
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "ambiguities": {"contains": {"const": "reference_origin_unverified"}}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "attempts": {
+            "contains": {
+              "properties": {
+                "outcome": {
+                  "properties": {
+                    "candidate": {
+                      "properties": {
+                        "algebraic_case": {
+                          "properties": {
+                            "case": {"enum": ["incomplete_unknown_codes", "rank_degenerate"]}
+                          },
+                          "required": ["case"]
+                        }
+                      },
+                      "required": ["algebraic_case"]
+                    }
+                  },
+                  "required": ["candidate"]
+                }
+              },
+              "required": ["outcome"]
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "ambiguities": {"contains": {"const": "general_linear_mixing"}}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "attempts": {
+            "contains": {
+              "properties": {
+                "outcome": {
+                  "properties": {
+                    "candidate": {
+                      "properties": {
+                        "algebraic_case": {
+                          "properties": {"case": {"const": "rank_degenerate"}},
+                          "required": ["case"]
+                        }
+                      },
+                      "required": ["algebraic_case"]
+                    }
+                  },
+                  "required": ["candidate"]
+                }
+              },
+              "required": ["outcome"]
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "ambiguities": {"contains": {"const": "rank_degeneracy"}}
         }
       }
     }

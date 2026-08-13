@@ -13,11 +13,12 @@
     "ingest",
     "information_content",
     "four_law",
+    "overlap",
     "projection",
     "ledger"
   ],
   "properties": {
-    "schema_version": {"const": "2.2.0"},
+    "schema_version": {"const": "2.3.0"},
     "experiment_id": {"type": "string", "minLength": 1},
     "status": {
       "enum": ["abstained", "diagnostic_only"],
@@ -102,7 +103,21 @@
       }
     },
     "four_law": {"type": "array"},
-    "overlap": {"type": ["object", "null"]},
+    "overlap": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["base", "first", "second", "ratio", "audit"],
+        "properties": {
+          "base": {"type": "string", "minLength": 1},
+          "first": {"type": "integer", "minimum": 0},
+          "second": {"type": "integer", "minimum": 0},
+          "ratio": {"enum": ["r_A", "r_B", "r_AB"]},
+          "audit": {"type": "object"}
+        }
+      }
+    },
     "projection": {"type": "object"},
     "ledger": {
       "type": "object",
