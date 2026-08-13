@@ -40,6 +40,7 @@ fn run(args: &[String]) -> Result<(), String> {
         "validate-manifest" => validate_manifest(&args[1..]),
         "preflight" => preflight(&args[1..]),
         "closure-crossfit" => closure_crossfit(&args[1..]),
+        "finite-completion" => finite_completion(&args[1..]),
         "orient" => orient(&args[1..]),
         "propose-tilt" => propose_tilt(&args[1..]),
         "freeze-scout" => freeze_scout(&args[1..]),
@@ -198,6 +199,42 @@ fn closure_crossfit(args: &[String]) -> Result<(), String> {
         "declared_independent_unit": input.declared_independent_unit,
         "diagnostic": diagnostic,
         "ledger": ledger,
+    });
+    write_json_value(&value, output.as_deref())
+}
+
+/// Input contract for the finite-state fixed-model completion diagnostic.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FiniteCompletionRequest {
+    schema_version: String,
+    input: mic_model::FiniteCompletionInput,
+}
+
+fn finite_completion(args: &[String]) -> Result<(), String> {
+    let (path, output) = match args {
+        [path] => (path, None),
+        [path, flag, output] if flag == "--output" && !output.trim().is_empty() => {
+            (path, Some(PathBuf::from(output)))
+        }
+        _ => return Err("usage: mic finite-completion INPUT.json [--output PATH]".into()),
+    };
+    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let input_sha256 = sha256_bytes(&bytes);
+    let request: FiniteCompletionRequest =
+        serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    if request.schema_version != "1.0.0" {
+        return Err("finite-completion schema_version must be 1.0.0".into());
+    }
+    let report = mic_model::solve_finite_modular_completion(&request.input)
+        .map_err(|error| error.to_string())?;
+    let value = serde_json::json!({
+        "schema_version": "1.0.0",
+        "authority": "diagnostic_only",
+        "certificate_eligible": false,
+        "scope": "fixed_finite_state_dag_and_distinct_declared_targets",
+        "input_sha256": input_sha256,
+        "report": report,
     });
     write_json_value(&value, output.as_deref())
 }
@@ -449,6 +486,7 @@ fn print_help() {
            mic validate-manifest MANIFEST.json\n\
            mic preflight MANIFEST.json [--output PATH]\n\
            mic closure-crossfit INPUT.json [--output PATH]\n\
+           mic finite-completion INPUT.json [--output PATH]\n\
            mic orient INPUT.json [--output PATH]\n\
            mic propose-tilt INPUT.json [--output PATH]\n\
            mic freeze-scout REQUEST.json DRAFT.json [--output PATH]\n\
@@ -519,6 +557,27 @@ mod tests {
         assert_eq!(
             closure_crossfit(&missing_output).unwrap_err(),
             "usage: mic closure-crossfit INPUT.json [--output PATH]"
+        );
+    }
+
+    #[test]
+    fn finite_completion_example_is_closed_and_unknown_options_fail_before_io() {
+        let input: FiniteCompletionRequest = serde_json::from_str(include_str!(
+            "../../../examples/finite_completion_request.json"
+        ))
+        .unwrap();
+        assert_eq!(input.schema_version, "1.0.0");
+        assert_eq!(input.input.regimes.len(), 2);
+
+        let unknown = vec!["request.json".into(), "--bogus".into(), "out.json".into()];
+        assert_eq!(
+            finite_completion(&unknown).unwrap_err(),
+            "usage: mic finite-completion INPUT.json [--output PATH]"
+        );
+        let missing_output = vec!["request.json".into(), "--output".into()];
+        assert_eq!(
+            finite_completion(&missing_output).unwrap_err(),
+            "usage: mic finite-completion INPUT.json [--output PATH]"
         );
     }
 }

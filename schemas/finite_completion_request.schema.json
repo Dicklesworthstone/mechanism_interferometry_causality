@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/finite_completion_request.schema.json",
+  "title": "Finite-state modular-completion diagnostic request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "input"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state_cardinalities",
+        "states",
+        "baseline_probabilities",
+        "parents_by_node",
+        "families",
+        "regimes",
+        "tolerance"
+      ],
+      "properties": {
+        "state_cardinalities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "integer", "minimum": 2, "maximum": 4294967295}
+        },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "integer", "minimum": 0, "maximum": 4294967295}
+          }
+        },
+        "baseline_probabilities": {"$ref": "#/$defs/positive_probability_vector"},
+        "parents_by_node": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "integer", "minimum": 0}
+          }
+        },
+        "families": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["cardinality", "target"],
+            "properties": {
+              "cardinality": {"type": "integer", "minimum": 2, "maximum": 4294967295},
+              "target": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "regimes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["levels", "probabilities"],
+            "properties": {
+              "levels": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"type": "integer", "minimum": 0, "maximum": 4294967295}
+              },
+              "probabilities": {"$ref": "#/$defs/positive_probability_vector"}
+            }
+          }
+        },
+        "tolerance": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "positive_probability_vector": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+    }
+  }
+}

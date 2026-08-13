@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "input": {
+    "state_cardinalities": [2, 2],
+    "states": [[0, 0], [0, 1], [1, 0], [1, 1]],
+    "baseline_probabilities": [0.25, 0.25, 0.25, 0.25],
+    "parents_by_node": [[], []],
+    "families": [
+      {"cardinality": 2, "target": 0},
+      {"cardinality": 2, "target": 1}
+    ],
+    "regimes": [
+      {
+        "levels": [1, 0],
+        "probabilities": [0.125, 0.125, 0.375, 0.375]
+      },
+      {
+        "levels": [0, 1],
+        "probabilities": [0.2, 0.3, 0.2, 0.3]
+      }
+    ],
+    "tolerance": 1e-10
+  }
+}
