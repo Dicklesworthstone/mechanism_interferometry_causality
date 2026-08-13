@@ -19,8 +19,10 @@ mod tests {
     };
     use mic_model::{
         ClosureCrossFitConfig, ClosureFitConfig, ClosureModelKind, ClusteredMultinomialSample,
-        FourCornerClosureModel, MultinomialSample, PosteriorSquare,
+        CompletionFailure, CompletionStatus, FiniteCompletionInput, FiniteMechanismFamily,
+        FiniteObservedRegime, FourCornerClosureModel, MultinomialSample, PosteriorSquare,
         compare_held_out_closure_models, cross_fit_closure_models, predict_combination_law,
+        solve_finite_modular_completion,
     };
     use mic_sim::{
         HiddenSensorTomography, causal_tomography_chain, exact_suite, flat_noncausal_cube,
@@ -276,7 +278,7 @@ mod tests {
     }
 
     #[test]
-    fn flat_low_rank_cube_still_fails_causal_conditional_normalization() {
+    fn flat_low_rank_cube_still_fails_causal_potential_checks() {
         let cube = flat_noncausal_cube();
         let independent_minor =
             cube.r1[0].ln() * cube.r2[1].ln() - cube.r1[1].ln() * cube.r2[0].ln();
@@ -296,6 +298,36 @@ mod tests {
         assert_eq!(conditional_ratio_means(cube.r1, 1), [1.25, 0.75]);
         assert_eq!(conditional_ratio_means(cube.r2, 0), [1.25, 0.75]);
         assert_eq!(conditional_ratio_means(cube.r2, 1), [0.75, 1.25]);
+        let report = solve_finite_modular_completion(&FiniteCompletionInput {
+            state_cardinalities: vec![2, 2],
+            states: vec![vec![0, 0], vec![0, 1], vec![1, 0], vec![1, 1]],
+            baseline_probabilities: cube.p0.to_vec(),
+            parents_by_node: vec![vec![], vec![0]],
+            families: vec![
+                FiniteMechanismFamily {
+                    cardinality: 2,
+                    target: 0,
+                },
+                FiniteMechanismFamily {
+                    cardinality: 2,
+                    target: 1,
+                },
+            ],
+            regimes: vec![
+                FiniteObservedRegime {
+                    levels: vec![1, 0],
+                    probabilities: cube.p10.to_vec(),
+                },
+                FiniteObservedRegime {
+                    levels: vec![0, 1],
+                    probabilities: cube.p01.to_vec(),
+                },
+            ],
+            tolerance: 1e-12,
+        })
+        .unwrap();
+        assert_eq!(report.status, CompletionStatus::Infeasible);
+        assert_eq!(report.failure, Some(CompletionFailure::NonlocalPotential));
     }
 
     #[test]
