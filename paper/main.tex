@@ -1688,12 +1688,19 @@ blocking reason codes, and every gate in this paper emits one of them:
   \item missing\_regime\_data
   \item empty\_common\_support
   \item declared\_empirical\_quota\_mismatch
+  \item incomplete\_common\_support
   \item duplicate\_provenance
 \end{itemize}
 
-Informational findings carry a separate declared set, currently
-\texttt{estimator\_family\_agreement} and
-\texttt{histogram\_not\_a\_certificate}.  The split is deliberate rather than
+Informational findings carry a separate declared set:
+
+\begin{itemize}[nosep, leftmargin=1.5em, font=\ttfamily]
+  \item estimator\_family\_agreement
+  \item histogram\_not\_a\_certificate
+  \item histogram\_projection
+  \item overlap\_adequate
+  \item orientation\_unique\_target
+\end{itemize}  The split is deliberate rather than
 bookkeeping.  An informational code records what a run established, never a
 licence to proceed, and the first of these is the clearest case: agreement
 across the estimator lens battery is diagnostic and certifies nothing on its
