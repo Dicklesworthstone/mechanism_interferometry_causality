@@ -669,7 +669,7 @@ mod tests {
             &mut disagreeing,
         )
         .unwrap();
-        assert!(!audit.agrees);
+        assert!(!audit.agrees());
         assert_eq!(
             disagreeing.status(&CertificateGates::unresolved()),
             mic_audit::CertificateStatus::Abstained,
@@ -701,7 +701,7 @@ mod tests {
             &mut agreeing,
         )
         .unwrap();
-        assert!(audit.agrees);
+        assert!(audit.agrees());
         assert_eq!(
             agreeing.status(&CertificateGates::unresolved()),
             mic_audit::CertificateStatus::Abstained,
@@ -722,8 +722,8 @@ mod tests {
         let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
         let audit = audit_orientation(&deletions, 1.0, 0.1, "orientation", &mut ledger).unwrap();
         assert_eq!(
-            audit.outcome,
-            OrientationOutcome::MultiplePasses {
+            audit.outcome(),
+            &OrientationOutcome::MultiplePasses {
                 passes: parity.invariant_deletions.clone()
             }
         );
@@ -740,7 +740,7 @@ mod tests {
     }
 
     #[test]
-    fn simultaneous_bounds_certify_a_unique_target_end_to_end() {
+    fn simultaneous_bounds_produce_one_pass_without_causal_authority() {
         // Deletion discrepancy contributions per cluster: the target column sits
         // near zero, the parent column sits far above the tolerance.
         let contributions: Vec<Vec<f64>> = (0..24)
@@ -754,17 +754,17 @@ mod tests {
         let deletions = vec![
             classify_deletion(
                 "t",
-                bounds.means[0],
-                bounds.lower[0],
-                bounds.upper[0],
+                bounds.means()[0],
+                bounds.lower()[0],
+                bounds.upper()[0],
                 epsilon,
             )
             .unwrap(),
             classify_deletion(
                 "p",
-                bounds.means[1],
-                bounds.lower[1],
-                bounds.upper[1],
+                bounds.means()[1],
+                bounds.lower()[1],
+                bounds.upper()[1],
                 epsilon,
             )
             .unwrap(),
@@ -772,8 +772,10 @@ mod tests {
         let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
         let audit = audit_orientation(&deletions, 0.8, 0.1, "orientation", &mut ledger).unwrap();
         assert_eq!(
-            audit.outcome,
-            OrientationOutcome::UniqueTarget { target: "t".into() }
+            audit.outcome(),
+            &OrientationOutcome::UniquePassPattern {
+                variable: "t".into()
+            }
         );
         assert!(!ledger.has_blocking_error());
         assert_eq!(
@@ -791,7 +793,7 @@ mod tests {
         ];
         let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
         let audit = audit_orientation(&deletions, 0.02, 0.1, "orientation", &mut ledger).unwrap();
-        assert_eq!(audit.outcome, OrientationOutcome::Underpowered);
+        assert_eq!(audit.outcome(), &OrientationOutcome::Underpowered);
         assert_eq!(
             ledger.status(&CertificateGates::unresolved()),
             CertificateStatus::Abstained

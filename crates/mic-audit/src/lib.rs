@@ -319,6 +319,9 @@ pub mod code {
     pub const DUPLICATE_PROVENANCE: &str = "duplicate_provenance";
     /// Sampling odds are not product for a requested GCM test.
     pub const NON_PRODUCT_GCM: &str = "non_product_sampling_for_gcm";
+    /// Product-odds arithmetic was computed, but no independently trusted
+    /// allocation/reweighting authority was resolved.
+    pub const PRODUCT_DESIGN_AUTHORITY_UNRESOLVED: &str = "product_design_authority_unresolved";
     /// Within-regime selection may depend on state.
     pub const STATE_DEPENDENT_SELECTION: &str = "state_dependent_selection";
     /// Common support or effective sample size failed.
@@ -379,12 +382,12 @@ pub mod code {
         pub const OVERLAP_ADEQUATE: &str = "overlap_adequate";
         /// A cluster-weighted histogram four-law projection was computed.
         pub const HISTOGRAM_PROJECTION: &str = "histogram_projection";
-        /// The deletion pass-count audit resolved to a unique target.
+        /// The deletion pass-count audit produced one numerical pass.
         ///
         /// Informational despite naming a success: orientation is established by the
         /// gate summary, not by the presence of this finding, and a consumer that
         /// searched the ledger for it would be reading a narrative note as a verdict.
-        pub const ORIENTATION_UNIQUE_TARGET: &str = "orientation_unique_target";
+        pub const ORIENTATION_UNIQUE_PASS_PATTERN: &str = "orientation_unique_pass_pattern";
     }
 }
 
