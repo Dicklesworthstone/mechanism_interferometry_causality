@@ -6,39 +6,77 @@
 //! raw normalizer before constructing the valid normalized predicted law. A
 //! held-out `11` law is used only for nonnegative discrepancy evaluation.
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use thiserror::Error;
 
 const SIMPLEX_TOLERANCE: f64 = 1e-10;
 
 /// Leave-the-combination-arm-out finite-law diagnostic.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct FiniteLawPredictionDiagnostic {
     /// Number of finite states in the shared support.
-    pub n_states: usize,
+    n_states: usize,
     /// Baseline units used to translate the population ESS fraction to units.
-    pub n_baseline_units: u32,
+    n_baseline_units: u32,
     /// `Z = sum_x p_A(x) p_B(x) / p_0(x)`, before normalization.
-    pub raw_normalizer: f64,
+    raw_normalizer: f64,
     /// Raw normalizer minus one.
-    pub normalizer_residual: f64,
+    normalizer_residual: f64,
     /// Predicted normalized `11` probabilities on the declared state order.
-    pub predicted_probabilities: Vec<f64>,
+    predicted_probabilities: Vec<f64>,
     /// Maximum log normalized importance ratio over states.
-    pub max_log_importance_ratio: f64,
+    max_log_importance_ratio: f64,
     /// Population analogue of ESS divided by baseline sample size, in `(0,1]`.
-    pub asymptotic_ess_fraction: f64,
+    asymptotic_ess_fraction: f64,
     /// Baseline-unit count times the asymptotic ESS fraction.
-    pub asymptotic_effective_units: f64,
+    asymptotic_effective_units: f64,
     /// Total variation between the prediction and untouched `11` law.
-    pub heldout_total_variation: f64,
+    heldout_total_variation: f64,
     /// Squared Hellinger distance between prediction and untouched `11` law.
-    pub heldout_hellinger_squared: f64,
+    heldout_hellinger_squared: f64,
     /// Explicit data-separation fact.
-    pub combination_used_for_prediction: bool,
+    combination_used_for_prediction: bool,
     /// Explicit authority boundary.
-    pub calibrated_test: bool,
+    calibrated_test: bool,
+}
+
+impl FiniteLawPredictionDiagnostic {
+    /// Raw product normalizer before any self-normalization.
+    #[must_use]
+    pub fn raw_normalizer(&self) -> f64 {
+        self.raw_normalizer
+    }
+
+    /// Raw normalizer minus one.
+    #[must_use]
+    pub fn normalizer_residual(&self) -> f64 {
+        self.normalizer_residual
+    }
+
+    /// Untouched-combination total-variation discrepancy.
+    #[must_use]
+    pub fn heldout_total_variation(&self) -> f64 {
+        self.heldout_total_variation
+    }
+
+    /// Untouched-combination squared Hellinger discrepancy.
+    #[must_use]
+    pub fn heldout_hellinger_squared(&self) -> f64 {
+        self.heldout_hellinger_squared
+    }
+
+    /// Whether combination data entered prediction construction. Always false.
+    #[must_use]
+    pub fn combination_used_for_prediction(&self) -> bool {
+        self.combination_used_for_prediction
+    }
+
+    /// Whether this diagnostic is a calibrated test. Always false.
+    #[must_use]
+    pub fn calibrated_test(&self) -> bool {
+        self.calibrated_test
+    }
 }
 
 /// Fail-closed finite-law prediction errors.

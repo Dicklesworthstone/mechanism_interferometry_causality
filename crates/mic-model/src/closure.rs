@@ -26,7 +26,7 @@ pub enum ClosureModelKind {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct ClosureFitConfig {
-    /// Positive L2 penalty on fitted fields and intercepts.
+    /// Positive L2 penalty on nonconstant field coefficients; intercepts are unpenalized.
     pub l2_penalty: f64,
     /// Maximum full-batch iterations.
     pub max_iterations: usize,
@@ -48,7 +48,7 @@ impl Default for ClosureFitConfig {
 }
 
 /// Fitted restricted or interaction-augmented four-corner classifier.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct FourCornerClosureModel {
     n_features: usize,
@@ -201,12 +201,17 @@ impl FourCornerClosureModel {
         ]))
     }
 
-    /// Evaluates the fitted density-curvature field.
+    /// Evaluates the regularized model's fitted interaction projection.
     ///
     /// The restricted model returns exactly zero. The saturated model returns
     /// its additional `11` field because known sampling offsets have already
     /// been separated from the density logits.
-    pub fn curvature_field(&self, features: &[f64]) -> Result<f64, ClosureFitError> {
+    ///
+    /// This equals population density curvature only when the hierarchical
+    /// regime model is correctly specified. Under misspecification it can
+    /// absorb primitive-field approximation error, so the API does not call it
+    /// an unqualified curvature estimate.
+    pub fn fitted_interaction_field(&self, features: &[f64]) -> Result<f64, ClosureFitError> {
         validate_feature_vector(features, self.n_features)?;
         Ok(self
             .interaction
@@ -245,17 +250,31 @@ impl FourCornerClosureModel {
 }
 
 /// Held-out proper-loss comparison of the tied and interaction models.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct HeldOutClosureComparison {
     /// Mean logarithmic loss from the tied main-effects model.
-    pub restricted_log_loss: f64,
+    pub(crate) restricted_log_loss: f64,
     /// Mean logarithmic loss from the interaction-augmented model.
-    pub saturated_log_loss: f64,
+    pub(crate) saturated_log_loss: f64,
     /// Restricted minus saturated loss; positive values favor the interaction.
-    pub saturated_advantage: f64,
+    pub(crate) saturated_advantage: f64,
     /// Explicit authority boundary.
-    pub calibrated_test: bool,
+    calibrated_test: bool,
+}
+
+impl HeldOutClosureComparison {
+    /// Restricted minus saturated held-out loss.
+    #[must_use]
+    pub fn saturated_advantage(&self) -> f64 {
+        self.saturated_advantage
+    }
+
+    /// Whether this comparison is a calibrated test. Always false.
+    #[must_use]
+    pub fn calibrated_test(&self) -> bool {
+        self.calibrated_test
+    }
 }
 
 /// Compares two independently fitted models on untouched rows.
@@ -508,11 +527,14 @@ fn objective_and_gradient(
         }
     }
     let scale = 1.0 / data.total_weight;
-    for (derivative, parameter) in gradient.iter_mut().zip(parameters) {
-        *derivative = *derivative * scale + l2_penalty * parameter;
+    for (index, (derivative, parameter)) in gradient.iter_mut().zip(parameters).enumerate() {
+        *derivative *= scale;
+        if index % width != 0 {
+            *derivative += l2_penalty * parameter;
+        }
     }
     (
-        log_loss * scale + 0.5 * l2_penalty * squared_l2(parameters),
+        log_loss * scale + 0.5 * l2_penalty * penalized_squared_l2(parameters, width),
         gradient,
     )
 }
@@ -535,7 +557,12 @@ fn objective_only(
         })
         .sum::<f64>()
         / data.total_weight;
-    log_loss + 0.5 * l2_penalty * squared_l2(parameters)
+    let n_blocks = match kind {
+        ClosureModelKind::MainEffectsOnly => 2,
+        ClosureModelKind::MainEffectsPlusInteraction => 3,
+    };
+    let width = parameters.len() / n_blocks;
+    log_loss + 0.5 * l2_penalty * penalized_squared_l2(parameters, width)
 }
 
 fn probabilities_from_parameters(
@@ -596,6 +623,15 @@ fn squared_l2(values: &[f64]) -> f64 {
     values.iter().map(|value| value * value).sum()
 }
 
+fn penalized_squared_l2(values: &[f64], width: usize) -> f64 {
+    values
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| index % width != 0)
+        .map(|(_, value)| value * value)
+        .sum()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -615,6 +651,13 @@ mod tests {
             }
         }
         rows
+    }
+
+    #[test]
+    fn l2_penalty_excludes_every_field_intercept() {
+        // Three two-coefficient fields: indices 0,2,4 are intercepts.
+        let parameters = [10.0, 1.0, 20.0, 2.0, 30.0, 3.0];
+        assert_eq!(penalized_squared_l2(&parameters, 2), 1.0 + 4.0 + 9.0);
     }
 
     #[test]
@@ -642,9 +685,9 @@ mod tests {
         let comparison = compare_held_out_closure_models(&restricted, &saturated, &rows).unwrap();
         assert!(comparison.saturated_advantage > 0.1);
         assert!(!comparison.calibrated_test);
-        assert!(saturated.curvature_field(&[-1.0]).unwrap() > 0.0);
-        assert!(saturated.curvature_field(&[1.0]).unwrap() < 0.0);
-        assert_eq!(restricted.curvature_field(&[-1.0]).unwrap(), 0.0);
+        assert!(saturated.fitted_interaction_field(&[-1.0]).unwrap() > 0.0);
+        assert!(saturated.fitted_interaction_field(&[1.0]).unwrap() < 0.0);
+        assert_eq!(restricted.fitted_interaction_field(&[-1.0]).unwrap(), 0.0);
     }
 
     #[test]
@@ -705,7 +748,7 @@ mod tests {
         let comparison = compare_held_out_closure_models(&restricted, &saturated, &rows).unwrap();
         assert!(comparison.saturated_advantage > 0.0);
         assert!(!comparison.calibrated_test);
-        assert!(saturated.curvature_field(&[-1.0]).unwrap() < 0.0);
-        assert!(saturated.curvature_field(&[1.0]).unwrap() > 0.0);
+        assert!(saturated.fitted_interaction_field(&[-1.0]).unwrap() < 0.0);
+        assert!(saturated.fitted_interaction_field(&[1.0]).unwrap() > 0.0);
     }
 }

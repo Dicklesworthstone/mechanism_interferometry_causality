@@ -258,6 +258,9 @@ impl FiniteCompletionReport {
 /// Invalid finite-state input contract.
 #[derive(Debug, Error, Clone, PartialEq)]
 pub enum FiniteCompletionError {
+    /// Estimated point tables cannot support exact population-fiber statuses.
+    #[error("estimated point tables require a separate uncertainty model")]
+    EstimatedTablesRequireUncertaintyModel,
     /// Equality tolerance was unusable.
     #[error("tolerance must be finite and positive")]
     InvalidTolerance,
@@ -304,6 +307,9 @@ pub fn solve_finite_modular_completion(
     input: &FiniteCompletionInput,
 ) -> Result<FiniteCompletionReport, FiniteCompletionError> {
     validate_input(input)?;
+    if input.law_semantics == FiniteLawSemantics::EstimatedPointTables {
+        return Err(FiniteCompletionError::EstimatedTablesRequireUncertaintyModel);
+    }
     let model_input_sha256 = fingerprint_input(input);
     let columns = potential_columns(&input.families);
     let design = treatment_design(&input.regimes, &columns);
@@ -455,7 +461,7 @@ fn solve_transports(input: &FiniteCompletionInput, design: &[Vec<f64>]) -> Trans
     }
 }
 
-fn validate_input(input: &FiniteCompletionInput) -> Result<(), FiniteCompletionError> {
+pub(crate) fn validate_input(input: &FiniteCompletionInput) -> Result<(), FiniteCompletionError> {
     if !input.tolerance.is_finite()
         || input.tolerance <= 0.0
         || input.tolerance > MAX_NUMERICAL_TOLERANCE
@@ -628,7 +634,7 @@ fn validate_law(
     }
 }
 
-fn fingerprint_input(input: &FiniteCompletionInput) -> String {
+pub(crate) fn fingerprint_input(input: &FiniteCompletionInput) -> String {
     let mut digest = Sha256::new();
     digest.update(b"mic.finite_completion.input.v1\0");
     digest.update([match input.law_semantics {
@@ -812,7 +818,7 @@ fn solve_linear(matrix: &[Vec<f64>], rhs: &[f64], tolerance: f64) -> LinearSolut
     LinearSolution::Unique(solution)
 }
 
-fn factorizes_over_dag(
+pub(crate) fn factorizes_over_dag(
     law: &[f64],
     states: &[Vec<u32>],
     parents: &[Vec<usize>],
@@ -1121,8 +1127,21 @@ mod tests {
         input.tolerance = 1e-10;
         assert!(matches!(
             solve_finite_modular_completion(&input),
-            Err(FiniteCompletionError::InvalidLaw { .. })
+            Err(FiniteCompletionError::InvalidLaw { law }) if law == "baseline"
         ));
+    }
+
+    #[test]
+    fn estimated_tables_cannot_emit_population_completion_statuses() {
+        let mut input = root_input(vec![FiniteObservedRegime {
+            levels: vec![1, 0],
+            probabilities: vec![0.125, 0.125, 0.375, 0.375],
+        }]);
+        input.law_semantics = FiniteLawSemantics::EstimatedPointTables;
+        assert_eq!(
+            solve_finite_modular_completion(&input),
+            Err(FiniteCompletionError::EstimatedTablesRequireUncertaintyModel)
+        );
     }
 
     #[test]
