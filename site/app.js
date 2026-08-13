@@ -927,7 +927,7 @@
       var state;
       if (straddle > 0 && meanWidth > 0.5) { state = "UNDERPOWERED"; }
       else if (straddle > 0) { state = "UNDETERMINED"; }
-      else if (passes === 1) { state = "UNIQUE_TARGET"; }
+      else if (passes === 1) { state = "UNIQUE_PASS_PATTERN"; }
       else if (passes === 0) { state = "NO_PASS"; }
       else { state = "MULTIPLE_PASSES"; }
 
@@ -938,9 +938,9 @@
        tolerance changes the verdict, and a caption pinned to the scenario would
        cheerfully contradict the state machine sitting next to it. */
     var stateStyle = {
-      UNIQUE_TARGET: {
-        kind: "flat", verdict: "oriented",
-        note: "Exactly one coordinate is certified invariant and every competitor is certified changed. Under separately justified single-target and deletion-faithfulness premises, the family is oriented."
+      UNIQUE_PASS_PATTERN: {
+        kind: "curve", verdict: "premises unresolved",
+        note: "Exactly one deletion is below the equivalence tolerance and every competitor is above it. This numerical pattern becomes an orientation only after content-bound single-target and deletion-faithfulness premises are established."
       },
       NO_PASS: {
         kind: "curve", verdict: "no target",
@@ -1909,10 +1909,11 @@
   /* ----------------------------------------------------------------------
      Design auditor
 
-     Mirrors the eligibility logic of the preflight stage: a residual-product
-     track is only admissible when the pooled corner odds are one, and the
-     selection contract must be one the system can reason about. In strict mode
-     any blocking finding means no certificate is issued at all.
+     This widget constructs a real manifest and asks mic-wasm to run the Rust
+     preflight. The only browser-side gate is the explicitly selected unit
+     contract: choosing a measurement below the stated randomization unit is a
+     refusal before the manifest is sent. Invalid quotas are rejected, never
+     repaired or renormalized in the page.
      ---------------------------------------------------------------------- */
 
   (function auditor() {
@@ -1924,8 +1925,6 @@
     var acceptBox = $("acceptSelection");
     var findingsBox = $("auditFindings");
     if (inputs.some(function (node) { return !node; }) || !trackSelect || !findingsBox) { return; }
-
-    var PRODUCT_TOLERANCE = 1e-10;
 
     function finding(kind, code, message) {
       var node = doc.createElement("div");
@@ -1939,130 +1938,115 @@
       return node;
     }
 
-    function render() {
-      var raw = inputs.map(function (node) {
-        var value = Number(node.value);
-        return isFinite(value) && value > 0 ? value : 0.0001;
+    function resetReadouts() {
+      ["logOdds", "isProduct", "fourLawOk", "gcmOk"].forEach(function (id) {
+        setClassState($(id), null);
       });
-      var total = raw.reduce(function (sum, value) { return sum + value; }, 0);
-      var rho = raw.map(function (value) { return value / total; });
+      $("logOdds").textContent = "not computed";
+      $("isProduct").textContent = "not established";
+      $("fourLawOk").textContent = "not established";
+      $("gcmOk").textContent = "not established";
+    }
 
-      var logOdds = Math.log((rho[3] * rho[0]) / (rho[1] * rho[2]));
-      var isProduct = Math.abs(logOdds) <= PRODUCT_TOLERANCE;
+    function refuse(code, message) {
+      resetReadouts();
+      setVerdict($("auditStatus"), "block", "REFUSED");
+      findingsBox.textContent = "";
+      findingsBox.appendChild(finding("error", code, message));
+      $("auditNote").textContent = "The page did not repair the input or substitute a diagnostic calculation.";
+    }
 
-      /* The selection gate has four branches, and a declared selection model is
-         not by itself sufficient: without the policy flag it is an error, and
-         with the flag it downgrades to a warning that still owes diagnostic
-         evidence. This mirrors selection_gate in mic-engine. */
-      var selection = selectionSelect.value;
-      var acceptModel = acceptBox ? acceptBox.checked : false;
-      var fourLawOk = selection === "state_independent_within_regime" ||
-        (selection === "modeled" && acceptModel);
-
-      var track = trackSelect.value;
-      var wantsGcm = track === "product_factorial" || track === "both";
-      var gcmOk = isProduct && fourLawOk;
-
-      /* One complete square face is observed in this two-factor design, so the
-         geometry half of four-law eligibility is satisfied here by construction.
-         The cube above is where that half can actually fail. */
-      var requestedEligible = track === "four_law" ? fourLawOk
-        : (track === "product_factorial" ? gcmOk : (fourLawOk && gcmOk));
-
-      var strict = strictBox ? strictBox.checked : true;
-
-      $("logOdds").textContent = signed(logOdds, 6);
-      setClassState($("logOdds"), isProduct ? "flat" : "curve");
-      $("isProduct").textContent = isProduct ? "yes" : "no";
-      setClassState($("isProduct"), isProduct ? "flat" : "curve");
-      $("fourLawOk").textContent = fourLawOk ? "yes" : "no";
-      setClassState($("fourLawOk"), fourLawOk ? "flat" : "block");
-      $("gcmOk").textContent = gcmOk ? "yes" : "no";
-      setClassState($("gcmOk"), gcmOk ? "flat" : "block");
-
-      var findings = [];
-      var blocking = 0;
+    function manifestAndPolicy() {
+      var probabilities = inputs.map(function (node) { return Number(node.value); });
+      if (probabilities.some(function (value) { return !isFinite(value) || value <= 0; })) {
+        throw { code: "invalid_sampling_proportion", message: "Every corner quota must be finite and strictly positive." };
+      }
+      var total = probabilities.reduce(function (sum, value) { return sum + value; }, 0);
+      if (Math.abs(total - 1) > 1e-10) {
+        throw { code: "invalid_sampling_proportion", message: "Corner quotas must sum to one; the entered total is " + fmt(total, 6) + "." };
+      }
       var unit = unitSelect ? unitSelect.value : "deployment";
       if (unit === "measurement") {
-        blocking += 1;
-        findings.push(finding("error", "cluster_unit_below_randomization",
-          "Cells, requests, or time steps are not independent if assignment happened at a higher unit. Put the randomization unit in cluster_column."));
-      } else {
-        findings.push(finding("ok", "cluster_unit_declared",
-          "Inference, folds, and resampling are declared at the randomization unit (" + unit + "), not at the measurement."));
+        throw { code: "cluster_unit_below_randomization", message: "Cells, requests, or time steps are not independent when assignment occurred at a higher unit." };
       }
-
-      if (selection === "unknown") {
-        blocking += 1;
-        findings.push(finding("error", "state_dependent_selection",
-          "Within-regime state dependence of inclusion is unknown, so neither track has a defensible estimand."));
-      } else if (selection === "state_dependent_unmodeled") {
-        blocking += 1;
-        findings.push(finding("error", "state_dependent_selection",
-          "Inclusion depends on state within regime and is not modeled. Curvature and selection cannot be separated here."));
-      } else if (selection === "modeled" && !acceptModel) {
-        blocking += 1;
-        findings.push(finding("error", "selection_model_unvalidated",
-          "A selection model was declared but no validated selection evidence is attached. Attach the evidence, or pass --allow-unvalidated-selection-model to proceed on policy."));
-      } else if (selection === "modeled") {
-        findings.push(finding("warn", "selection_model_unvalidated",
-          "A modeled selection process is accepted by policy but still requires diagnostic evidence before any result leaves the run."));
-      } else {
-        findings.push(finding("ok", "selection_contract_accepted",
-          "Inclusion is state-independent within regime, so the four-law track tolerates arbitrary known corner quotas."));
-      }
-
-      if (isProduct) {
-        findings.push(finding("ok", "product_sampling_verified",
-          "Pooled design odds are one to within tolerance, so a residual-product test characterizes zero density curvature."));
-      } else if (wantsGcm) {
-        blocking += 1;
-        findings.push(finding("error", "non_product_sampling_for_gcm",
-          "Pooled design log-odds are " + signed(logOdds, 4) + ", so zero conditional covariance characterizes a curvature of " +
-          signed(-logOdds, 4) + " rather than zero. Reweight to a product design or request the four-law track."));
-      } else {
-        findings.push(finding("warn", "non_product_sampling_noted",
-          "Corner quotas are not product, but only the four-law track was requested, and that track tolerates arbitrary known state-independent quotas."));
-      }
-
-      findings.push(finding("ok", "square_contrast_rank",
-        "One complete square face over two factors. Main-effects rank three against four corners leaves exactly one testable flatness contrast."));
-
-      /* Status, in the order run_preflight evaluates it. The override is checked
-         first and on purpose: accepting an unvalidated selection model by policy
-         buys the run permission to continue, never permission to certify, so it
-         can only ever produce DiagnosticOnly however strict the run is. */
-      var overridden = selection === "modeled" && acceptModel;
-
-      var status;
-      var statusKind;
-      if (overridden) { status = "DIAGNOSTIC_ONLY"; statusKind = "curve"; }
-      else if (!strict) { status = "DIAGNOSTIC_ONLY"; statusKind = "curve"; }
-      else if (blocking > 0 || !requestedEligible) { status = "BLOCKED"; statusKind = "block"; }
-      else { status = "READY"; statusKind = "flat"; }
-
-      setVerdict($("auditStatus"), statusKind, status);
-
-      var note = $("auditNote");
-      if (note) {
-        if (status === "BLOCKED") {
-          note.textContent = "Strict mode refuses to proceed. No result from this run may be serialized with a passing certificate status.";
-        } else if (status === "DIAGNOSTIC_ONLY") {
-          note.textContent = "Exploratory mode may continue, but every affected result is watermarked diagnostic and can never be promoted to a certificate.";
-        } else {
-          note.textContent = "Both tracks are admissible under this manifest. The report still begins with assumptions and abstentions, never with a table of p-values.";
+      var ids = ["control", "tilt-a", "tilt-b", "tilt-ab"];
+      var bits = [[false, false], [true, false], [false, true], [true, true]];
+      var perturbations = [[], ["a"], ["b"], ["a", "b"]];
+      return {
+        manifest: {
+          schema_version: "1.0.0",
+          experiment_id: "browser-preflight",
+          strict: strictBox ? strictBox.checked : true,
+          inference_track: trackSelect.value,
+          selection: selectionSelect.value,
+          cluster_column: unit + "_id",
+          regime_column: "regime",
+          state_columns: ["state"],
+          candidate_state_blocks: [],
+          regimes: ids.map(function (id, index) {
+            return {
+              id: id,
+              design: { bits: bits[index] },
+              sampling_proportion: probabilities[index],
+              perturbations: perturbations[index]
+            };
+          }),
+          data: { format: "csv", path: "browser-input.csv" },
+          seed: 20260812
+        },
+        policy: {
+          rank_tolerance: 1e-10,
+          product_odds_tolerance: 1e-10,
+          accept_unvalidated_selection_model: acceptBox ? acceptBox.checked : false,
+          lens_gap_tolerance: 3.0,
+          min_ess_ratio: 0.1
         }
-      }
+      };
+    }
 
-      if (Math.abs(total - 1) > 5e-3) {
-        var renorm = doc.createElement("p");
-        renorm.className = "micro";
-        renorm.textContent = "Quotas entered sum to " + fmt(total, 3) + " and were renormalized before the audit. A real manifest is rejected outright unless they sum to one.";
-        findings.push(renorm);
-      }
-
+    function showReport(report) {
+      var face = report.face_sampling && report.face_sampling[0];
+      var sampling = face && face.sampling;
+      $("logOdds").textContent = sampling ? signed(sampling.log_odds_ratio, 6) : "not testable";
+      $("isProduct").textContent = sampling ? (sampling.is_product ? "yes" : "no") : "not testable";
+      $("fourLawOk").textContent = report.four_law_eligible ? "yes" : "no";
+      $("gcmOk").textContent = report.product_factorial_eligible ? "yes" : "no";
+      setClassState($("logOdds"), sampling ? (sampling.is_product ? "flat" : "curve") : null);
+      setClassState($("isProduct"), sampling ? (sampling.is_product ? "flat" : "curve") : null);
+      setClassState($("fourLawOk"), report.four_law_eligible ? "flat" : "block");
+      setClassState($("gcmOk"), report.product_factorial_eligible ? "flat" : "block");
+      var kind = report.status === "ready" ? "flat" : (report.status === "blocked" ? "block" : "curve");
+      setVerdict($("auditStatus"), kind, String(report.status).toUpperCase());
       findingsBox.textContent = "";
-      findings.forEach(function (node) { findingsBox.appendChild(node); });
+      ((report.ledger && report.ledger.findings) || []).forEach(function (item) {
+        var findingKind = item.severity === "error" ? "error" : (item.severity === "warning" ? "warn" : "ok");
+        findingsBox.appendChild(finding(findingKind, item.code, item.message));
+      });
+      $("auditNote").textContent = report.status === "ready"
+        ? "The Rust engine found this manifest eligible to proceed. READY is not a causal certificate."
+        : "The Rust engine preserved the manifest's blocking or diagnostic-only status.";
+    }
+
+    function render() {
+      var payload;
+      try {
+        payload = manifestAndPolicy();
+      } catch (error) {
+        refuse(error.code || "browser_input", error.message || String(error));
+        return;
+      }
+      resetReadouts();
+      setVerdict($("auditStatus"), "muted", "RUNNING");
+      findingsBox.textContent = "";
+      audit.ensure()
+        .then(function (mod) {
+          var report = JSON.parse(mod.preflight(JSON.stringify(payload.manifest), JSON.stringify(payload.policy)));
+          showReport(report);
+        })
+        .catch(function (error) {
+          var described = audit.describeError(error);
+          refuse(described.stage, described.message);
+        });
     }
 
     inputs.forEach(function (node) { node.addEventListener("input", render); });

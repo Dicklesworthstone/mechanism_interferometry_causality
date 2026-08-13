@@ -63,9 +63,12 @@ corresponding Rust logic. None of them display a stored result.
   class names and coloured by the stylesheet, so both themes work without a redraw.
 - **Dark bands redeclare the design tokens locally** rather than carrying a parallel set of component
   rules, so any widget can sit on any band and inherit the right values through the cascade.
-- **JavaScript is an enhancement.** With scripts disabled the prose, the equations and the numbers
-  are all still present, and the three interactive figures with static counterparts fall back to the
-  simulation-generated figures from the paper.
+- **JavaScript is an enhancement for the prose, and a requirement for the audits.** With scripts
+  disabled the prose, the equations and the fixture numbers are all still present, and the figures
+  with static counterparts fall back to the simulation-generated images from the paper. The three
+  figures that call the module (the design cube, the lens battery and the live preflight) cannot
+  degrade that way, because their whole point is that a real audit produced the answer. Each says so
+  in a `<noscript>` note rather than presenting an empty panel.
 - **Claims stay inside what the paper supports.** The certificate is an existence result, agreement
   across estimator families certifies nothing, inclusion frequencies are not probabilities, and
   proposal-adapter scores are never evidence.

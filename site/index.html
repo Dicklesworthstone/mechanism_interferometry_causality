@@ -474,6 +474,14 @@
         </p>
       </div>
 
+      <noscript>
+        <p class="noscript-note">
+          The design figure below computes its ranks by running the audit system itself, compiled to
+          WebAssembly, so it needs JavaScript enabled. The numbers shown are the ones for the full
+          cube; with scripts off the corner toggles do nothing.
+        </p>
+      </noscript>
+
       <div class="bench bench--wide-controls reveal">
         <div class="panel">
           <div class="panel-head">
@@ -919,7 +927,7 @@
     <div class="wrap">
       <div class="section-head reveal">
         <p class="eyebrow">Orientation without ratio estimation</p>
-        <h2>Delete a coordinate. See what survives.</h2>
+        <h2>Under a credible single-target family, delete a coordinate. See what survives.</h2>
         <p class="lede">
           Within a localized family, delete each coordinate in turn. The target is the coordinate
           whose deletion leaves the remaining marginal law invariant. Estimation reduces to a handful
@@ -976,7 +984,7 @@
             </p>
             <div class="readouts" aria-live="polite">
               <div class="readout"><span>Deletion pass count</span><strong id="passCount">1</strong></div>
-              <div class="readout"><span>State machine</span><strong id="passState" class="is-flat">UNIQUE_TARGET</strong></div>
+              <div class="readout"><span>Numerical pattern</span><strong id="passState" class="is-curve">UNIQUE_PASS_PATTERN</strong></div>
             </div>
           </div>
         </div>
@@ -984,11 +992,11 @@
         <div class="panel">
           <div class="panel-head">
             <h3>Normalized discrepancy by deleted coordinate</h3>
-            <span class="verdict flat" id="orientVerdict">oriented</span>
+            <span class="verdict curve" id="orientVerdict">premises unresolved</span>
           </div>
           <div class="panel-body">
             <div class="viz-wide"><svg id="vizOrient" viewBox="0 0 560 300" role="img" aria-label="Equivalence intervals for each candidate deletion against the tolerance"></svg></div>
-            <p class="caption" id="orientNote">Exactly one coordinate is certified invariant and every competitor is certified changed. Under the separately justified single-target and deletion-faithfulness premises, the family is oriented.</p>
+            <p class="caption" id="orientNote">Exactly one deletion is below the equivalence tolerance and every competitor is above it. This numerical pattern becomes an orientation only after content-bound single-target and deletion-faithfulness premises are established.</p>
           </div>
         </div>
       </div>
@@ -998,9 +1006,12 @@
           <span class="callout-mark" aria-hidden="true">&#9670;</span>
           <div>
             <p>
-              <b>Undercoverage fails conservatively.</b> When the proposed parent set is incomplete,
-              the true target still passes, but a newly balanced marginal can create extra passes;
-              the result is a missing edge or a multiple-pass abstention, not a unique reversed arrow.
+              <b>Undercoverage can fail conservatively under a narrow premise.</b> If the analyzed
+              support still contains the true target and remains inside its true causal family, an
+              omitted parent cannot make that target fail, but a newly balanced marginal can create
+              extra passes. The audit must re-establish uniqueness; the guarantee does not apply
+              when the target is omitted or descendants, proxies, selection, or unrelated variables
+              contaminate the support.
               An affected descendant generically drives the pass count to zero. Given the family sets, the graph is reassembled by peeling in
               topological order even without target labels, and the peel either completes or reports
               itself <em>stuck</em>, listing the families it could not reduce to a unique
@@ -1159,6 +1170,15 @@
         </p>
       </div>
 
+      <noscript>
+        <p class="noscript-note">
+          This section is the audit system running in your browser, so with JavaScript disabled there
+          is nothing here to show: the manifest editor and the report below stay empty. The same
+          verdicts are available from the command line with
+          <code>mic preflight examples/configs/nonproduct_sampling_demo.json</code>.
+        </p>
+      </noscript>
+
       <div class="bench bench--wide-controls reveal">
         <div class="panel">
           <div class="panel-head">
@@ -1221,14 +1241,14 @@
         <div class="panel">
           <div class="panel-head">
             <h3>Preflight report</h3>
-            <span class="verdict flat" id="auditStatus">READY</span>
+            <span class="verdict muted" id="auditStatus">NOT RUN</span>
           </div>
           <div class="panel-body">
             <div class="readouts readouts--flush" aria-live="polite">
-              <div class="readout"><span>Pooled design log-odds <code>log OR(rho)</code></span><strong id="logOdds" class="is-flat">0.000000</strong></div>
-              <div class="readout"><span>Product sampling</span><strong id="isProduct" class="is-flat">yes</strong></div>
-              <div class="readout"><span>Four-law eligible</span><strong id="fourLawOk" class="is-flat">yes</strong></div>
-              <div class="readout"><span>Product-factorial eligible</span><strong id="gcmOk" class="is-flat">yes</strong></div>
+              <div class="readout"><span>Pooled design log-odds <code>log OR(rho)</code></span><strong id="logOdds">not computed</strong></div>
+              <div class="readout"><span>Product sampling</span><strong id="isProduct">not established</strong></div>
+              <div class="readout"><span>Four-law eligible</span><strong id="fourLawOk">not established</strong></div>
+              <div class="readout"><span>Product-factorial eligible</span><strong id="gcmOk">not established</strong></div>
             </div>
             <div class="findings" id="auditFindings" aria-live="polite"></div>
             <p class="micro mt" id="auditNote">
@@ -1247,41 +1267,38 @@
     <div class="wrap">
       <div class="section-head reveal">
         <p class="eyebrow">What causality means</p>
-        <h2>Causal structure is the coordinate system in which <em class="accent">change is sparse</em></h2>
+        <h2>A causal proposal should make change <em class="accent">sparse</em> &#8212; and survive exact audits</h2>
         <p class="lede">
-          A joint distribution admits many factorizations, and statistics alone cannot prefer one.
-          What distinguishes the causal factorization is physical, not statistical: its factors are
-          autonomous. Nature, drift, policy, and experiment change them <em>one at a time</em>. Write
-          the same shift in any other coordinate system and every factor moves together, in a
-          coordinated, fine-tuned way &#8212; epicycles. Finding causal structure is therefore not
-          metaphysics. It is compression: not of the data, but of the <em>changes</em> present in
-          the data. The factorization that describes each observed shift with the fewest moving
-          parts is the causal one, and every quantity on this page &#8212; locality, deletion
-          invariance, square flatness, the conservation ledger &#8212; is an exact measurement of
-          that sparsity.
+          A joint distribution admits many factorizations. A useful restricted discovery principle
+          asks whether sufficiently diverse environments admit a shorter description in which only
+          a few autonomous conditionals change. That is compression of <em>changes</em>, not of the
+          static data. It is a proposal rule rather than a definition of causality: real environments
+          can change many mechanisms, and some reparameterizations preserve sparsity. Mechanism
+          interferometry therefore audits distinct consequences of a proposed account. Locality
+          restricts the coordinates used by a primitive ratio; conditional normalization asks whether
+          it can replace a conditional mechanism; square flatness asks whether proposed distinct
+          replacements compose; conservation identities diagnose what coarsening can hide.
         </p>
       </div>
 
       <div class="grid grid-2">
         <article class="card reveal">
           <p class="label">The consequence</p>
-          <h3>Natural experiments are regimes</h3>
+          <h3>Natural contexts can nominate regimes</h3>
           <p class="note">
-            The machinery on this page consumes regimes, and the world supplies them for free.
-            Seasons, regions, cohorts, versions, eras: any source of heterogeneity that shifts one
-            mechanism while leaving others alone is a soft intervention nobody had to run. Weather
-            stations do not move between January and July, so a season is a tilt of the temperature
-            mechanism with the elevation marginal untouched &#8212; and the deletion protocol above
-            then orients the pair from purely observational rows. Deleting temperature leaves the
-            elevation marginal invariant; deleting elevation leaves the temperature marginal
-            changed; pass count exactly one; the arrow points from elevation to temperature, which
-            is where physics put it.
+            Seasons, regions, cohorts, versions, and eras can expose recurring distribution changes,
+            but a context label is not automatically a soft intervention. It may change several
+            mechanisms, measurement, support, or selection at once. Rows can nominate a regime
+            family and falsify some of its implications. Causal authority additionally requires an
+            external or restricted context model, stable measurement and inclusion, common support,
+            the correct dependence unit, and a credible localized single-target interpretation.
           </p>
           <p class="note micro">
-            First executed result: 9,109 northern-hemisphere stations, one year, prediction
-            registered before the data were parsed. The context-shuffled control produced no
-            orientation &#8212; the apparatus that found the arrow demonstrably knows how to stay
-            silent.
+            A locally prediction-locked GHCN prototype compared January and July on a fixed panel of 9,109
+            northern-hemisphere stations. The construction made the elevation marginal identical,
+            the station-averaged temperature mean changed, and a within-station month-label shuffle
+            made that mean statistic undetermined. This exercises pass-count behavior; it does not
+            identify an elevation effect or establish season as a single-target intervention.
           </p>
         </article>
         <article class="card reveal delay-1">
@@ -1290,18 +1307,20 @@
           <p class="note">
             Reading direction from natural heterogeneity leans on stated assumptions: shifts hit
             mechanisms sparsely, cancellations are not fine-tuned, and within-regime selection
-            remains undeclarable from rows alone. Every oriented edge therefore carries its
-            assumption ledger, its heterogeneity source, its cluster unit, and its equivalence
-            bounds &#8212; and the benchmark it lives in scores silence as carefully as arrows.
+            remains undeclarable from rows alone. The certificate-grade path is being built so that
+            every oriented edge must carry a content-bound premise receipt, heterogeneity source,
+            cluster unit, and equivalence bounds. The current numerical deletion demo below does
+            not emit such an edge; it exposes the pass pattern and leaves those premises unresolved.
+            The benchmark suite scores silence as carefully as arrows.
             Datasets with genuinely ambiguous direction are registered in advance as abstentions,
             where emitting an arrow counts as failure. A method that cannot report nothing has
             never been shown able to report anything.
           </p>
           <p class="note micro">
-            The same five signatures &#8212; locality of change, asymmetric deletion invariance,
-            compositional flatness, conservation fingerprints, and change-description length
-            &#8212; overdetermine the structure. Overdetermination is what makes honest discovery
-            possible: a wrong coordinate system cannot satisfy all five at once.
+            Change-description length ranks candidates. Locality, normalization, deletion,
+            compositional flatness, and conservation then challenge different implications of a
+            candidate under stated premises. Joint survival is stronger evidence than one score,
+            but no finite battery makes unobserved intervention semantics identifiable from rows.
           </p>
         </article>
       </div>
@@ -1335,13 +1354,14 @@
         </article>
         <article class="card reveal delay-1">
           <p class="label">NCI-ALMANAC / DrugComb</p>
-          <h3>Drug combination screens</h3>
+          <h3>Scalar drug-response surfaces</h3>
           <p class="note">
-            Vehicle, A, B, and combo, when all four arms exist. Shared-target pairs should
-            curve until target engagement is added. Incomplete squares are dropped, never
-            imputed. Cluster at the plate or replicate, not the well.
+            NCI-ALMANAC releases percent-growth endpoints, not common-support biological state laws.
+            Complete vehicle, A, B, and combination cells support named, scale-specific interaction
+            summaries and held-out dose-surface prediction. They do not identify density curvature,
+            conditional normalization, a mechanism target, or a raw MIC normalizer.
           </p>
-          <p class="micro">Track: <code>four_law</code>. Combo screens are almost never product-factorial.</p>
+          <p class="micro">Track: <code>scalar_response</code>. Missing dose cells are reported, never imputed.</p>
         </article>
         <article class="card reveal delay-2">
           <p class="label">Graduation / cash × training</p>
@@ -1521,6 +1541,13 @@
         </p>
       </div>
 
+      <noscript>
+        <p class="noscript-note">
+          The battery below is evaluated by the audit system rather than by this page, so it needs
+          JavaScript enabled. The scaled gap, the verdict and the refusal all come from the module.
+        </p>
+      </noscript>
+
       <div class="bench bench--wide-controls reveal">
         <div class="panel">
           <div class="panel-head">
@@ -1612,7 +1639,10 @@
             With a known incidence or dosage matrix of column rank <var>K</var>, the factor vector is
             unique almost everywhere. With unlabelled environments it is still identified, provided
             every one of the <code>2^K</code> vertices is observed and the factors are linearly
-            independent, up to renaming an axis and choosing its opposite endpoint.
+            independent, up to coordinate permutation and bit reversal. Marking a factorial zero
+            vertex fixes the origin and the edge signs, which removes the bit reversal; the
+            permutation remains. Picking an external reference law does not mark such a vertex unless
+            that law is itself in the observed cube.
           </p>
           <p class="note micro">
             The complete-vertex assumption carries weight. A partial unlabelled point cloud keeps the
@@ -1628,6 +1658,12 @@
             the nonlinear step, and it is conditional normalization that does the turning: the
             candidate targets of a factor are the coordinates whose deletion leaves its conditional
             expectation at one.
+          </p>
+          <p class="note micro">
+            That candidate set collapses to the single true target only under four premises, which
+            have to be argued rather than assumed: a unique minimal support, locality, ratio
+            faithfulness across the full family support, and deletion faithfulness. Drop any of them
+            and the set is a set.
           </p>
         </article>
         <article class="card reveal delay-2">
