@@ -173,6 +173,29 @@ DUA/application, not walk-up public — use UVA/Padova (known simulator) until a
 receipt exists. Do not add GBIF/eBird, MIMIC, UK Biobank, or GWAS: selection or
 no factorial family.
 
+**Executed 2026-08-13 (session workspace, not a certificate).**
+`~/brennerbot_sessions/mic-public-extracts/` — 35 receipts, seed `20260813`.
+Chambers `lt_interventions_standard_v1` pin verified (MD5/SHA-256 match
+RoseLark 9397). Atlas-only `mic-tabular survey` on HEAD. No `direction_scout`.
+
+| Result | Dataset | Atlas |
+|---|---|---|
+| surveyed | Chambers reference R×G | complete `red_bin×green_bin` (independent setpoints in *reference*) |
+| surveyed | Chambers hide-metadata | **no square** |
+| surveyed | Chambers red_strong+green_strong | missing corner `11` (H-003) |
+| surveyed | Lalonde NSW RCT + CPS twin | no complete square; inclusion not identified |
+| surveyed | SURFRAD TBL 10 days | complete `rad×zenith`; diurnal confound remains |
+| surveyed | OMNI2 2023 hourly | complete `Bz×speed`; Earth→Sun forbidden |
+| surveyed | UCI airfoil | complete `freq×aoa`; passive, no run-id |
+| surveyed | GLODAP Arctic head (DIC+TA) | constitutive chemistry; truncated file |
+| surveyed | Sachs labeled / hidden | labeled missing `01`; hidden has no context |
+| abstain | EPICA CO2–temp, OWID GDP×LE, FRED minwage×UNRATE | bins are not arrows |
+| blocked | Oregon, EarthScope, Ausgrid, BDG2 595MB, JUMP, sci-Plex, scPerturb, NutNet EDI 403, DREAM4, DrugComb, Heartsteps/OhioT1DM DUA, UVA/Padova, FLUXNET, Replogle | landing/API only |
+| excluded | GBIF/eBird, MIMIC/UKB/GWAS, DepMap knockouts | eligibility |
+
+Scripts: `scripts/public_extracts/`. Ledger: session `LEDGER.md`.
+`cargo test -p mic-engine --lib survey` → 9 passed.
+
 ## Modes of reasoning (lead-agent synthesis, no NTM)
 
 Selected because this is a **scientific audit system**, not a product CRUD app.
