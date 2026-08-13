@@ -303,7 +303,7 @@ qualification.
 - [x] Finite categorical mechanism-family geometry and all-background rectangle enumeration.
 - [x] Two-axis partial-design result: causal completion status is separate from algebraic testability.
 - [x] Exact selection-transport identity and diagnostic Gamma-sensitivity interval.
-- [x] Cost-aware missing-corner ranking by identified-set reduction.
+- [x] Cost-aware missing-corner ranking by pointwise main-effect alias reduction.
 
 ### Research and estimator tranche
 
@@ -319,7 +319,7 @@ qualification.
 - [x] State only solver properties supported by the finite-state parameterization;
   keep nonparametric finite-sample classification unresolved.
 - [x] Make the linear closure cross-fit pooling-honest and corner-stratified;
-  export signed and non-cancelling out-of-fold baseline curvature moments while
+  export signed and non-cancelling out-of-fold baseline fitted-interaction moments while
   retaining `calibrated_test: false`.
 - [x] Specify interventional mechanism dictionary learning with fixed-reference
   environment codes, pure anchors, complete-cube recovery, local support,
@@ -350,8 +350,9 @@ qualification.
 - [x] Implement deterministic tied-main-effect and interaction-augmented
   four-corner joint regime models with explicit sampling offsets and held-out
   logarithmic-loss comparison.
-- [x] Add deterministic cluster-level outer folds, equal total weight per
-  declared unit, untouched restricted-versus-interaction loss comparison, a
+- [x] Add deterministic dependence-unit outer folds with nested assignment
+  episodes, equal total weight per dependence unit within corner, untouched
+  restricted-versus-interaction loss comparison, a
   recorded seed, and a deterministic fold-plan fingerprint for the reference
   closure model.
 - [ ] Add adaptive witness separation and calibrated cluster-level inference
@@ -414,7 +415,7 @@ qualification.
 
 ### Stage D: active next-query engine
 
-- [x] Rank missing corners by identified-set reduction and cost; dropped-corner replication remains separately typed.
+- [x] Rank missing corners by pointwise main-effect alias reduction and cost; dropped-corner replication remains separately typed.
 - [ ] Rank asymmetric tilts for multiple-pass disambiguation.
 - [ ] Rank candidate state additions using nested held-out curvature accounting.
 - [x] Emit missing authority-contract requests as first-class proposals.

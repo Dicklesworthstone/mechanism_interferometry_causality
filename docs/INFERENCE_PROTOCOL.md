@@ -13,15 +13,38 @@ Before fitting any model, the program must establish:
 
 A strict run stops if any required item is unknown.
 
+An experiment manifest records a selection declaration, not proof of that
+declaration. Strict readiness requires a separately resolved, content-bound
+selection-evidence receipt; rows alone cannot establish state-independent
+inclusion. The exact sensitivity algebra uses distinct validated types for
+inclusion probabilities and regime inclusion rates. A normalizer interaction
+supplied without such a receipt is serialized as `declared_unverified` and has
+diagnostic authority only.
+
+The executable resolver accepts the receipt and authority source through
+separate paths, hashes the analyzed table by streaming rather than loading it
+into memory, and creates an opaque readiness token only when the receipt binds
+all three byte identities and its evidence class matches the manifest
+declaration. This verifies provenance and declared authority, not the scientific
+truth of an arbitrary source document; the source must itself be an eligible
+external sampling record or validated selection-model artifact.
+
+Selection sensitivity also accepts validated regime enrollment rates or a
+model-derived normalizer contrast together with a `sha256:` receipt commitment.
+Those routes derive `Delta log Z` rather than accepting a second naked scalar,
+but the core algebra labels the reference `*_receipt_unresolved` until an engine
+resolver matches the receipt to the manifest and analyzed bytes. Every resulting
+Gamma interval therefore remains diagnostic-only.
+
 ## 2. Cross-fitting graph
 
-All learned nuisances are trained out of fold. The fold assignment is deterministic from a recorded seed and stratified by regime and cluster. No observation may be used both to construct an adaptive witness and to test that witness.
+All learned nuisances are trained out of fold. The fold assignment is deterministic from a recorded seed and keeps the highest declared dependence unit intact. Assignment episodes nested in one dependence unit may carry different regimes, as in crossover or longitudinal designs, but they remain in the same fold. The reference closure diagnostic gives each dependence unit equal mass within corner before dividing that mass over its episodes and rows. These roles remain declarations until external design evidence resolves them. No observation may be used both to construct an adaptive witness and to test that witness.
 
 Recommended layers:
 
 - outer folds: scientific evaluation and adaptive-witness separation;
 - inner folds: nuisance tuning;
-- cluster bootstrap: uncertainty at the assignment unit.
+- dependence-unit bootstrap: uncertainty at the highest dependence unit, with assignment episodes retained intact.
 
 ## 3. Track I: four-law moment functionals
 
@@ -34,6 +57,17 @@ M_w=E_{AB}[w]-E_A[w\hat r_B]
 and its A/B-swapped analogue. Combine symmetrically. Primitive ratios are normalized on held-out baseline data. Report raw and truncated estimates, effective sample sizes, and the sensitivity curve across truncation thresholds.
 
 This track is valid for arbitrary known state-independent regime quotas. It does not require product assignment.
+
+The reference finite/discrete adaptive slice is deliberately two-stage. On
+discovery units, `learn_discrete_closure_witness` averages residual
+contributions within declared dependence unit and state, then maps each state
+mean through a frozen bounded `tanh` transform. Its API has no confirmation-row
+input and emits a content fingerprint consumed by
+`four_law_cluster_multiplier_bounds`. Unseen confirmation states receive zero
+weight. This proves API-level separation and unit-duplication invariance for the
+reference representation; it does not verify the physical unit, the discovery
+partition, or representation choice, and its multiplier bounds remain
+`diagnostic_only` until the coverage gauntlet is complete.
 
 ## 4. Track II: GCM and weighted GCM
 
@@ -115,8 +149,17 @@ linear joint-regime path also provides deterministic outer cluster folds and
 held-out proper-loss comparison. Folds are stratified by corner, training mass
 matches the exact declared classifier pooling proportions, and held-out
 baseline clusters produce signed mean, mean-absolute, RMS, and maximum-absolute
-curvature summaries. These summaries remain uncalibrated; adaptive witness selection and
-cluster-resampled calibration remain outstanding.
+summaries of the regularized linear interaction projection. They also report
+held-out posterior-boundary alarms, implied density-ratio cluster ESS, and
+maximum finite log-ratio magnitude. The interaction projection equals density
+curvature only under correct model specification. These summaries remain
+uncalibrated. For an independently frozen witness family,
+`mic_stats::four_law_cluster_multiplier_bounds` implements the symmetrized
+arbitrary-quota moment with law-stratified, declared-unit Rademacher multiplier
+max bounds and a recorded seed. Its output remains `diagnostic_only` and
+explicitly `reference_multiplier_not_coverage_validated`: adaptive witness
+training and coverage over the cluster-size, overlap, and nuisance-
+misspecification gauntlet remain outstanding.
 
 ## 10. State expansion
 

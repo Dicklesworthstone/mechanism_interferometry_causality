@@ -40,7 +40,13 @@ Owns validated tables and manifests:
 - feature blocks and candidate-state groups;
 - selection and inclusion fields;
 - cluster identifiers and fold assignments;
-- CSV, Parquet, Arrow, and JSON interchange through FrankenPandas.
+- one object-safe `TabularAdapter` contract producing the shared ingest report;
+- standard CSV plus feature-gated FrankenPandas CSV implementations today.
+
+Arrow, Parquet, AnnData, and a thin Python bridge are target adapters. They may
+translate ecosystem storage, but cannot redefine units, regimes, inclusion,
+folds, or causal authority. The shipped FrankenPandas adapter does not yet
+provide those non-CSV formats.
 
 ### `mic-stats`
 
@@ -64,9 +70,10 @@ Owns learned nuisance and diagnostic models:
   state-independent sampling proportions;
 - a four-corner hierarchical classifier whose restricted `11` logit is tied to
   the two primitive fields and whose saturated alternative adds one explicit
-  curvature field;
-- deterministic outer cross-fitting by declared cluster with equal total
-  cluster weight, serialized seed/fold-plan provenance, and fail-closed
+  model-dependent interaction field (equal to curvature only under correct specification);
+- deterministic outer cross-fitting by declared dependence unit, with
+  assignment episodes nested inside it and equal unit mass within corner before
+  episode/row subdivision; serialized seed/fold-plan provenance; and fail-closed
   four-corner coverage on every training and confirmation slice;
 - exact finite-state held-out combination prediction with raw normalizer,
   overlap/ESS diagnostics, and nonnegative law discrepancies;
@@ -79,9 +86,11 @@ Owns learned nuisance and diagnostic models:
   binds the plan and seed, reports metric-specific plan diversity and per-arm
   inclusion coverage, and preserves every failed refit without promoting
   empirical quantiles to calibrated intervals;
-- a full-rank finite-state fixed-DAG completion solver that separates design
+- a full-rank log-potential solver and a conditional-kernel finite-state
+  fixed-DAG completion solver that separates design
   inconsistency, Markov failure, nonlocality, conditional-normalization failure,
-  and conservative rank-deficient set identification;
+  inactive-kernel changes, repeated-level disagreement, point identification,
+  and free unobserved levels;
 - calibrated flexible binary and multinomial regime prediction (roadmap);
 - hierarchical main-effect and interaction fields;
 - primitive ratio extraction and normalization;
@@ -148,6 +157,9 @@ Owns exact and finite-sample scenarios:
 ### `mic-cli`
 
 Owns the user workflow:
+
+The following is the target scientist-facing interface, not the current command
+surface (run `mic --help` for the executable list):
 
 ```text
 mic validate-design manifest.json

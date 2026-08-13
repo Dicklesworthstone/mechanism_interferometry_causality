@@ -27,7 +27,7 @@ Survey 1.2.0 prints information-content, separates completion evaluation from
 testability, and stamps every atlas square `orientation=untestable`. Exact `δ = p_AB-p_A p_B/p_0`
 and `κ̃ = κ + Δlogπ − ΔlogZ` plus Γ-intervals live in `mic-core` as
 `DiagnosticOnly`. `rank_missing_boolean_corners` ranks the next cell by
-identified-set reduction, then lack-of-fit gain (`D={00,11}` → collect `01` or
+main-effect alias reduction, then lack-of-fit gain (`D={00,11}` → collect `01` or
 `10`; the three-corner L → collect `11` to create a testable contrast).
 Histogram four-law now reports exact `δ` beside `κ`. Next-corner ranking
 accepts optional positive integer costs (zero fails closed); expensive

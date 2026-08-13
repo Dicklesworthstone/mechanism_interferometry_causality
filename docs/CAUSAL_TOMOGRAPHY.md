@@ -1,5 +1,15 @@
 # Causal mechanism tomography
 
+The reference implementation now includes a held-out, common-cohort
+state-expansion ranking primitive. Candidate blocks and discovery priorities
+must already be frozen. Each candidate supplies coarse and expanded
+simultaneous discrepancy bounds, overlap-retaining cohort fractions, a nested
+conservation residual, a positive cost, and the same untouched-cohort content
+commitment. The ranking distinguishes equivalence under supplied bounds,
+partial explanation, worsening, apparent improvement caused by support loss,
+and inconclusive conservation. This is `diagnostic_only`: the primitive cannot
+validate the supplied intervals, cohort receipt, or upstream block selection.
+
 ## North star
 
 The self-driving objective is not to fit a DAG to one stationary table. A single

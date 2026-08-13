@@ -22,6 +22,21 @@ The program computes:
 
 Items 1–4 are implemented by `mic_design::audit_design`. Items 5 and 6 are implemented by `mic_design::audit_interaction_aliasing`: each pairwise interaction column over the observed corners is projected onto the intercept-plus-main-effects column space, and the residual is the pair's testable lack-of-fit component. The classification is three-way — `fully_aliased` (residual vanishes, so a pure interaction field is absorbed and that pair's flatness is untestable on this design), `testable_via_squares` (residual lies in the span of observed square-face contrasts), and `requires_general_contrast` (residual exists but no square battery reaches it). The audit also reports the lack-of-fit dimensions untested by any square contrast, both as a count and as explicit canonicalized contrast vectors completing the square span to the full lack-of-fit basis, which is exactly the content a square-only implementation silently ignores. Item 7 remains future work.
 
+Ranks of Boolean and categorical intercept-plus-main-effect matrices are decided
+by exact arbitrary-precision integer elimination and serialize
+`rank_arithmetic: exact_integer`. Floating tolerances remain relevant to
+null-space basis presentation and empirical law comparisons, but cannot change
+the discrete design-rank classification.
+
+The serialized `main_effect_alias_dimension = n_coded_columns - rank(M_D)` is
+the nullity of the unrestricted pointwise main-effect parameterization. It is
+not a causal-completion dimension: fixed-DAG factorization, locality, and
+kernel normalization can make a rank-deficient design infeasible, point
+identified, or set identified. Accordingly, next-cell scores report
+`main_effect_alias_reduction`; they do not claim identified-set reduction.
+Typed purposes separately distinguish an unseen level, a kernel-reuse check, a
+new design contrast, and replication of an under-supported cell.
+
 ## Six-corner counterexample
 
 The 3-cube with `000` and `111` removed contains no complete square face. Nevertheless, six observations minus rank four leaves two flatness restrictions. One is

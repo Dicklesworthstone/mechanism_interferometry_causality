@@ -80,21 +80,27 @@ also in place. The remaining work is the authority-bearing integration below.
   convergence, held-out log loss, and arbitrary-quota posterior-to-density-ratio
   reconstruction (implemented; nuisance model only, no certificate authority);
 - restricted-versus-saturated four-corner hierarchical design head with known
-  sampling offsets, explicit curvature field, and diagnostic held-out
+  sampling offsets, explicit model-dependent interaction field, and diagnostic held-out
   proper-loss comparison (implemented; not a calibrated test);
 - deterministic cluster-fold orchestration, equal total weight per declared
   unit within each corner under the declared pooling law, stratified coverage,
-  untouched proper-loss comparison, and out-of-fold baseline curvature moments
+  untouched proper-loss comparison, and out-of-fold baseline fitted-interaction moments
   for the linear reference model (implemented; the seed and versioned fold-plan
   fingerprint are serialized);
-- adaptive witness confirmation and calibrated cluster-level inference (not yet wired);
+- frozen-witness symmetrized four-law moments with deterministic stratified
+  cluster-multiplier max bounds (implemented as a reference diagnostic;
+  coverage gauntlet and adaptive witness training remain open);
 - FrankenTorch main-effect and interaction models;
 - sampling-offset and intercept contract;
 - posterior calibration;
 - curvature-field export;
 - held-out proper-loss diagnostics.
 - full-rank finite-state fixed-DAG/target completion feasibility (implemented);
-- rank-deficient nonlinear completion-fiber solving (outstanding).
+- exact finite positive fixed-DAG conditional-kernel completion, including
+  rank-deficient designs, inactive-kernel checks, and repeated-level checks
+  (implemented as a separate diagnostic path);
+- general rank-deficient nonlinear completion-fiber solving beyond the finite
+  positive fixed-DAG kernel theorem (outstanding).
 
 ## Packet 5: compositional prediction
 

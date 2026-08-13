@@ -65,19 +65,26 @@ cargo test --workspace --no-default-features
 cargo run -p mic-cli -- simulate all --output artifacts/simulations/rust_exact_results.json
 cargo run -p mic-cli -- simulate hidden-sensor
 cargo run -p mic-cli -- design audit examples/configs/feature_flag_pilot.json
-cargo run -p mic-cli -- preflight examples/configs/feature_flag_pilot.json
+cargo run -p mic-cli -- preflight examples/configs/feature_flag_pilot.json --allow-unvalidated-selection-model
+cargo run -p mic-cli -- preflight examples/configs/feature_flag_pilot.json --base-dir . --selection-receipt examples/selection_evidence/feature_flag_selection_receipt.json --selection-authority-source examples/selection_evidence/feature_flag_sampling_record.txt
 cargo run -p mic-cli -- closure-crossfit examples/closure_crossfit_request.json
+cargo run -p mic-cli -- finite-completion examples/finite_completion_request.json
+cargo run -p mic-cli -- kernel-completion examples/finite_completion_request.json
 cargo run -p mic-cli -- predict-combination examples/primitive_transport_request.json examples/combination_confirmation_request.json
 cargo run -p mic-cli -- predict-combination-refits examples/primitive_transport_request.json examples/combination_confirmation_request.json examples/transport_refit_request.json
 cargo run -p mic-cli -- orient examples/orientation/parity_demo.json
 cargo run -p mic-cli -- propose-tilt examples/proposal_inputs/parity_active_tilt.json
 cargo run -p mic-cli -- freeze-scout examples/scout_inputs/self_driving_request.json examples/scout_inputs/shift_factorization_draft.json
 cargo run -p mic-cli -- freeze-dictionary examples/scout_inputs/self_driving_request.json examples/scout_inputs/shift_factorization_draft.json examples/dictionary_inputs/search_plan.json examples/dictionary_inputs/transport_dictionary_draft.json
-cargo run -p mic-engine --bin mic-tabular -- report examples/configs/four_law_discrete.json --base-dir .
+cargo run -p mic-engine --bin mic-tabular -- report examples/configs/four_law_discrete.json --base-dir . --allow-unvalidated-selection-model
 cargo run -p mic-engine --bin mic-tabular -- survey examples/data/four_law_discrete.csv --cluster cluster_id --base-dir .
 
 # After committing the repository, produce source, website, and git-bundle releases.
 ./scripts/package_release.sh ./dist
+
+# Run every required gate and write an exact, fail-closed release receipt.
+# A dirty tree, unavailable gate, timeout, or nonzero exit keeps release_verified=false.
+.venv/bin/python scripts/generate_release_receipt.py --output ./dist/release-verification.json --include-wasm
 
 # Create or update the GitHub repository after gh authentication.
 # Second argument selects visibility and defaults to public.
@@ -93,39 +100,58 @@ The software has two inference modes and never silently substitutes one for the 
 1. **Four-law mode** estimates functionals of the normalized regime laws and permits arbitrary known, state-independent corner quotas.
 2. **Product-factorial mode** uses GCM/wGCM residual products and requires product assignment odds or explicit reweighting to a product design. Every reference GCM result carries serialized references to a completed audit identifier and SHA-256 source fingerprint; those fields have no certificate authority until the engine resolves them against the evidence ledger and analyzed artifact. Unverified calculations are permanently marked `diagnostic_only`.
 
-Within-regime state-dependent selection invalidates both modes unless modeled. Strict mode fails closed on this and on inadequate overlap, unresolved deletion orientation, non-product GCM sampling, unidentifiable design contrasts, or a manifest-declared cluster identifier that spans regimes. Rows alone do not prove that the declared cluster column is the true assignment unit—a unique row identifier can still masquerade as one—so assignment-unit basis evidence and content binding remain explicit Packet 0A work rather than a current certificate claim. The executable orientation path also rejects pointwise interval collections, mixed equivalence tolerances, or missing interval-method, randomization-unit, source-fingerprint, and seed provenance.
+A manifest's selection value is a caller declaration, never evidence. Strict
+preflight therefore blocks even `state_independent_within_regime` until a
+content-bound external selection receipt is resolved. The shipped resolver
+binds the receipt to the canonical manifest, exact analyzed data bytes, declared
+selection class, and separately supplied authority-source bytes; mismatches fail
+closed. `--allow-unvalidated-selection-model` permits four-law calculation only
+as `diagnostic_only` and cannot mask unrelated design, sampling, or overlap
+errors. State-dependent selection invalidates both modes unless a separately
+validated recovery model is available. Rows likewise do not prove that the
+declared cluster column is the true assignment unit—a unique row identifier can
+still masquerade as one. The executable orientation path also rejects pointwise
+interval collections, mixed equivalence tolerances, or missing interval-method,
+randomization-unit, source-fingerprint, and seed provenance.
 
 ## Current implementation status
 
 The design layer now covers finite categorical mechanism families as well as
 Boolean squares. It treatment-codes alternative family levels, enumerates every
-observed cross-family rectangle, reports algebraic identified-set and lack-of-fit
+observed cross-family rectangle, reports main-effect alias and lack-of-fit
 dimensions separately, and never promotes geometry alone to a unique causal
 completion.
 
 For fixed finite-state DAGs and distinct declared targets, the reference model
-now goes one step beyond rank geometry when the observed treatment design has
-full column rank: it solves the statewise log potentials, rejects observed laws
-outside the design image, verifies baseline and regime Markov factorization,
-then checks locality and conditional normalization. Rank-deficient nonlinear
-fibers remain explicitly unresolved unless a necessary Markov or algebraic
-condition already refutes them: rank deficiency alone cannot decide whether
-nonlinear causal restrictions leave zero, one, or many completions. The report keeps causal feasibility separate
-from additive testability: an identified completion from primitive arms can
-still have no observed combination contrast with which to test closure.
+now has two independent exact paths. The treatment-coded log-potential solver
+handles full-rank observed designs and audits locality plus conditional
+normalization. The finite kernel-completion solver instead factors every
+strictly positive observed law over the supplied DAG, compares inactive kernels
+with baseline, and checks reuse of each repeated family level across
+backgrounds. It therefore classifies point versus set identification by actual
+level coverage even when the main-effect matrix is rank deficient, and reports
+all evaluable incompatibilities rather than hiding them behind the first one.
+Both paths keep causal completion separate from additive testability: an exact
+completion can still have no observed combination contrast with which to test
+closure. Estimated point tables are refused by these exact-population solvers;
+they require a calibrated statistical procedure rather than an exact-sounding
+`infeasible` verdict.
 
 The repository includes the complete mathematical paper, website, exact simulation generators, schemas, runnable example datasets, architectural contracts, and a safe-Rust reference core implementing the exact population algebra, partial-design geometry, fail-closed preflight, and deterministic audit primitives. A standard-library CSV path now produces cluster-weighted histogram four-law diagnostics, and a proposal-only survey inventories candidate squares without claiming selection, assignment, or orientation. Neither is the production FrankenPandas estimator stack: the histogram path never issues a passed certificate, and an autonomous survey can only recommend the next declared audit. Final status is derived from an opaque typed gate summary rather than a caller Boolean; only the deliberately unresolved constructor is public until content-bound locality, normalization, flatness, and orientation producers exist. The production estimators that depend on the evolving Franken* numerical APIs remain isolated behind feature-gated adapters and specified packet-by-packet in the roadmap. This keeps the mathematical contracts stable while allowing the four sibling projects to advance without contaminating the causal API.
 
 The first fitted reference diagnostic is also executable. `mic
 closure-crossfit` fits the tied-main-effect and interaction-augmented joint
-regime models out of deterministic cluster folds, gives every declared unit
-equal weight within its corner under the declared pooling law, records the seed
-and versioned stratified fold-plan fingerprint, compares held-out logarithmic
-loss, and reports signed and non-cancelling out-of-fold curvature moments under
-the baseline law. Its output is always `diagnostic_only` and
+regime models out of deterministic dependence-unit folds. Assignment episodes
+may carry different corners only when they remain nested within one dependence
+unit; each dependence unit receives equal mass within corner before its mass is
+divided across episodes and rows. The command records the seed and versioned
+fold-plan fingerprint, compares held-out logarithmic
+loss, and reports signed and non-cancelling moments of the fitted regularized
+linear interaction field under the baseline law. Those moments equal density
+curvature only under correct model specification. Its output is always `diagnostic_only` and
 `certificate_eligible: false`: a learner's proper-loss advantage is not a
-calibrated closure test, and the command cannot verify that a caller's declared
-identifier is the physical assignment unit.
+calibrated closure test, and the command cannot verify that the caller's
+declared episode or dependence-unit roles match the physical experiment.
 
 For exact finite-state benchmarks, the model crate can also predict the entire
 held-out `11` law from `00`, `10`, and `01`. That diagnostic preserves the raw
@@ -146,6 +172,12 @@ small inputs. Separate primitive, fold-plan, and confirmation fingerprints make
 the stage boundary auditable. Each JSON request is capped at 64 MiB before
 deserialization; production-scale Arrow/Parquet streaming remains a separate
 Atlas-ingestion milestone rather than an implied property of this diagnostic.
+`mic-data::TabularAdapter` now fixes the interoperability boundary: ecosystem
+adapters may translate bytes into the shared ingest report but cannot redefine
+regimes, units, inclusion, folds, or causal authority. The default adapter is
+CSV and the feature-gated FrankenPandas adapter currently preserves the same CSV
+semantics; no shipped adapter yet makes Arrow, Parquet, or AnnData an executable
+large-data path.
 The result remains `diagnostic_only`, explicitly
 does not verify common support, selection, or the physical assignment unit, and
 does not prove that an upstream analyst chose the feature transform without

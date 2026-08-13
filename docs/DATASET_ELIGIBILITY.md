@@ -17,7 +17,7 @@ under-supported arms (`dropped_corners`) and does not invent either.
 | Manifest field | Meaning | Fail-closed if |
 |---|---|---|
 | `inference_track` | `four_law`, `product_factorial`, or `both` | `product_factorial` / `both` without product odds |
-| `selection` | within-regime inclusion contract | `unknown` or `state_dependent_unmodeled` in strict mode |
+| `selection` | caller declaration about within-regime inclusion | strict readiness until external evidence is resolved; `unknown` and unmodeled dependence also block diagnostics |
 | `cluster_column` | **randomization unit**, never the measurement | a cluster appears in more than one regime |
 | `regime_column` | corner label; bit strings such as `00` are accepted | unknown label |
 | `state_columns` | current observed state \(X\) | empty |

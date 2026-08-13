@@ -179,6 +179,37 @@ predict \(11\) while leaving composition untested because no combination law
 was observed. Conversely, \(D=\{00,11\}\) has no flatness contrast but can be
 causally infeasible under distinct-root replacements.
 
+### 8.1 Fixed-DAG kernel completion with a supplied baseline
+
+There is a stronger exact result when the query fixes the entire finite DAG,
+the distinct target map, and a strictly positive baseline law. Factor every
+supplied regime over the fixed DAG and write its node-conditional kernels as
+\(k_v^{(s)}(x_v\mid x_{\mathrm{pa}(v)})\). A modular completion exists if and
+only if:
+
+1. the baseline and every observed regime factorize over the fixed DAG;
+2. every node not actively targeted in a regime retains its baseline kernel;
+3. every repeated nonbaseline family-level exposes the same target kernel in
+   every observed background.
+
+Necessity is cancellation in the DAG product. For sufficiency, define each
+observed replacement kernel from any regime carrying that level; condition 3
+makes the choice well-defined, condition 2 reconstructs each supplied regime,
+and arbitrary positive normalized kernels complete never-observed levels.
+Relative to the named query “the entire unrestricted kernel dictionary and all
+grid laws,” the completion is point identified exactly when every nonbaseline
+family-level occurs at least once; otherwise it is set identified. Background
+repetition supplies overidentifying reuse tests, which remain separate from
+level coverage and identification.
+
+The premises are load-bearing. Without a supplied baseline, every level zero
+must instead be covered somewhere. Targets must be distinct (alternative
+replacements of one target belong to one categorical family), positivity must
+cover every declared parent configuration, and kernel equality is only
+identified almost everywhere on common parent support in general spaces. The
+result is conditional on the proposed DAG and target labels and provides no
+graph, target, selection, or intervention-semantics authority.
+
 ## 9. Longitudinal data
 
 Ratios are estimated at the transition level. Whole-trajectory ratio products are prohibited as the primary estimator because their variance can grow exponentially with horizon. Resampling and uncertainty operate at the trajectory or randomization-unit level.

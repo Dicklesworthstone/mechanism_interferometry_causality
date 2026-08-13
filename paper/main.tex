@@ -104,7 +104,7 @@ e^{\kappa_{AB}(x)}-1=
 \]
 its Louis missing-information limit, three conservation laws connecting latent conditional coupling to observable ratio-field anticorrelation, and a nested state-expansion identity that turns curvature into a search criterion for missing measurements.
 
-The inferential architecture has two complementary tracks.  With arbitrary regime-conditioned samples and known, state-independent sampling proportions, four-law functionals \(M_w\) identify weighted curvature without an assignment model.  Under product factorial randomization, projected curvature is tested by the Generalised Covariance Measure and its weighted extension, applied to the design bits.  Localization uses the same residual-product machinery; orientation uses simultaneous low-dimensional equivalence tests; flexible multinomial models provide diagnostic interaction fields and compositional prediction.  A running example exhibits maximal outcome synergy with zero complete-state curvature and nonzero outcome-only curvature in closed form.  Simulations cover symmetry-induced orientation failure, latent-state conservation, and implementation inconsistency.  We conclude with protocols for feature-flag experiments, combinatorial Perturb-seq, representation learning, and a memory-safe Rust implementation built on the FrankenPandas, FrankenNumPy, FrankenSciPy, and FrankenTorch ecosystems.
+The inferential architecture has two complementary tracks.  With arbitrary regime-conditioned samples and externally justified state-independent sampling proportions, four-law functionals \(M_w\) identify weighted curvature without a product-assignment model.  Under verified product factorial randomization, residual-product scores test projected curvature.  Localization uses the same cross-fitted nuisance discipline; orientation uses simultaneous equivalence tests; and held-out combination prediction preserves the raw compositional normalizer.  The released implementation provides exact algebra and finite-state completion oracles plus explicitly uncalibrated cluster-cross-fitted diagnostics.  Calibrated closure inference and a controlled-real factorial result remain necessary before empirical certification claims.
 \end{abstract}
 
 \noindent\textbf{Keywords:} causal modularity; soft interventions; density ratios; conditional odds ratios; factorial experiments; mechanism changes; causal representation learning; missing information; conditional independence.
@@ -130,24 +130,16 @@ The closest ingredients are classical or already present in neighboring literatu
 
 \subsection{Contributions}
 
-The paper makes eight main contributions.
+The paper makes four main contributions.
 
 \begin{enumerate}
-\item \textbf{A finite biconditional certificate.}  For a complete factorial family of common-support soft interventions with proposed distinct targets, locality, conditional normalization, and zero curvature on every two-dimensional design face are necessary and sufficient for a modular causal representation.  The result holds for finite categorical mechanism families when every cross-family rectangle is flat at every background; it imposes no linearity among alternative levels of the same family.  On an irregular partial design, the full estimable lack-of-fit contrast space gives the complete flatness audit, while a modularity certificate additionally requires feasible local, normalized primitive potentials.
+\item \textbf{Complete and partial modularity characterizations.}  For complete common-support factorial families with proposed distinct targets, locality, conditional normalization, and zero curvature on every face are necessary and sufficient for a modular representation.  The categorical theorem permits arbitrary alternative levels within one family.  For strictly positive finite-state laws relative to a fixed DAG and target map, the partial-design kernel theorem separates kernel identification from background-reuse testability even when the main-effects matrix is rank deficient.
 
-\item \textbf{Ratio-free orientation.}  Under separately justified single-target intervention semantics and deletion faithfulness, the identity \(\E_0[r_e\mid X_A]=p_e(X_A)/p_0(X_A)\) converts target orientation into low-dimensional two-sample equivalence tests.  It also pins the otherwise unidentified additive constant of an unnormalized discriminative log-ratio score.
+\item \textbf{Orientation with explicit failure states.}  Under separately justified single-target semantics and deletion faithfulness, \(\E_0[r_e\mid X_A]=p_e(X_A)/p_0(X_A)\) converts orientation into equivalence tests.  Zero, one, multiple, or statistically undetermined deletion passes remain distinct outcomes; support errors, weak shifts, and symmetry produce abstention rather than forced targets.
 
-\item \textbf{Support-error diagnostics.}  Omitted parents cannot create a unique wrong target but can remove edges or create additional passes; unaffected nondescendants can survive until pruning; and affected descendants generically make every deletion fail.  Zero, one, or multiple invariant deletions become model diagnostics rather than merely estimator outputs, conditional on the separately stated intervention-family assumptions.
+\item \textbf{Curvature, missing information, and state completion.}  We identify curvature with excess conditional design log odds, derive conservation identities connecting complete and observed states, and show that infinitesimal observed curvature is a conditional covariance of complete-state intervention scores.  These identities motivate held-out, common-cohort measurement-block search without claiming that generic finite curvature is positive semidefinite or low rank.
 
-\item \textbf{Gauge-invariant curvature and conservation laws.}  We identify curvature with excess conditional design log odds and derive exact balance identities linking weighted curvature, observable ratio covariance, and hidden conditional likelihood-factor covariance.
-
-\item \textbf{A missing-information interpretation.}  Infinitesimal observed curvature is the conditional covariance of complete-state intervention scores, precisely the off-diagonal missing-information term in Louis's decomposition.  A nested covariance identity shows how adding measurements recovers missing mechanism information in stages.
-
-\item \textbf{Two coherent inference tracks.}  Four-law moment functionals apply to regime-conditioned samples with arbitrary known state-independent sampling proportions.  Under product factorial randomization, the GCM and weighted GCM provide orthogonal, cross-fitted tests of projected curvature.  The distinction prevents a subtle but consequential misuse of residual-product tests under arbitrary corner quotas.
-
-\item \textbf{Partial-design geometry.}  On an arbitrary observed binary or categorical design, testable flatness is exactly the lack-of-fit space of a main-effects-only design matrix with a function-valued response.  The causal completion fiber may nevertheless be empty, point identified, or set identified; algebraic testability is a separate axis from causal feasibility.
-
-\item \textbf{An auditable empirical and software protocol.}  We specify localization, orientation, curvature testing, overlap gates, compositional prediction, state expansion, simulations, engineered feature-flag validation, Perturb-seq analysis, and a safe-Rust implementation architecture.  The current release implements the exact algebra, design audits, fail-closed gates, proposal boundaries, cluster-weighted joint-model cross-fitting, and a two-stage fitted compositional-prediction diagnostic.  Cluster-resampled calibrated closure inference and the autonomous mechanism-dictionary loop remain research and implementation targets rather than claimed results.
+\item \textbf{Auditable inference and empirical protocol.}  We keep arbitrary-quota four-law moments separate from product-design residual scores; require overlap, unit, selection, and raw-normalizer reporting; and specify cluster-split witnesses, held-out combination prediction, feature-flag validation, and Perturb-seq analysis.  The release implements exact oracles and diagnostic fitted slices.  Cluster-resampled calibrated closure inference, autonomous dictionary learning, and a controlled-real result remain targets rather than claimed achievements.
 \end{enumerate}
 
 \section{Setup and scope}
@@ -868,6 +860,21 @@ or symmetrically with \(A\) and \(B\) reversed.  The first term requires no rati
 
 This track remains valid under non-product corner quotas because the regime laws themselves are the estimands.  It fails if the within-regime sample is selected as a function of \(X\) and the selection mechanism is ignored.
 
+The reference implementation accepts cluster-level contributions for a witness
+family frozen before confirmation and evaluates the symmetrized moment
+\begin{equation}
+\widehat M_w=\widehat\E_{AB}[w]
+-\frac12\left\{\widehat\E_A[w\widehat r_B]
++\widehat\E_B[w\widehat r_A]\right\}.
+\end{equation}
+It uses independent Rademacher multipliers within the three law strata and a
+max statistic across the frozen witnesses, with the declared unit, seed, and
+witness-family fingerprint retained. This is an implemented reference
+asymptotic interval procedure, not yet certificate-grade calibration: the
+current artifact explicitly records that finite-sample coverage has not been
+validated across the cluster-size, overlap, and nuisance-misspecification
+gauntlet. Adaptive witness learning still requires an outer discovery split.
+
 \subsection{Track II: randomized product factorial designs}
 
 Now suppose \((A,B)\) are sampled with product probabilities
@@ -1137,6 +1144,57 @@ uniqueness despite design-matrix rank deficiency: on a fixed \(X\to Y\) graph,
 a positive \(11\) law uniquely determines its \(X\) marginal replacement and
 its \(Y\mid X\) replacement.  Thus rank alone neither proves nor disproves
 causal identification.
+
+For finite positive laws, the fixed-model fiber admits a more direct kernel
+characterization.
+
+\begin{theorem}[Finite partial-design kernel completion]
+\label{thm:partial-kernel-completion}
+Fix a DAG (G) on a finite Cartesian state space, a strictly positive supplied
+baseline (p_0) that factorizes over (G), and categorical families with
+pairwise distinct fixed targets.  Let (D) index strictly positive observed
+regime laws, and let
+(k_v^{(s)}(x_v\mid x_{\pa(v)})) be the unique conditional kernel of node (v)
+under regime (s\in D).  The observed laws admit a modular completion if and
+only if:
+\begin{enumerate}
+\item every (p_s) factorizes over (G);
+\item every node not targeted by an active family in (s) retains its baseline
+kernel; and
+\item whenever two regimes carry the same nonbaseline level (a) of family
+(j), their kernels for the target (t_j) agree.
+\end{enumerate}
+For the named query consisting of the complete nonparametric family-level
+kernel dictionary and all laws on the categorical grid, and assuming every
+target has at least two states with no parametric tying across levels, the
+completion is point identified exactly when every nonbaseline family-level
+appears in at least one observed regime.  Otherwise it is set identified.
+\end{theorem}
+
+\begin{proof}
+Necessity follows directly from the modular product: inactive factors cancel,
+and a replacement kernel depends only on its family and level, not on the
+background.  Conversely, factorization and inactive-kernel equality reduce
+every observed law to its active target kernels.  Repeated-level equality makes
+each observed replacement kernel well defined.  Insert those kernels and choose
+arbitrary strictly positive normalized kernels for absent levels; the resulting
+DAG products normalize and reproduce every observed regime.  Unique
+factorization of a positive DAG law identifies every observed target kernel.  If
+all nonbaseline levels appear, this identifies the entire dictionary and hence
+every grid law.  If a level is absent, two distinct positive normalized kernels
+for its nontrivial target produce two distinct completions.
+\end{proof}
+
+This identification statement is independent of overidentifying testability: a
+level observed once is identified under the fixed model but its background
+reuse is untested, while repeated appearances test kernel invariance directly.
+The supplied baseline, strict positivity on every declared parent context,
+distinct targets, and fixed graph are load-bearing.  Without a supplied
+baseline, every level zero must instead be covered somewhere; without common
+parent support, kernels are identified only almost everywhere and cannot be
+transported to newly supported contexts.  The result identifies neither the
+physical target labels nor the graph from rows and does not survive
+state-dependent selection without a valid recovery model.
 
 Squares suffice when observed face contrasts span the lack-of-fit space, as in complete subcubes and many square-connected designs.  They need not suffice on irregular designs.  In the three-cube with corners \(000\) and \(111\) removed, no square face is fully observed, yet the six-point main-effects matrix has rank four, leaving a two-dimensional lack-of-fit space.  One valid contrast is
 \begin{equation}
@@ -1709,15 +1767,19 @@ already production-ready.  The current implementation ships the exact
 population algebra, categorical and partial-design geometry, manifest and
 sampling audits, typed authority gates, deterministic proposal artifacts,
 simulations, and a cluster-weighted discrete reference diagnostic.  It does
-now also ship a deterministic linear reference joint-regime model, corner-stratified
-outer cross-fitting with equal unit weight within corner under the declared pooling law,
-out-of-fold baseline curvature moments, and an exact
+now also ship a deterministic linear reference joint-regime model and
+dependence-unit outer cross-fitting.  Assignment episodes may carry different
+corners only while nested inside one dependence unit, and the declared corner
+mass is divided equally by dependence unit before episode and row subdivision.
+out-of-fold baseline moments of its regularized linear interaction projection, and an exact
 finite-state leave-the-combination-arm-out predictor that preserves the raw
 normalizer and evaluates the untouched law by total variation and Hellinger
-distance.  A separate full-rank finite-state reference solver identifies
-factor-level log potentials relative to a fixed DAG and target map, then checks
-Markov factorization, locality, and conditional normalization; rank-deficient
-nonlinear fibers remain conservatively unresolved.  These are diagnostic
+distance.  A full-rank finite-state reference solver identifies factor-level
+log potentials relative to a fixed DAG and target map, then checks Markov
+factorization, locality, and conditional normalization.  A second exact
+finite-state solver works directly in fixed-DAG conditional kernels and handles
+arbitrary partial grids under the positivity and supplied-baseline conditions
+of Theorem~\ref{thm:partial-kernel-completion}.  These are diagnostic
 reference paths: the software does not yet ship
 a calibrated global full-law closure test for flexible learners, adaptive
 witness confirmation, nonparametric localization, mechanism-dictionary

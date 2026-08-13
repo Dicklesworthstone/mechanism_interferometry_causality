@@ -2,6 +2,53 @@
 
 ## Unreleased
 
+- Added a fail-closed release-verification receipt generator that records the
+  exact source commit and dirt state, toolchains, commands, exit codes, output
+  tails, paper/WASM hashes, and the explicit absence of browser assertions.
+
+- Repositioned the project around auditable compositionality of soft
+  interventions and separated proposal, diagnostic, audit, and certificate
+  authority throughout the executable paths.
+- Added finite categorical mechanism families, every-background rectangle
+  closure, partial-design main-effect alias geometry, duplicate-cell rejection,
+  typed next-cell purposes, and separate causal-completion/testability axes.
+- Added exact fixed-DAG finite completion in both log-potential and
+  conditional-kernel coordinates. The kernel solver reports every inactive or
+  repeated-kernel incompatibility, point versus set identification by level
+  coverage, and exact missing laws for bounded grids.
+- Added deterministic dependence-unit closure cross-fitting with explicit
+  nested assignment episodes, equal dependence-unit mass within corner, an
+  unpenalized interaction intercept, model-dependent interaction-field
+  naming, and held-out posterior/ratio overlap diagnostics. Outputs remain
+  uncalibrated and serialize-only.
+- Added a frozen-family four-law witness primitive with the symmetric
+  arbitrary-quota moment, law-stratified independent-unit Rademacher
+  multipliers, simultaneous max bounds, and an explicit not-yet-coverage-
+  validated authority ceiling.
+- Added a discovery-only finite/discrete witness learner whose API cannot accept
+  confirmation rows, is invariant to duplication within a declared dependence
+  unit, freezes bounded state weights, and content-binds the later multiplier
+  diagnostic.
+- Added exact and fitted held-out combination prediction that preserves the raw
+  normalizer residual, cluster ESS, frozen stage ordering, and descriptive
+  refit-sensitivity provenance.
+- Added selection-sensitivity algebra with validated inclusion probabilities
+  and inclusion rates, explicit unverified or unresolved content-bound
+  normalizer-contrast provenance, and a hidden-sensor curvature-tomography
+  oracle.
+- Replaced caller-declared selection readiness with an opaque, content-bound
+  selection-evidence resolver. Strict preflight now requires an external
+  sampling record or validated-model authority source bound to the exact
+  manifest and analyzed data; the legacy override remains diagnostic-only.
+- Added held-out common-cohort state-expansion ranking with typed resolution,
+  partial explanation, worsening, support-loss artifact, and inconclusive
+  outcomes; nested conservation and overlap loss fail closed before ranking.
+- Added proposal-only survey and mechanism-transport dictionary artifacts with
+  sealed confirmation commitments, complete search-library binding, explicit
+  gauge ambiguity, and no causal identity or certificate authority.
+- Added bounded CLI request ingestion, `closure-crossfit`,
+  `finite-completion`, `kernel-completion`, `predict-combination`,
+  `predict-combination-refits`, `freeze-scout`, and `freeze-dictionary`.
 - Added the MDL/functional-sparsity positioning, active tilt selection, estimator-family agreement, and parsimony-frontier localization sections to the paper, with new bibliography entries.
 - Added the estimator lens-battery sensitivity screen (`mic_engine::audit_lens_battery`) with the `estimator_family_disagreement` reason code and fail-closed handling of degenerate standard errors.
 - Added the parsimony-frontier localization primitive (`mic_stats::parsimony_frontier`) with cardinality-first ordering and per-variable descriptive inclusion frequencies.
