@@ -9,9 +9,33 @@
 //! this solver does not claim that general result.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::fmt::Write as _;
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use thiserror::Error;
+
+const MAX_NUMERICAL_TOLERANCE: f64 = 1e-6;
+const SIMPLEX_TOLERANCE: f64 = 1e-12;
+const MAX_POTENTIALS: usize = 4_096;
+
+/// Provenance class of the supplied finite probability tables.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FiniteLawSemantics {
+    /// Exact analytic or simulator-generated population probability tables.
+    ExactOrSimulatedPopulation,
+    /// Estimated point tables with no uncertainty propagated by this solver.
+    EstimatedPointTables,
+}
+
+/// Authority ceiling of the bare finite-completion report.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FiniteCompletionAuthority {
+    /// Model-relative probability-table diagnostic only.
+    DiagnosticOnly,
+}
 
 /// One categorical mechanism family and its fixed target node.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -37,6 +61,8 @@ pub struct FiniteObservedRegime {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct FiniteCompletionInput {
+    /// Whether the probability tables are exact/simulated or estimated points.
+    pub law_semantics: FiniteLawSemantics,
     /// Cardinality of every observed state coordinate.
     pub state_cardinalities: Vec<u32>,
     /// Complete Cartesian state enumeration.
@@ -54,19 +80,19 @@ pub struct FiniteCompletionInput {
 }
 
 /// Completion classification relative to the fixed DAG and target assignment.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CompletionStatus {
     /// No compatible modular completion exists for a tested necessary clause.
     Infeasible,
     /// Every potential is algebraically identified and passes causal checks.
-    IdentifiedFeasible,
+    FixedModelIdentifiedFeasible,
     /// Algebraic potentials are underdetermined; the nonlinear causal fiber was not classified.
     CausalCompletionUnresolved,
 }
 
 /// Clause that refuted a proposed completion or prevented full evaluation.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CompletionFailure {
     /// Baseline law does not factorize over the proposed DAG.
@@ -80,41 +106,151 @@ pub enum CompletionFailure {
     /// An identified local potential is not conditionally normalized.
     ConditionalNormalization,
     /// Design rank does not identify every factor-level potential.
-    RankDeficient,
+    CausalFiberNotEvaluatedRankDeficient,
 }
 
 /// One identified factor-level log density ratio.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct IdentifiedPotential {
     /// Mechanism-family index.
-    pub family: usize,
+    family: usize,
     /// Nonbaseline categorical level.
-    pub level: u32,
+    level: u32,
     /// Log density ratio in the declared state order.
-    pub log_ratio: Vec<f64>,
+    log_ratio: Vec<f64>,
+}
+
+impl IdentifiedPotential {
+    /// Mechanism-family index.
+    #[must_use]
+    pub fn family(&self) -> usize {
+        self.family
+    }
+
+    /// Nonbaseline categorical level.
+    #[must_use]
+    pub fn level(&self) -> u32 {
+        self.level
+    }
+
+    /// Log density ratio in the declared state order.
+    #[must_use]
+    pub fn log_ratio(&self) -> &[f64] {
+        &self.log_ratio
+    }
 }
 
 /// Two-axis finite-state solver output.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct FiniteCompletionReport {
     /// Feasibility/identification status relative to the fixed model.
-    pub status: CompletionStatus,
+    status: CompletionStatus,
     /// First clause preventing an identified feasible completion, if any.
-    pub failure: Option<CompletionFailure>,
+    failure: Option<CompletionFailure>,
     /// Rank of the observed treatment-coded design.
-    pub algebraic_rank: usize,
+    algebraic_rank: usize,
     /// Number of factor-level potentials in a full completion.
-    pub n_potentials: usize,
+    n_potentials: usize,
     /// Left-null lack-of-fit dimension of the observed design.
-    pub lack_of_fit_dimension: usize,
+    lack_of_fit_dimension: usize,
     /// Whether the observed design contains any additive lack-of-fit contrast.
-    pub additive_lack_of_fit_testable: bool,
+    additive_lack_of_fit_testable: bool,
     /// Whether locality and conditional normalization were evaluated.
-    pub causal_potentials_evaluated: bool,
-    /// Identified potentials, present only for `identified_feasible`.
-    pub potentials: Vec<IdentifiedPotential>,
+    causal_potentials_evaluated: bool,
+    /// Identified potentials, present only for `fixed_model_identified_feasible`.
+    potentials: Vec<IdentifiedPotential>,
+    /// Exact model/input bit fingerprint used by the solver.
+    model_input_sha256: String,
+    /// Numerical tolerance used for algebraic and causal equalities.
+    numerical_tolerance: f64,
+    /// Provenance class of the supplied probability tables.
+    law_semantics: FiniteLawSemantics,
+    /// Hard authority ceiling of this model-relative report.
+    authority: FiniteCompletionAuthority,
+    /// Always false; statistical and causal certificate gates are not produced here.
+    certificate_eligible: bool,
+}
+
+impl FiniteCompletionReport {
+    /// Model-relative solver status; never an empirical certificate status.
+    #[must_use]
+    pub fn status(&self) -> CompletionStatus {
+        self.status
+    }
+
+    /// First refuting or evaluation-blocking clause, if any.
+    #[must_use]
+    pub fn failure(&self) -> Option<CompletionFailure> {
+        self.failure
+    }
+
+    /// Rank of the observed treatment-coded design.
+    #[must_use]
+    pub fn algebraic_rank(&self) -> usize {
+        self.algebraic_rank
+    }
+
+    /// Number of factor-level potentials.
+    #[must_use]
+    pub fn n_potentials(&self) -> usize {
+        self.n_potentials
+    }
+
+    /// Left-null lack-of-fit dimension.
+    #[must_use]
+    pub fn lack_of_fit_dimension(&self) -> usize {
+        self.lack_of_fit_dimension
+    }
+
+    /// Whether at least one additive lack-of-fit contrast is observed.
+    #[must_use]
+    pub fn additive_lack_of_fit_testable(&self) -> bool {
+        self.additive_lack_of_fit_testable
+    }
+
+    /// Whether locality and conditional normalization were evaluated.
+    #[must_use]
+    pub fn causal_potentials_evaluated(&self) -> bool {
+        self.causal_potentials_evaluated
+    }
+
+    /// Identified potentials, present only after successful full-rank evaluation.
+    #[must_use]
+    pub fn potentials(&self) -> &[IdentifiedPotential] {
+        &self.potentials
+    }
+
+    /// Exact model/input bit fingerprint used by the solver.
+    #[must_use]
+    pub fn model_input_sha256(&self) -> &str {
+        &self.model_input_sha256
+    }
+
+    /// Numerical equality tolerance used by the solver.
+    #[must_use]
+    pub fn numerical_tolerance(&self) -> f64 {
+        self.numerical_tolerance
+    }
+
+    /// Provenance class of the supplied probability tables.
+    #[must_use]
+    pub fn law_semantics(&self) -> FiniteLawSemantics {
+        self.law_semantics
+    }
+
+    /// Hard authority ceiling of this model-relative report.
+    #[must_use]
+    pub fn authority(&self) -> FiniteCompletionAuthority {
+        self.authority
+    }
+
+    /// Always false; this solver cannot issue an empirical causal certificate.
+    #[must_use]
+    pub fn certificate_eligible(&self) -> bool {
+        self.certificate_eligible
+    }
 }
 
 /// Invalid finite-state input contract.
@@ -132,6 +268,9 @@ pub enum FiniteCompletionError {
     /// Family cardinalities or distinct-target semantics were invalid.
     #[error("families require cardinality >= 2 and distinct in-range targets")]
     InvalidFamilies,
+    /// Declared family levels would exceed the bounded reference-solver budget.
+    #[error("finite completion exceeds the {MAX_POTENTIALS}-potential reference budget")]
+    PotentialBudgetExceeded,
     /// A regime code was malformed, duplicated, or all baseline.
     #[error("regime levels must be unique, in range, nonbaseline family codes")]
     InvalidRegimes,
@@ -160,6 +299,7 @@ pub fn solve_finite_modular_completion(
     input: &FiniteCompletionInput,
 ) -> Result<FiniteCompletionReport, FiniteCompletionError> {
     validate_input(input)?;
+    let model_input_sha256 = fingerprint_input(input);
     let columns = potential_columns(&input.families);
     let design = treatment_design(&input.regimes, &columns);
     let algebraic_rank = matrix_rank(&design, input.tolerance);
@@ -173,6 +313,11 @@ pub fn solve_finite_modular_completion(
         additive_lack_of_fit_testable: lack_of_fit_dimension > 0,
         causal_potentials_evaluated: evaluated,
         potentials,
+        model_input_sha256: model_input_sha256.clone(),
+        numerical_tolerance: input.tolerance,
+        law_semantics: input.law_semantics,
+        authority: FiniteCompletionAuthority::DiagnosticOnly,
+        certificate_eligible: false,
     };
 
     if !factorizes_over_dag(
@@ -216,7 +361,7 @@ pub fn solve_finite_modular_completion(
         TransportSolutions::Underdetermined => {
             return Ok(base_report(
                 CompletionStatus::CausalCompletionUnresolved,
-                Some(CompletionFailure::RankDeficient),
+                Some(CompletionFailure::CausalFiberNotEvaluatedRankDeficient),
                 false,
                 Vec::new(),
             ));
@@ -245,7 +390,7 @@ pub fn solve_finite_modular_completion(
         ));
     }
     Ok(base_report(
-        CompletionStatus::IdentifiedFeasible,
+        CompletionStatus::FixedModelIdentifiedFeasible,
         None,
         true,
         potentials,
@@ -306,7 +451,10 @@ fn solve_transports(input: &FiniteCompletionInput, design: &[Vec<f64>]) -> Trans
 }
 
 fn validate_input(input: &FiniteCompletionInput) -> Result<(), FiniteCompletionError> {
-    if !input.tolerance.is_finite() || input.tolerance <= 0.0 {
+    if !input.tolerance.is_finite()
+        || input.tolerance <= 0.0
+        || input.tolerance > MAX_NUMERICAL_TOLERANCE
+    {
         return Err(FiniteCompletionError::InvalidTolerance);
     }
     validate_states(&input.states, &input.state_cardinalities)?;
@@ -315,7 +463,6 @@ fn validate_input(input: &FiniteCompletionInput) -> Result<(), FiniteCompletionE
     validate_law(
         &input.baseline_probabilities,
         input.states.len(),
-        input.tolerance,
         "baseline",
     )?;
     let mut codes = BTreeSet::new();
@@ -334,7 +481,6 @@ fn validate_input(input: &FiniteCompletionInput) -> Result<(), FiniteCompletionE
         validate_law(
             &regime.probabilities,
             input.states.len(),
-            input.tolerance,
             &format!("regime_{index}"),
         )?;
     }
@@ -425,6 +571,16 @@ fn validate_families(
         .iter()
         .map(|family| family.target)
         .collect::<BTreeSet<_>>();
+    let n_potentials = families.iter().try_fold(0_usize, |total, family| {
+        family
+            .cardinality
+            .checked_sub(1)
+            .and_then(|levels| usize::try_from(levels).ok())
+            .and_then(|levels| total.checked_add(levels))
+    });
+    if n_potentials.is_none_or(|count| count > MAX_POTENTIALS) {
+        return Err(FiniteCompletionError::PotentialBudgetExceeded);
+    }
     if families.is_empty()
         || targets.len() != families.len()
         || families
@@ -440,20 +596,77 @@ fn validate_families(
 fn validate_law(
     probabilities: &[f64],
     n_states: usize,
-    tolerance: f64,
     law: &str,
 ) -> Result<(), FiniteCompletionError> {
     if probabilities.len() != n_states
         || probabilities
             .iter()
             .any(|value| !value.is_finite() || *value <= 0.0)
-        || (probabilities.iter().sum::<f64>() - 1.0).abs() > tolerance
+        || (probabilities.iter().sum::<f64>() - 1.0).abs() > SIMPLEX_TOLERANCE
     {
         Err(FiniteCompletionError::InvalidLaw {
             law: law.to_owned(),
         })
     } else {
         Ok(())
+    }
+}
+
+fn fingerprint_input(input: &FiniteCompletionInput) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"mic.finite_completion.input.v1\0");
+    digest.update([match input.law_semantics {
+        FiniteLawSemantics::ExactOrSimulatedPopulation => 0,
+        FiniteLawSemantics::EstimatedPointTables => 1,
+    }]);
+    hash_u32_slice(&mut digest, &input.state_cardinalities);
+    hash_nested_u32(&mut digest, &input.states);
+    hash_f64_slice(&mut digest, &input.baseline_probabilities);
+    digest.update(input.parents_by_node.len().to_le_bytes());
+    for parents in &input.parents_by_node {
+        digest.update(parents.len().to_le_bytes());
+        for parent in parents {
+            digest.update(parent.to_le_bytes());
+        }
+    }
+    digest.update(input.families.len().to_le_bytes());
+    for family in &input.families {
+        digest.update(family.cardinality.to_le_bytes());
+        digest.update(family.target.to_le_bytes());
+    }
+    digest.update(input.regimes.len().to_le_bytes());
+    for regime in &input.regimes {
+        hash_u32_slice(&mut digest, &regime.levels);
+        hash_f64_slice(&mut digest, &regime.probabilities);
+    }
+    digest.update(input.tolerance.to_bits().to_le_bytes());
+    digest
+        .finalize()
+        .iter()
+        .fold(String::with_capacity(64), |mut encoded, byte| {
+            write!(&mut encoded, "{byte:02x}").expect("writing into a String cannot fail");
+            encoded
+        })
+}
+
+fn hash_nested_u32(digest: &mut Sha256, values: &[Vec<u32>]) {
+    digest.update(values.len().to_le_bytes());
+    for row in values {
+        hash_u32_slice(digest, row);
+    }
+}
+
+fn hash_u32_slice(digest: &mut Sha256, values: &[u32]) {
+    digest.update(values.len().to_le_bytes());
+    for value in values {
+        digest.update(value.to_le_bytes());
+    }
+}
+
+fn hash_f64_slice(digest: &mut Sha256, values: &[f64]) {
+    digest.update(values.len().to_le_bytes());
+    for value in values {
+        digest.update(value.to_bits().to_le_bytes());
     }
 }
 
@@ -687,6 +900,7 @@ mod tests {
 
     fn root_input(regimes: Vec<FiniteObservedRegime>) -> FiniteCompletionInput {
         FiniteCompletionInput {
+            law_semantics: FiniteLawSemantics::ExactOrSimulatedPopulation,
             state_cardinalities: vec![2, 2],
             states: binary_states(),
             baseline_probabilities: vec![0.25; 4],
@@ -719,7 +933,10 @@ mod tests {
             },
         ]))
         .unwrap();
-        assert_eq!(report.status, CompletionStatus::IdentifiedFeasible);
+        assert_eq!(
+            report.status(),
+            CompletionStatus::FixedModelIdentifiedFeasible
+        );
         assert_eq!(report.algebraic_rank, 2);
         assert_eq!(report.lack_of_fit_dimension, 0);
         assert!(!report.additive_lack_of_fit_testable);
@@ -764,8 +981,14 @@ mod tests {
             probabilities: vec![0.12, 0.28, 0.18, 0.42],
         }]))
         .unwrap();
-        assert_eq!(report.status, CompletionStatus::CausalCompletionUnresolved);
-        assert_eq!(report.failure, Some(CompletionFailure::RankDeficient));
+        assert_eq!(
+            report.status(),
+            CompletionStatus::CausalCompletionUnresolved
+        );
+        assert_eq!(
+            report.failure(),
+            Some(CompletionFailure::CausalFiberNotEvaluatedRankDeficient)
+        );
         assert!(!report.causal_potentials_evaluated);
     }
 
@@ -820,6 +1043,7 @@ mod tests {
     #[test]
     fn extreme_but_finite_ratios_are_solved_in_the_log_domain() {
         let report = solve_finite_modular_completion(&FiniteCompletionInput {
+            law_semantics: FiniteLawSemantics::ExactOrSimulatedPopulation,
             state_cardinalities: vec![2],
             states: vec![vec![0], vec![1]],
             baseline_probabilities: vec![1e-320, 1.0],
@@ -835,12 +1059,68 @@ mod tests {
             tolerance: 1e-12,
         })
         .unwrap();
-        assert_eq!(report.status, CompletionStatus::IdentifiedFeasible);
+        assert_eq!(
+            report.status(),
+            CompletionStatus::FixedModelIdentifiedFeasible
+        );
         assert!(
             report.potentials[0]
                 .log_ratio
                 .iter()
                 .all(|value| value.is_finite())
+        );
+    }
+
+    #[test]
+    fn loose_tolerance_cannot_admit_non_simplex_laws() {
+        let mut input = FiniteCompletionInput {
+            law_semantics: FiniteLawSemantics::EstimatedPointTables,
+            state_cardinalities: vec![2],
+            states: vec![vec![0], vec![1]],
+            baseline_probabilities: vec![0.6, 0.6],
+            parents_by_node: vec![vec![]],
+            families: vec![FiniteMechanismFamily {
+                cardinality: 2,
+                target: 0,
+            }],
+            regimes: vec![FiniteObservedRegime {
+                levels: vec![1],
+                probabilities: vec![0.4, 0.8],
+            }],
+            tolerance: 0.4,
+        };
+        assert_eq!(
+            solve_finite_modular_completion(&input),
+            Err(FiniteCompletionError::InvalidTolerance)
+        );
+        input.tolerance = 1e-10;
+        assert!(matches!(
+            solve_finite_modular_completion(&input),
+            Err(FiniteCompletionError::InvalidLaw { .. })
+        ));
+    }
+
+    #[test]
+    fn potential_budget_is_checked_before_level_allocation() {
+        let input = FiniteCompletionInput {
+            law_semantics: FiniteLawSemantics::ExactOrSimulatedPopulation,
+            state_cardinalities: vec![2],
+            states: vec![vec![0], vec![1]],
+            baseline_probabilities: vec![0.5, 0.5],
+            parents_by_node: vec![vec![]],
+            families: vec![FiniteMechanismFamily {
+                cardinality: u32::MAX,
+                target: 0,
+            }],
+            regimes: vec![FiniteObservedRegime {
+                levels: vec![1],
+                probabilities: vec![0.5, 0.5],
+            }],
+            tolerance: 1e-10,
+        };
+        assert_eq!(
+            solve_finite_modular_completion(&input),
+            Err(FiniteCompletionError::PotentialBudgetExceeded)
         );
     }
 }

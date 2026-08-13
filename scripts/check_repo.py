@@ -738,6 +738,7 @@ def required_files() -> None:
         "schemas/active_tilt_input.schema.json",
         "schemas/orientation_input.schema.json",
         "schemas/closure_crossfit_request.schema.json",
+        "schemas/finite_completion_request.schema.json",
         "schemas/proposal_batch.schema.json",
         "schemas/self_driving_request.schema.json",
         "schemas/shift_factorization_draft.schema.json",
@@ -749,6 +750,7 @@ def required_files() -> None:
         "schemas/scalar_response_contract.schema.json",
         "examples/orientation/parity_demo.json",
         "examples/closure_crossfit_request.json",
+        "examples/finite_completion_request.json",
         "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
         "examples/scout_inputs/self_driving_request.json",
@@ -803,6 +805,7 @@ def validate_schemas_and_manifests() -> None:
     manifest_schema = schemas.get("experiment_manifest.schema.json")
     orientation_schema = schemas.get("orientation_input.schema.json")
     closure_crossfit_schema = schemas.get("closure_crossfit_request.schema.json")
+    finite_completion_schema = schemas.get("finite_completion_request.schema.json")
     proposal_input_schema = schemas.get("active_tilt_input.schema.json")
     proposal_schema = schemas.get("proposal_batch.schema.json")
     scout_request_schema = schemas.get("self_driving_request.schema.json")
@@ -856,6 +859,47 @@ def validate_schemas_and_manifests() -> None:
             check(
                 bool(list(closure_validator.iter_errors(unknown))),
                 "closure-crossfit schema accepts an authority-bearing unknown field",
+            )
+
+    check(finite_completion_schema is not None, "finite-completion schema was not loaded")
+    if finite_completion_schema is not None:
+        completion_request = load_json(ROOT / "examples" / "finite_completion_request.json")
+        completion_validator = Draft202012Validator(finite_completion_schema)
+        completion_errors = sorted(
+            completion_validator.iter_errors(completion_request), key=lambda item: list(item.path)
+        )
+        for error in completion_errors:
+            location = ".".join(str(part) for part in error.path) or "<root>"
+            fail(f"finite-completion request schema violation at {location}: {error.message}")
+        if isinstance(completion_request, dict):
+            completion_input = completion_request.get("input", {})
+            laws = [completion_input.get("baseline_probabilities", [])] + [
+                regime.get("probabilities", [])
+                for regime in completion_input.get("regimes", [])
+                if isinstance(regime, dict)
+            ]
+            check(
+                all(
+                    all(isinstance(value, (int, float)) and math.isfinite(value) for value in law)
+                    and math.isclose(sum(law), 1.0, abs_tol=1e-12)
+                    for law in laws
+                ),
+                "finite-completion probability tables must form finite simplexes",
+            )
+            n_potentials = sum(
+                family.get("cardinality", 0) - 1
+                for family in completion_input.get("families", [])
+                if isinstance(family, dict)
+            )
+            check(
+                0 < n_potentials <= 4096,
+                "finite-completion request exceeds the reference potential budget",
+            )
+            unknown = copy.deepcopy(completion_request)
+            unknown["certificate_eligible"] = True
+            check(
+                bool(list(completion_validator.iter_errors(unknown))),
+                "finite-completion schema accepts an authority-bearing unknown field",
             )
 
     check(scalar_response_schema is not None, "scalar-response contract schema was not loaded")

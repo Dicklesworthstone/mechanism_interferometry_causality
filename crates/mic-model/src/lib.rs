@@ -17,9 +17,9 @@ pub use crossfit::{
     CrossFittedClosureDiagnostic, FoldClosureDiagnostic, cross_fit_closure_models,
 };
 pub use finite_completion::{
-    CompletionFailure, CompletionStatus, FiniteCompletionInput, FiniteCompletionReport,
-    FiniteMechanismFamily, FiniteObservedRegime, IdentifiedPotential,
-    solve_finite_modular_completion,
+    CompletionFailure, CompletionStatus, FiniteCompletionAuthority, FiniteCompletionInput,
+    FiniteCompletionReport, FiniteLawSemantics, FiniteMechanismFamily, FiniteObservedRegime,
+    IdentifiedPotential, solve_finite_modular_completion,
 };
 pub use multinomial::{
     FitConfig, FitSummary, MultinomialFitError, MultinomialLinearModel, MultinomialSample,

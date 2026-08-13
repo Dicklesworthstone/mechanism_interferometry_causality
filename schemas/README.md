@@ -8,6 +8,7 @@
 - `design_authority_receipt.schema.json` defines the separately supplied or explicitly withheld assignment/design authority.
 - `benchmark_oracle.schema.json` defines study identity and expected routes that remain sealed until scoring.
 - `design_diagnostic_receipt.schema.json` defines deterministic, discovery-only relevance and positivity diagnostics; raw table bytes alone cannot claim those checks passed.
+- `finite_completion_request.schema.json` defines bounded finite-state fixed-DAG/target probability-table diagnostics; its output is model-relative and never certificate authority.
 
 JSON Schema cannot enforce that corner sampling proportions sum to one or that all design points share one dimension. Both constraints are checked by `scripts/check_repo.py` and `mic-data`.
 

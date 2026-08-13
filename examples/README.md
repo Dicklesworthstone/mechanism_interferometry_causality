@@ -7,6 +7,7 @@ python scripts/generate_example_data.py
 cargo run -p mic-cli -- validate-manifest examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- design audit examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- preflight examples/configs/feature_flag_pilot.json
+cargo run -p mic-cli -- finite-completion examples/finite_completion_request.json
 
 # Std-CSV four-law path (library + mic-tabular binary; not FrankenPandas Packet 1)
 cargo run -p mic-engine --bin mic-tabular -- ingest examples/configs/four_law_discrete.json --base-dir .
