@@ -849,7 +849,7 @@ fn record_face(face: &FourLawFaceAudit, ledger: &mut EvidenceLedger) {
         ledger.push(finding_with_context(
             severity,
             "four_law",
-            "incomplete_common_support",
+            code::INCOMPLETE_COMMON_SUPPORT,
             "some histogram cells lack all four corners; moments are renormalized onto the surviving common-support mass and do not represent omitted cells",
             context.clone(),
         ));
@@ -857,7 +857,7 @@ fn record_face(face: &FourLawFaceAudit, ledger: &mut EvidenceLedger) {
     ledger.push(finding_with_context(
         Severity::Info,
         "four_law",
-        "histogram_projection",
+        code::info::HISTOGRAM_PROJECTION,
         "cluster-weighted histogram four-law projection computed; this is a diagnostic, not a certificate",
         context,
     ));

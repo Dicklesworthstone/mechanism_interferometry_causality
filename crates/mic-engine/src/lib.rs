@@ -260,7 +260,7 @@ pub fn audit_orientation(
             ledger.push(finding_with_context(
                 Severity::Info,
                 stage,
-                "orientation_unique_target",
+                code::info::ORIENTATION_UNIQUE_TARGET,
                 "exactly one deletion is certified invariant and every competitor is certified changed",
                 context,
             ));
@@ -372,7 +372,7 @@ pub fn audit_overlap(
         ledger.push(finding_with_context(
             Severity::Info,
             stage,
-            "overlap_adequate",
+            code::info::OVERLAP_ADEQUATE,
             "ratio-weight effective sample size meets the policy floor",
             context,
         ));

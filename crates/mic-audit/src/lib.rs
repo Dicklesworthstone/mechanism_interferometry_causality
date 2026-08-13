@@ -345,6 +345,12 @@ pub mod code {
     pub const EMPTY_COMMON_SUPPORT: &str = "empty_common_support";
     /// Declared sampling quotas disagree with the realized empirical quotas.
     pub const DECLARED_EMPIRICAL_QUOTA_MISMATCH: &str = "declared_empirical_quota_mismatch";
+    /// Some histogram cells lack all four corners, so moments cover only the surviving mass.
+    ///
+    /// Blocking-capable rather than always blocking: the severity depends on how much mass
+    /// the incomplete cells carry, so this belongs with the refusals even though a small
+    /// shortfall is emitted as a warning.
+    pub const INCOMPLETE_COMMON_SUPPORT: &str = "incomplete_common_support";
 
     /// Informational codes. These record what a run established, not why it refused.
     ///
@@ -360,6 +366,16 @@ pub mod code {
         pub const ESTIMATOR_FAMILY_AGREEMENT: &str = "estimator_family_agreement";
         /// The histogram four-law projection is a diagnostic and cannot issue a certificate.
         pub const HISTOGRAM_NOT_A_CERTIFICATE: &str = "histogram_not_a_certificate";
+        /// Ratio-weight overlap met the policy floor.
+        pub const OVERLAP_ADEQUATE: &str = "overlap_adequate";
+        /// A cluster-weighted histogram four-law projection was computed.
+        pub const HISTOGRAM_PROJECTION: &str = "histogram_projection";
+        /// The deletion pass-count audit resolved to a unique target.
+        ///
+        /// Informational despite naming a success: orientation is established by the
+        /// gate summary, not by the presence of this finding, and a consumer that
+        /// searched the ledger for it would be reading a narrative note as a verdict.
+        pub const ORIENTATION_UNIQUE_TARGET: &str = "orientation_unique_target";
     }
 }
 
