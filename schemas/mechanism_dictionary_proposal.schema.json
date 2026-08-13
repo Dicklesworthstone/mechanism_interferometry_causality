@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/mechanism_dictionary_proposal.schema.json",
+  "title": "MIC Algebraic Transport Dictionary Proposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "proposal_id",
+    "request_fingerprint",
+    "shift_library_fingerprint",
+    "search_plan_fingerprint",
+    "execution_binding_fingerprint",
+    "candidate_library_fingerprint",
+    "draft_fingerprint",
+    "authority",
+    "certificate_eligible",
+    "input_claims_verified",
+    "algebraic_recovery_verified",
+    "causal_family_status",
+    "mechanism_identity",
+    "target_identity",
+    "same_target_grouping",
+    "edge_authority",
+    "selection_status",
+    "confirmation_access",
+    "status",
+    "reference_policy",
+    "code_policy",
+    "ranking_rule",
+    "attempts",
+    "ranked_completed_attempt_ids",
+    "ambiguities",
+    "contract_requests",
+    "next_queries",
+    "seed"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "artifact_kind": { "const": "transport_dictionary_proposal" },
+    "proposal_id": { "pattern": "^dictionary_[0-9]{3,}$" },
+    "request_fingerprint": { "$ref": "#/$defs/sha256" },
+    "shift_library_fingerprint": { "$ref": "#/$defs/sha256" },
+    "search_plan_fingerprint": { "$ref": "#/$defs/sha256" },
+    "execution_binding_fingerprint": { "$ref": "#/$defs/sha256" },
+    "candidate_library_fingerprint": { "$ref": "#/$defs/sha256" },
+    "draft_fingerprint": { "$ref": "#/$defs/sha256" },
+    "authority": { "const": "proposal_only" },
+    "certificate_eligible": { "const": false },
+    "input_claims_verified": { "const": false },
+    "algebraic_recovery_verified": { "const": false },
+    "causal_family_status": { "const": "not_evaluated" },
+    "mechanism_identity": { "const": "not_established" },
+    "target_identity": { "const": "not_established" },
+    "same_target_grouping": { "const": "not_established" },
+    "edge_authority": { "const": "none" },
+    "selection_status": { "const": "unestablished" },
+    "confirmation_access": { "const": "sealed_commitment_only" },
+    "status": {
+      "enum": ["recommended_for_separate_audit", "inconclusive", "abstained"]
+    },
+    "reference_policy": {
+      "enum": ["marked_zero_code", "arbitrary_reference_with_intercept"]
+    },
+    "code_policy": {
+      "enum": [
+        "known_incidence",
+        "marked_pure_anchors",
+        "complete_binary_cube",
+        "unknown_sparse_codes"
+      ]
+    },
+    "ranking_rule": { "const": "heldout_loss_then_description_length" },
+    "attempts": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": { "$ref": "transport_dictionary_draft.schema.json#/$defs/attempt" }
+    },
+    "ranked_completed_attempt_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "pattern": "^attempt_[0-9]{3,}$" }
+    },
+    "ambiguities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "coordinate_permutation",
+          "bit_complement",
+          "conventional_scale",
+          "general_linear_mixing",
+          "rank_degeneracy",
+          "almost_everywhere_support_aliasing"
+          ,"external_atom_independence_unverified"
+        ]
+      }
+    },
+    "contract_requests": {
+      "type": "array",
+      "items": { "$ref": "transport_dictionary_draft.schema.json#/$defs/contract_request" }
+    },
+    "next_queries": {
+      "type": "array",
+      "items": { "$ref": "transport_dictionary_draft.schema.json#/$defs/next_query" }
+    },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 18446744073709551615 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "abstained" } } },
+      "then": {
+        "properties": {
+          "attempts": {
+            "not": {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "type": "object",
+                    "properties": { "status": { "const": "completed" } },
+                    "required": ["status"]
+                  }
+                },
+                "required": ["outcome"]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "inconclusive" } } },
+      "then": {
+        "properties": {
+          "attempts": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "object",
+                  "properties": { "status": { "const": "completed" } },
+                  "required": ["status"]
+                }
+              },
+              "required": ["outcome"]
+            }
+          },
+          "next_queries": { "maxItems": 0 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "recommended_for_separate_audit" } }
+      },
+      "then": {
+        "properties": {
+          "attempts": {
+            "contains": {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "object",
+                  "properties": { "status": { "const": "completed" } },
+                  "required": ["status"]
+                }
+              },
+              "required": ["outcome"]
+            }
+          },
+          "next_queries": { "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

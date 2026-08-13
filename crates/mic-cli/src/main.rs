@@ -49,6 +49,7 @@ fn run(args: &[String]) -> Result<(), String> {
         "orient" => orient(&args[1..]),
         "propose-tilt" => propose_tilt(&args[1..]),
         "freeze-scout" => freeze_scout(&args[1..]),
+        "freeze-dictionary" => freeze_dictionary(&args[1..]),
         "help" | "--help" | "-h" => {
             print_help();
             Ok(())
@@ -719,6 +720,59 @@ fn freeze_scout(args: &[String]) -> Result<(), String> {
     write_json_value(&value, output.as_deref())
 }
 
+fn freeze_dictionary(args: &[String]) -> Result<(), String> {
+    let (request_path, shift_path, plan_path, dictionary_path, output) = match args {
+        [request, shift, plan, dictionary] => (request, shift, plan, dictionary, None),
+        [request, shift, plan, dictionary, flag, output]
+            if flag == "--output" && !output.trim().is_empty() =>
+        {
+            (
+                request,
+                shift,
+                plan,
+                dictionary,
+                Some(PathBuf::from(output)),
+            )
+        }
+        _ => {
+            return Err("usage: mic freeze-dictionary REQUEST.json SHIFT_DRAFT.json PLAN.json DICTIONARY_DRAFT.json [--output PATH]".into());
+        }
+    };
+    let request_bytes = read_bounded_request(
+        request_path,
+        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        "self-driving request",
+    )?;
+    let shift_bytes = read_bounded_request(
+        shift_path,
+        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        "shift-factorization draft",
+    )?;
+    let plan_bytes = read_bounded_request(
+        plan_path,
+        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        "dictionary search plan",
+    )?;
+    let dictionary_bytes = read_bounded_request(
+        dictionary_path,
+        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        "transport-dictionary draft",
+    )?;
+    let request: mic_proposal::SelfDrivingRequest =
+        serde_json::from_slice(&request_bytes).map_err(|error| error.to_string())?;
+    let shift: mic_proposal::ShiftFactorizationDraft =
+        serde_json::from_slice(&shift_bytes).map_err(|error| error.to_string())?;
+    let plan: mic_proposal::DictionarySearchPlan =
+        serde_json::from_slice(&plan_bytes).map_err(|error| error.to_string())?;
+    let dictionary: mic_proposal::TransportDictionaryDraft =
+        serde_json::from_slice(&dictionary_bytes).map_err(|error| error.to_string())?;
+    let proposal =
+        mic_proposal::freeze_transport_dictionary_proposal(&request, &shift, &plan, &dictionary)
+            .map_err(|error| error.to_string())?;
+    let value = serde_json::to_value(proposal).map_err(|error| error.to_string())?;
+    write_json_value(&value, output.as_deref())
+}
+
 fn print_json(value: &impl serde::Serialize) -> Result<(), String> {
     println!(
         "{}",
@@ -777,6 +831,7 @@ fn print_help() {
            mic orient INPUT.json [--output PATH]\n\
            mic propose-tilt INPUT.json [--output PATH]\n\
            mic freeze-scout REQUEST.json DRAFT.json [--output PATH]\n\
+           mic freeze-dictionary REQUEST.json SHIFT_DRAFT.json PLAN.json DICTIONARY_DRAFT.json [--output PATH]\n\
            mic version"
     );
 }
@@ -833,6 +888,48 @@ mod tests {
             .map(str::to_owned)
             .collect::<Vec<_>>();
         assert!(freeze_scout(&missing).is_err());
+    }
+
+    #[test]
+    fn freeze_dictionary_rejects_unknown_or_incomplete_options_before_io() {
+        let unknown = vec![
+            "request.json",
+            "shift.json",
+            "plan.json",
+            "dictionary.json",
+            "--bogus",
+            "out.json",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+        assert!(freeze_dictionary(&unknown).is_err());
+
+        let missing = vec![
+            "request.json",
+            "shift.json",
+            "plan.json",
+            "dictionary.json",
+            "--output",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+        assert!(freeze_dictionary(&missing).is_err());
+    }
+
+    #[test]
+    fn dictionary_examples_are_closed_deserializable_inputs() {
+        let plan: mic_proposal::DictionarySearchPlan = serde_json::from_str(include_str!(
+            "../../../examples/dictionary_inputs/search_plan.json"
+        ))
+        .expect("dictionary search plan example");
+        let draft: mic_proposal::TransportDictionaryDraft = serde_json::from_str(include_str!(
+            "../../../examples/dictionary_inputs/transport_dictionary_draft.json"
+        ))
+        .expect("transport dictionary draft example");
+        assert_eq!(plan.schema_version, "1.0.0");
+        assert_eq!(draft.attempts.len(), 2);
     }
 
     #[test]

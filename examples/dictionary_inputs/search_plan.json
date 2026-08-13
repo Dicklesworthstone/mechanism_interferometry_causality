@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "plan_id": "dict_plan_001",
+  "self_driving_request_fingerprint": "626b32b3fabb6030e34880989ee18f9567a5cfc411c6a201927aa751a48b8980",
+  "shift_library_fingerprint": "bfdc19b67942f65acb8b3faed5c4cd98aa82235c0ddf8a7524cb9f2607ff479b",
+  "reference_policy": "marked_zero_code",
+  "code_policy": "unknown_sparse_codes",
+  "n_inner_folds": 2,
+  "algebraic_rank_tolerance": 1e-10,
+  "rank_grid": [1],
+  "attempt_specification_sha256s": [
+    "9999999999999999999999999999999999999999999999999999999999999999",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ],
+  "ranking_rule": "heldout_loss_then_description_length",
+  "budget": {
+    "max_attempts": 8,
+    "max_factors": 4,
+    "max_environments": 8,
+    "max_code_cells": 64,
+    "max_fit_iterations_per_attempt": 100
+  }
+}

@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/transport_dictionary_draft.schema.json",
+  "title": "MIC Transport Dictionary Draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["proposal_id", "execution", "attempts", "contract_requests", "next_queries"],
+  "properties": {
+    "proposal_id": { "pattern": "^dictionary_[0-9]{3,}$" },
+    "execution": { "$ref": "#/$defs/execution" },
+    "attempts": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": { "$ref": "#/$defs/attempt" }
+    },
+    "contract_requests": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contract_request" }
+    },
+    "next_queries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/next_query" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "bounded_text": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fold_plan_sha256",
+        "common_cohort_sha256",
+        "state_representation_sha256",
+        "reference_law_sha256",
+        "n_units",
+        "n_rows"
+      ],
+      "properties": {
+        "fold_plan_sha256": { "$ref": "#/$defs/sha256" },
+        "common_cohort_sha256": { "$ref": "#/$defs/sha256" },
+        "state_representation_sha256": { "$ref": "#/$defs/sha256" },
+        "reference_law_sha256": { "$ref": "#/$defs/sha256" },
+        "n_units": { "type": "integer", "minimum": 2 },
+        "n_rows": { "type": "integer", "minimum": 2 }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt_id", "specification_sha256", "outcome"],
+      "properties": {
+        "attempt_id": { "pattern": "^attempt_[0-9]{3,}$" },
+        "specification_sha256": { "$ref": "#/$defs/sha256" },
+        "outcome": { "$ref": "#/$defs/attempt_outcome" }
+      }
+    },
+    "attempt_outcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason"],
+          "properties": {
+            "status": { "const": "not_run" },
+            "reason": { "pattern": "^[a-z0-9_]+$", "maxLength": 1024 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason"],
+          "properties": {
+            "status": { "const": "rejected" },
+            "reason": { "pattern": "^[a-z0-9_]+$", "maxLength": 1024 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "candidate"],
+          "properties": {
+            "status": { "const": "completed" },
+            "candidate": { "$ref": "#/$defs/candidate" }
+          }
+        }
+      ]
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "algebraic_case",
+        "atoms",
+        "codes",
+        "diagnostics",
+        "support_aliasing_detected"
+      ],
+      "properties": {
+        "source": { "$ref": "#/$defs/source" },
+        "algebraic_case": { "$ref": "#/$defs/algebraic_case" },
+        "atoms": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/atom" }
+        },
+        "codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": { "$ref": "#/$defs/code_row" }
+        },
+        "diagnostics": { "$ref": "#/$defs/diagnostics" },
+        "support_aliasing_detected": { "type": "boolean" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter_id",
+        "adapter_revision",
+        "source_kind",
+        "model_family",
+        "data_fingerprint",
+        "assignment_unit_fingerprint",
+        "fold_fingerprint",
+        "hyperparameter_policy",
+        "feature_flags"
+      ],
+      "properties": {
+        "adapter_id": { "$ref": "#/$defs/bounded_text" },
+        "adapter_revision": { "$ref": "#/$defs/bounded_text" },
+        "source_kind": {
+          "enum": [
+            "preregistered_domain_model",
+            "passive_learner",
+            "previous_independent_audit",
+            "exploratory_search"
+          ]
+        },
+        "model_family": { "$ref": "#/$defs/bounded_text" },
+        "data_fingerprint": { "$ref": "#/$defs/bounded_text" },
+        "assignment_unit_fingerprint": { "$ref": "#/$defs/bounded_text" },
+        "fold_fingerprint": { "$ref": "#/$defs/bounded_text" },
+        "hyperparameter_policy": { "$ref": "#/$defs/bounded_text" },
+        "feature_flags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/bounded_text" }
+        }
+      }
+    },
+    "algebraic_case": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["case", "observed_design_rank"],
+          "properties": {
+            "case": { "const": "known_codes" },
+            "observed_design_rank": { "type": "integer", "minimum": 0, "maximum": 65 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "case",
+            "baseline_environment_id",
+            "anchor_environment_ids",
+            "observed_anchor_rank",
+            "amplitudes_calibrated",
+            "anchor_labels_assigned"
+          ],
+          "properties": {
+            "case": { "const": "marked_pure_anchors" },
+            "baseline_environment_id": { "pattern": "^env_[0-9]{3,}$" },
+            "anchor_environment_ids": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": { "pattern": "^env_[0-9]{3,}$" }
+            },
+            "observed_anchor_rank": { "type": "integer", "minimum": 0, "maximum": 64 },
+            "amplitudes_calibrated": { "type": "boolean" },
+            "anchor_labels_assigned": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["case", "observed_edge_rank", "marked_zero"],
+          "properties": {
+            "case": { "const": "complete_binary_cube" },
+            "observed_edge_rank": { "type": "integer", "minimum": 0, "maximum": 64 },
+            "marked_zero": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["case", "observed_design_rank"],
+          "properties": {
+            "case": { "const": "incomplete_unknown_codes" },
+            "observed_design_rank": { "type": "integer", "minimum": 0, "maximum": 64 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["case", "observed_design_rank"],
+          "properties": {
+            "case": { "const": "rank_degenerate" },
+            "observed_design_rank": { "type": "integer", "minimum": 0, "maximum": 64 }
+          }
+        }
+      ]
+    },
+    "atom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["atom_id", "artifact_sha256", "artifact_bytes", "media_type", "support_id"],
+      "properties": {
+        "atom_id": { "pattern": "^atom_[0-9]{3,}$" },
+        "artifact_sha256": { "$ref": "#/$defs/sha256" },
+        "artifact_bytes": { "type": "integer", "minimum": 1 },
+        "media_type": { "const": "application/vnd.mic.transport-atom+json" },
+        "support_id": { "pattern": "^support_[0-9]{3,}$" }
+      }
+    },
+    "code_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment_id", "coefficients"],
+      "properties": {
+        "environment_id": { "pattern": "^env_[0-9]{3,}$" },
+        "coefficients": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "type": "number" }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "training_reconstruction_loss",
+        "heldout_discovery_loss",
+        "description_length",
+        "fit_iterations"
+      ],
+      "properties": {
+        "training_reconstruction_loss": { "type": "number", "minimum": 0 },
+        "heldout_discovery_loss": { "type": "number", "minimum": 0 },
+        "description_length": { "type": "number", "minimum": 0 },
+        "fit_iterations": { "type": "integer", "minimum": 0, "maximum": 100000 }
+      }
+    },
+    "contract_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "kind", "required_for", "detail", "priority"],
+      "properties": {
+        "request_id": { "pattern": "^contract_[0-9]{3,}$" },
+        "kind": {
+          "enum": [
+            "unit_evidence",
+            "selection_evidence",
+            "same_target_grouping",
+            "missing_design_corner",
+            "replicate_dropped_corner",
+            "identification_premise",
+            "measurement"
+          ]
+        },
+        "required_for": { "$ref": "#/$defs/bounded_text" },
+        "detail": { "$ref": "#/$defs/bounded_text" },
+        "priority": { "type": "number", "minimum": 0 }
+      }
+    },
+    "next_query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query_id",
+        "kind",
+        "separates_hypotheses",
+        "contract_request_ids",
+        "priority",
+        "priority_semantics"
+      ],
+      "properties": {
+        "query_id": { "pattern": "^query_[0-9]{3,}$" },
+        "kind": {
+          "enum": [
+            "collect_missing_corner",
+            "replicate_corner",
+            "asymmetric_tilt",
+            "measure_state",
+            "obtain_contract",
+            "negative_control"
+          ]
+        },
+        "separates_hypotheses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "pattern": "^hyp_[0-9]{3,}$" }
+        },
+        "contract_request_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "pattern": "^contract_[0-9]{3,}$" }
+        },
+        "priority": { "type": "number", "minimum": 0 },
+        "priority_semantics": { "$ref": "#/$defs/bounded_text" }
+      }
+    }
+  }
+}

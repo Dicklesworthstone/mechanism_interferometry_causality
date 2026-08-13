@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/dictionary_search_plan.schema.json",
+  "title": "MIC Transport Dictionary Search Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_id",
+    "self_driving_request_fingerprint",
+    "shift_library_fingerprint",
+    "reference_policy",
+    "code_policy",
+    "n_inner_folds",
+    "algebraic_rank_tolerance",
+    "rank_grid",
+    "attempt_specification_sha256s",
+    "ranking_rule",
+    "budget"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "plan_id": { "pattern": "^dict_plan_[0-9]{3,}$" },
+    "self_driving_request_fingerprint": { "$ref": "#/$defs/sha256" },
+    "shift_library_fingerprint": { "$ref": "#/$defs/sha256" },
+    "reference_policy": {
+      "enum": ["marked_zero_code", "arbitrary_reference_with_intercept"]
+    },
+    "code_policy": {
+      "enum": [
+        "known_incidence",
+        "marked_pure_anchors",
+        "complete_binary_cube",
+        "unknown_sparse_codes"
+      ]
+    },
+    "n_inner_folds": { "type": "integer", "minimum": 2, "maximum": 32 },
+    "algebraic_rank_tolerance": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 0.000001
+    },
+    "rank_grid": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 1, "maximum": 64 }
+    },
+    "attempt_specification_sha256s": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sha256" }
+    },
+    "ranking_rule": { "const": "heldout_loss_then_description_length" },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_attempts",
+        "max_factors",
+        "max_environments",
+        "max_code_cells",
+        "max_fit_iterations_per_attempt"
+      ],
+      "properties": {
+        "max_attempts": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "max_factors": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "max_environments": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "max_code_cells": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+        "max_fit_iterations_per_attempt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "schema_version": "1.0.0",
+  "artifact_kind": "transport_dictionary_proposal",
+  "proposal_id": "dictionary_001",
+  "request_fingerprint": "626b32b3fabb6030e34880989ee18f9567a5cfc411c6a201927aa751a48b8980",
+  "shift_library_fingerprint": "bfdc19b67942f65acb8b3faed5c4cd98aa82235c0ddf8a7524cb9f2607ff479b",
+  "search_plan_fingerprint": "84bebbbb54ab76ac3d66bb14a2c669cddb4986917bce6cdefbd595da8ca4e3c0",
+  "execution_binding_fingerprint": "76d3c816e1901e80e5e37a3f4eee0e2eb5f24c6c251516b0c041a7c7244dfde6",
+  "candidate_library_fingerprint": "b670f208cb1f210f9e78daa654ca6ef4b7c98e043caf8789ec0c0fe81d059b1a",
+  "authority": "proposal_only",
+  "certificate_eligible": false,
+  "input_claims_verified": false,
+  "causal_family_status": "not_evaluated",
+  "mechanism_identity": "not_established",
+  "target_identity": "not_established",
+  "same_target_grouping": "not_established",
+  "edge_authority": "none",
+  "selection_status": "unestablished",
+  "confirmation_access": "sealed_commitment_only",
+  "status": "recommended_for_separate_audit",
+  "reference_policy": "marked_zero_code",
+  "code_policy": "unknown_sparse_codes",
+  "ranking_rule": "heldout_loss_then_description_length",
+  "attempts": [
+    {
+      "attempt_id": "attempt_001",
+      "specification_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+      "outcome": {
+        "status": "completed",
+        "candidate": {
+          "source": {
+            "adapter_id": "dictionary_linear_v1",
+            "adapter_revision": "1111111111111111111111111111111111111111111111111111111111111111",
+            "source_kind": "exploratory_search",
+            "model_family": "fixed_transport_fixture",
+            "data_fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+            "assignment_unit_fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+            "fold_fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+            "hyperparameter_policy": "fixed_fixture",
+            "feature_flags": []
+          },
+          "algebraic_case": {
+            "case": "incomplete_unknown_codes",
+            "observed_design_rank": 1
+          },
+          "atoms": [
+            {
+              "atom_id": "atom_001",
+              "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "artifact_bytes": 128,
+              "media_type": "application/vnd.mic.transport-atom+json",
+              "support_id": "support_001"
+            }
+          ],
+          "codes": [
+            {
+              "environment_id": "env_001",
+              "coefficients": [
+                1.0
+              ]
+            }
+          ],
+          "diagnostics": {
+            "training_reconstruction_loss": 0.0,
+            "heldout_discovery_loss": 0.1,
+            "description_length": 1.0,
+            "fit_iterations": 1
+          },
+          "support_aliasing_detected": false
+        }
+      }
+    },
+    {
+      "attempt_id": "attempt_002",
+      "specification_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "outcome": {
+        "status": "rejected",
+        "reason": "rank_degenerate"
+      }
+    }
+  ],
+  "ambiguities": [
+    "general_linear_mixing"
+  ],
+  "contract_requests": [
+    {
+      "request_id": "contract_001",
+      "kind": "same_target_grouping",
+      "required_for": "strategy_001",
+      "detail": "external same-target grouping remains unresolved",
+      "priority": 1.0
+    }
+  ],
+  "next_queries": [
+    {
+      "query_id": "query_001",
+      "kind": "collect_missing_corner",
+      "separates_hypotheses": [
+        "hyp_001",
+        "hyp_002"
+      ],
+      "contract_request_ids": [
+        "contract_001"
+      ],
+      "priority": 1.0,
+      "priority_semantics": "observe a law that separates the surviving algebraic completions"
+    }
+  ],
+  "seed": 20260812
+}

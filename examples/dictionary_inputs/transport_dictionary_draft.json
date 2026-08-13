@@ -1,0 +1,86 @@
+{
+  "proposal_id": "dictionary_001",
+  "execution": {
+    "fold_plan_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "common_cohort_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+    "state_representation_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+    "reference_law_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+    "n_units": 12,
+    "n_rows": 24
+  },
+  "attempts": [
+    {
+      "attempt_id": "attempt_001",
+      "specification_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+      "outcome": {
+        "status": "completed",
+        "candidate": {
+        "source": {
+          "adapter_id": "dictionary_linear_v1",
+          "adapter_revision": "1111111111111111111111111111111111111111111111111111111111111111",
+          "source_kind": "exploratory_search",
+          "model_family": "fixed_transport_fixture",
+          "data_fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "assignment_unit_fingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "fold_fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+          "hyperparameter_policy": "fixed_fixture",
+          "feature_flags": []
+        },
+        "algebraic_case": {
+          "case": "incomplete_unknown_codes",
+          "observed_design_rank": 1
+        },
+        "atoms": [
+          {
+            "atom_id": "atom_001",
+            "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "artifact_bytes": 128,
+            "media_type": "application/vnd.mic.transport-atom+json",
+            "support_id": "support_001"
+          }
+        ],
+        "codes": [
+          {
+            "environment_id": "env_001",
+            "coefficients": [1.0]
+          }
+        ],
+        "diagnostics": {
+          "training_reconstruction_loss": 0.0,
+          "heldout_discovery_loss": 0.1,
+          "description_length": 1.0,
+          "fit_iterations": 1
+        },
+          "support_aliasing_detected": false
+        }
+      }
+    },
+    {
+      "attempt_id": "attempt_002",
+      "specification_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "outcome": {
+        "status": "rejected",
+        "reason": "rank_degenerate"
+      }
+    }
+  ],
+  "contract_requests": [
+    {
+      "request_id": "contract_001",
+      "kind": "same_target_grouping",
+      "required_for": "strategy_001",
+      "detail": "external same-target grouping remains unresolved",
+      "priority": 1.0
+    }
+  ],
+  "next_queries": [
+    {
+      "query_id": "query_001",
+      "kind": "collect_missing_corner",
+      "separates_hypotheses": ["hyp_001", "hyp_002"],
+      "contract_request_ids": ["contract_001"],
+      "priority": 1.0,
+      "priority_semantics": "observe a law that separates the surviving algebraic completions"
+    }
+  ]
+}

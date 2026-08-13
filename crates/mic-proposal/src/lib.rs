@@ -10,7 +10,18 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
+mod dictionary;
 mod scout;
+pub use dictionary::{
+    AlgebraicRecoveryCase, CausalFamilyStatus, DictionaryAmbiguity, DictionaryAttemptDraft,
+    DictionaryAttemptOutcome, DictionaryCandidateDraft, DictionaryCodePolicy,
+    DictionaryConfirmationAccess, DictionaryEdgeAuthority, DictionaryExecutionBinding,
+    DictionaryFitDiagnostics, DictionaryIdentityStatus, DictionaryProposalStatus,
+    DictionaryRankingRule, DictionaryReferencePolicy, DictionarySearchBudget, DictionarySearchPlan,
+    DictionarySelectionStatus, EnvironmentCodeRow, FrozenTransportDictionaryProposal,
+    TransportAtomDraft, TransportDictionaryAdapter, TransportDictionaryDraft,
+    freeze_transport_dictionary_proposal,
+};
 pub use scout::{
     CandidateEnvironment, CandidateSupport, ContractRequest, ContractRequestKind, DiscoveryAccess,
     EnvironmentRelation, FrozenShiftFactorizationProposal, IsolationClaim, NextQuery,
@@ -43,6 +54,9 @@ pub enum ProposalError {
     /// A discovery-only scout request or draft violated its closed contract.
     #[error("invalid shift-scout contract: {0}")]
     InvalidScoutContract(String),
+    /// A discovery-only dictionary request or draft violated its closed contract.
+    #[error("invalid transport-dictionary contract: {0}")]
+    InvalidDictionaryContract(String),
 }
 
 /// Where a proposal batch came from.
@@ -61,6 +75,7 @@ pub enum ProposalSourceKind {
 
 /// Provenance of the adapter that predicted candidate-tilt behavior.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct ProposalSource {
     /// Stable local adapter identifier.
     pub adapter_id: String,
