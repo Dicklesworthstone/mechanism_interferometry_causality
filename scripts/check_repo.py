@@ -1815,6 +1815,7 @@ def validate_simulations() -> None:
     running = results.get("running_example", {})
     latent = results.get("latent_conservation", {})
     implementation = results.get("implementation_inconsistency", {})
+    hidden_sensor = results.get("hidden_sensor_tomography", {})
     parity = results.get("parity_orientation_failure", {})
     check(math.isclose(float(running.get("outcome_synergy", math.nan)), 0.3, abs_tol=1e-14), "running-example synergy drift")
     check(math.isclose(float(running.get("full_state_curvature", math.nan)), 0.0, abs_tol=1e-14), "running-example full curvature drift")
@@ -1822,7 +1823,23 @@ def validate_simulations() -> None:
     check(math.isclose(float(latent.get("mean_conditional_latent_covariance", math.nan)), 0.09, abs_tol=1e-14), "latent hidden covariance drift")
     check(math.isclose(float(implementation.get("normalizer", math.nan)), 1.063, abs_tol=1e-14), "implementation normalizer drift")
     check(int(parity.get("pass_count", -1)) == 2, "parity pass-count drift")
-    for figure in ["running_example", "latent_conservation", "implementation_inconsistency"]:
+    hidden_curvature = hidden_sensor.get("observed_curvature", [math.nan, math.nan])
+    check(
+        len(hidden_curvature) == 2
+        and math.isclose(float(hidden_curvature[0]), math.log(0.8), abs_tol=1e-14)
+        and math.isclose(float(hidden_curvature[1]), math.log(1.2), abs_tol=1e-14),
+        "hidden-sensor curvature drift",
+    )
+    check(
+        hidden_sensor.get("infinitesimal_missing_rank") == [1, 1],
+        "hidden-sensor rank drift",
+    )
+    for figure in [
+        "running_example",
+        "latent_conservation",
+        "implementation_inconsistency",
+        "hidden_sensor_tomography",
+    ]:
         check((ROOT / "paper" / "figures" / f"{figure}.pdf").is_file(), f"missing PDF figure {figure}")
         check((ROOT / "paper" / "figures" / f"{figure}.png").is_file(), f"missing PNG figure {figure}")
 
@@ -1833,7 +1850,7 @@ def validate_cargo_and_sources() -> None:
     for member in members:
         member_path = ROOT / member
         check((member_path / "Cargo.toml").is_file(), f"workspace member lacks Cargo.toml: {member}")
-        source_files = sorted((member_path / "src").glob("*.rs"))
+        source_files = sorted((member_path / "src").rglob("*.rs"))
         check(bool(source_files), f"workspace member has no Rust source: {member}")
         for source in source_files:
             text = source.read_text(encoding="utf-8")
@@ -1861,6 +1878,143 @@ def validate_cargo_and_sources() -> None:
         "design_evidence: &ProductDesignEvidence",
     ]:
         check(token in stats_text, f"mic-stats GCM evidence boundary is missing token: {token}")
+
+
+def rust_call_arguments(source: str, function_name: str) -> list[list[str]]:
+    """Return top-level argument strings for Rust calls to one free function.
+
+    This is deliberately a small lexical scanner rather than a Rust parser. It
+    understands nested delimiters and quoted strings, which is enough to keep a
+    multiline `finding_with_context` call from evading the repository rule by
+    formatting alone.
+    """
+    calls: list[list[str]] = []
+    pattern = re.compile(rf"\b{re.escape(function_name)}\s*\(")
+    for match in pattern.finditer(source):
+        prefix = source[max(0, match.start() - 24) : match.start()]
+        if re.search(r"\bfn\s+$", prefix):
+            continue
+        arguments: list[str] = []
+        start = match.end()
+        item_start = start
+        depth = 1
+        quote: str | None = None
+        escaped = False
+        index = start
+        while index < len(source) and depth > 0:
+            character = source[index]
+            if quote is not None:
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                elif character == quote:
+                    quote = None
+            elif character in {'"', "'"}:
+                quote = character
+            elif character in "([{":
+                depth += 1
+            elif character in ")]}":
+                depth -= 1
+                if depth == 0:
+                    arguments.append(source[item_start:index].strip())
+                    break
+            elif character == "," and depth == 1:
+                arguments.append(source[item_start:index].strip())
+                item_start = index + 1
+            index += 1
+        if depth == 0:
+            calls.append(arguments)
+    return calls
+
+
+def validate_finding_code_vocabulary() -> None:
+    """Require every in-workspace finding emission to resolve to `mic_audit::code`."""
+    audit_source = (ROOT / "crates" / "mic-audit" / "src" / "lib.rs").read_text(
+        encoding="utf-8"
+    )
+    declarations = re.findall(
+        r'pub const\s+([A-Z][A-Z0-9_]*)\s*:\s*&str\s*=\s*"([a-z][a-z0-9_]*)"\s*;',
+        audit_source,
+    )
+    declared_names = {name for name, _ in declarations}
+    declared_values = {value for _, value in declarations}
+    check(bool(declarations), "mic-audit declares no finding-code vocabulary")
+    check(
+        len(declared_values) == len(declarations),
+        "mic-audit finding-code constants contain duplicate wire values",
+    )
+
+    scanner_fixture = (
+        'ledger.push(finding_with_context(Severity::Error, format!("s,{x}"), '
+        '"fixture_code", "message", context));'
+    )
+    fixture_calls = rust_call_arguments(scanner_fixture, "finding_with_context")
+    check(
+        len(fixture_calls) == 1
+        and len(fixture_calls[0]) == 5
+        and fixture_calls[0][2] == '"fixture_code"',
+        "finding-code lexical scanner regression",
+    )
+
+    for source_path in sorted((ROOT / "crates").glob("*/src/**/*.rs")):
+        source = source_path.read_text(encoding="utf-8")
+        relative = source_path.relative_to(ROOT)
+        for function_name in ["finding_with_context", "finding"]:
+            for arguments in rust_call_arguments(source, function_name):
+                check(
+                    len(arguments) >= 3,
+                    f"cannot parse {function_name} arguments in {relative}",
+                )
+                if len(arguments) < 3:
+                    continue
+                expression = arguments[2]
+                literal = re.fullmatch(r'"([a-z][a-z0-9_]*)"', expression)
+                constant = re.fullmatch(
+                    r"code::(?:info::)?([A-Z][A-Z0-9_]*)", expression
+                )
+                if literal:
+                    check(
+                        literal.group(1) in declared_values,
+                        f"undeclared finding code {literal.group(1)!r} emitted in {relative}",
+                    )
+                elif constant:
+                    check(
+                        constant.group(1) in declared_names,
+                        f"unknown finding-code constant {expression} in {relative}",
+                    )
+                else:
+                    check(
+                        False,
+                        f"dynamic finding-code expression {expression!r} in {relative}",
+                    )
+
+        for finding in re.finditer(r"\bFinding\s*\{(?P<body>.*?)\}", source, re.DOTALL):
+            prefix = source[max(0, finding.start() - 24) : finding.start()]
+            if re.search(r"\bstruct\s+$", prefix):
+                continue
+            code_match = re.search(r"\bcode\s*:\s*([^,\n]+)", finding.group("body"))
+            if not code_match:
+                continue
+            expression = code_match.group(1).strip()
+            if expression in {"code.into()", "code_value.into()"}:
+                continue
+            literal = re.fullmatch(r'"([a-z][a-z0-9_]*)"(?:\.into\(\))?', expression)
+            constant = re.fullmatch(
+                r"code::(?:info::)?([A-Z][A-Z0-9_]*)(?:\.into\(\))?", expression
+            )
+            if literal:
+                check(
+                    literal.group(1) in declared_values,
+                    f"undeclared direct Finding code {literal.group(1)!r} in {relative}",
+                )
+            elif constant:
+                check(
+                    constant.group(1) in declared_names,
+                    f"unknown direct Finding constant {expression} in {relative}",
+                )
+            else:
+                check(False, f"dynamic direct Finding code {expression!r} in {relative}")
 
 
 def validate_shell_scripts() -> None:
@@ -1907,6 +2061,7 @@ def main() -> int:
     validate_proposal_boundary()
     validate_simulations()
     validate_cargo_and_sources()
+    validate_finding_code_vocabulary()
     validate_shell_scripts()
     validate_no_placeholders()
     if ERRORS:
