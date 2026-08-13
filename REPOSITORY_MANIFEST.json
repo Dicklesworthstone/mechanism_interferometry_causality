@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-13T00:44:06Z",
+  "generated_at_utc": "2026-08-13T00:45:55Z",
   "hash_algorithm": "sha256",
-  "file_count": 164,
-  "aggregate_sha256": "fa56d9c3fa824393ff25383384db9f8c3f20a33a6c18c7f006198b2e0048e6a8",
+  "file_count": 165,
+  "aggregate_sha256": "0e389e535c8a6aa43faf8b1dc98ed9fc59efacc16ac3506957304359c55de1e4",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -53,8 +53,8 @@
     },
     {
       "path": "LICENSE",
-      "bytes": 0,
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "bytes": 283,
+      "sha256": "73cb9434d7deefa18880688d01d6693dfef325838aed5cbb2829124766cee2de"
     },
     {
       "path": "Makefile",
@@ -263,8 +263,8 @@
     },
     {
       "path": "docs/HYPOTHESIS_SLATE.md",
-      "bytes": 18475,
-      "sha256": "5d12403534e1e835d47524f6a44e65504154d328ac194837660bc7fda0d80d05"
+      "bytes": 18992,
+      "sha256": "2b13b4e5adfe6dd2b9580a6493c407dcdcc6d666608bed8c637acc08b3e54fe9"
     },
     {
       "path": "docs/IMPLEMENTATION_BLUEPRINT.md",
@@ -715,6 +715,11 @@
       "path": "scripts/public_extracts/common.py",
       "bytes": 3778,
       "sha256": "3d9b0ac20c6c5028b56ba2874e700c3bd9e52ecd5b2dfbf068854f6375dfce84"
+    },
+    {
+      "path": "scripts/public_extracts/process_alts.py",
+      "bytes": 14288,
+      "sha256": "8bae9dd09fcaae45da3fc63f5b4aea93270ff8e2691f8e0013e0ce9acb3610fe"
     },
     {
       "path": "scripts/public_extracts/process_extracts.py",
