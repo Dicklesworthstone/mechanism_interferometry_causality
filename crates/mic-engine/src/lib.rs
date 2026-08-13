@@ -10,18 +10,20 @@ use mic_design::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 mod survey;
 mod tabular;
 pub use mic_design::{CausalCompletionEvaluation, OrientationTestability};
 pub use survey::{
-    CausalInformationContent, ClusterUnitBasis, ColumnRole, ColumnTriage, InterferometerProposal,
-    SurveyAuthority, SurveyPolicy, SurveyReport, run_unsupervised_survey,
+    ClusterUnitBasis, ColumnRole, ColumnTriage, InterferometerProposal, SurveyAuthority,
+    SurveyDesignInformationContent, SurveyPolicy, SurveyReport, run_unsupervised_survey,
 };
 pub use tabular::{
     CellCurvature, ColumnProjection, FourLawFaceAudit, FourLawPolicy, ProjectionSpec,
     TabularAuditReport, TabularInformationContent, TabularIngestSummary, run_tabular_audit,
+    run_tabular_audit_with_selection_evidence,
 };
 
 /// Numerical and policy settings for preflight validation.
@@ -76,6 +78,136 @@ pub enum PreflightStatus {
     DiagnosticOnly,
     /// A load-bearing contract blocks the requested analysis.
     Blocked,
+}
+
+/// Authority class of a content-bound external selection premise.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SelectionEvidenceClass {
+    /// External sampling/enrollment records assert state-independent inclusion.
+    ExternalSamplingRecord,
+    /// A separately validated recovery model supports the declared selection model.
+    ValidatedSelectionModel,
+}
+
+/// Wire receipt resolved by the engine before it can satisfy selection readiness.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SelectionEvidenceReceipt {
+    /// Receipt schema version.
+    pub schema_version: String,
+    /// Stable receipt identifier.
+    pub receipt_id: String,
+    /// Experiment identifier copied from the manifest.
+    pub experiment_id: String,
+    /// Canonical SHA-256 of the complete validated manifest.
+    pub manifest_canonical_sha256: String,
+    /// SHA-256 of the exact analyzed data bytes.
+    pub data_content_sha256: String,
+    /// Selection declaration this receipt is allowed to support.
+    pub declaration: SelectionContract,
+    /// External evidence authority class.
+    pub evidence_class: SelectionEvidenceClass,
+    /// SHA-256 of the separately supplied authority-source bytes.
+    pub authority_source_sha256: String,
+}
+
+/// Opaque evidence token created only by content verification.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ValidatedSelectionEvidence {
+    receipt_id: String,
+    receipt_sha256: String,
+    data_content_sha256: String,
+    declaration: SelectionContract,
+    evidence_class: SelectionEvidenceClass,
+    authority_source_sha256: String,
+}
+
+/// Resolves a selection receipt against exact manifest, data, and authority bytes.
+pub fn resolve_selection_evidence(
+    manifest: &ExperimentManifest,
+    receipt_bytes: &[u8],
+    analyzed_data_bytes: &[u8],
+    authority_source_bytes: &[u8],
+) -> Result<ValidatedSelectionEvidence, EngineError> {
+    resolve_selection_evidence_hashes(
+        manifest,
+        receipt_bytes,
+        &hex_sha256(analyzed_data_bytes),
+        authority_source_bytes,
+    )
+}
+
+fn resolve_selection_evidence_hashes(
+    manifest: &ExperimentManifest,
+    receipt_bytes: &[u8],
+    data_content_sha256: &str,
+    authority_source_bytes: &[u8],
+) -> Result<ValidatedSelectionEvidence, EngineError> {
+    manifest.validate()?;
+    let receipt: SelectionEvidenceReceipt =
+        serde_json::from_slice(receipt_bytes).map_err(EngineError::SelectionEvidenceParse)?;
+    let expected_manifest = canonical_manifest_sha256(manifest)?;
+    let authority_source_sha256 = hex_sha256(authority_source_bytes);
+    let expected_class = match receipt.declaration {
+        SelectionContract::StateIndependentWithinRegime => {
+            SelectionEvidenceClass::ExternalSamplingRecord
+        }
+        SelectionContract::Modeled => SelectionEvidenceClass::ValidatedSelectionModel,
+        SelectionContract::Unknown | SelectionContract::StateDependentUnmodeled => {
+            return Err(EngineError::InvalidSelectionEvidence(
+                "unknown or unmodeled state-dependent selection cannot be resolved ready".into(),
+            ));
+        }
+    };
+    if receipt.schema_version != "1.0.0"
+        || receipt.receipt_id.trim().is_empty()
+        || receipt.receipt_id.chars().count() > 1024
+        || receipt.experiment_id.trim().is_empty()
+        || receipt.experiment_id.chars().count() > 1024
+        || receipt.experiment_id != manifest.experiment_id
+        || receipt.manifest_canonical_sha256 != expected_manifest
+        || receipt.data_content_sha256 != data_content_sha256
+        || receipt.declaration != manifest.selection
+        || receipt.evidence_class != expected_class
+        || receipt.authority_source_sha256 != authority_source_sha256
+        || authority_source_bytes.is_empty()
+    {
+        return Err(EngineError::InvalidSelectionEvidence(
+            "receipt does not bind the manifest, analyzed data, declaration, evidence class, and nonempty authority source"
+                .into(),
+        ));
+    }
+    Ok(ValidatedSelectionEvidence {
+        receipt_id: receipt.receipt_id,
+        receipt_sha256: hex_sha256(receipt_bytes),
+        data_content_sha256: data_content_sha256.to_string(),
+        declaration: receipt.declaration,
+        evidence_class: receipt.evidence_class,
+        authority_source_sha256,
+    })
+}
+
+/// Resolves a selection receipt and its authority source from bounded caller paths.
+pub fn resolve_selection_evidence_from_files(
+    manifest: &ExperimentManifest,
+    receipt_path: impl AsRef<Path>,
+    authority_source_path: impl AsRef<Path>,
+    base_dir: Option<&Path>,
+) -> Result<ValidatedSelectionEvidence, EngineError> {
+    const MAX_EVIDENCE_BYTES: u64 = 8 * 1024 * 1024;
+    let receipt_path = resolve_relative_path(receipt_path.as_ref(), base_dir);
+    let authority_source_path = resolve_relative_path(authority_source_path.as_ref(), base_dir);
+    let data_path = mic_data::resolve_data_path(&manifest.data.path, base_dir)?;
+    let receipt_bytes = read_bounded_evidence(&receipt_path, MAX_EVIDENCE_BYTES)?;
+    let authority_source_bytes = read_bounded_evidence(&authority_source_path, MAX_EVIDENCE_BYTES)?;
+    let data_content_sha256 = sha256_file(&data_path)?;
+    resolve_selection_evidence_hashes(
+        manifest,
+        &receipt_bytes,
+        &data_content_sha256,
+        &authority_source_bytes,
+    )
 }
 
 /// Machine-readable preflight result.
@@ -209,6 +341,15 @@ pub enum EngineError {
     /// The validated manifest could not be serialized for content binding.
     #[error("validated manifest could not be fingerprinted: {0}")]
     ManifestFingerprint(#[source] serde_json::Error),
+    /// Selection-evidence JSON could not be parsed as the closed receipt type.
+    #[error("selection evidence receipt is invalid JSON: {0}")]
+    SelectionEvidenceParse(#[source] serde_json::Error),
+    /// Selection evidence failed content or semantic binding.
+    #[error("selection evidence is invalid: {0}")]
+    InvalidSelectionEvidence(String),
+    /// A bounded evidence input could not be read.
+    #[error("selection evidence I/O failed: {0}")]
+    SelectionEvidenceIo(#[source] std::io::Error),
 }
 
 impl PreflightPolicy {
@@ -543,6 +684,23 @@ pub fn run_preflight(
     manifest: &ExperimentManifest,
     policy: PreflightPolicy,
 ) -> Result<PreflightReport, EngineError> {
+    run_preflight_inner(manifest, policy, None)
+}
+
+/// Runs preflight with an opaque, content-verified selection-evidence token.
+pub fn run_preflight_with_selection_evidence(
+    manifest: &ExperimentManifest,
+    policy: PreflightPolicy,
+    selection_evidence: &ValidatedSelectionEvidence,
+) -> Result<PreflightReport, EngineError> {
+    run_preflight_inner(manifest, policy, Some(selection_evidence))
+}
+
+fn run_preflight_inner(
+    manifest: &ExperimentManifest,
+    policy: PreflightPolicy,
+    selection_evidence: Option<&ValidatedSelectionEvidence>,
+) -> Result<PreflightReport, EngineError> {
     manifest.validate()?;
     let manifest_canonical_sha256 = canonical_manifest_sha256(manifest)?;
     let mode = if manifest.strict {
@@ -580,7 +738,7 @@ pub fn run_preflight(
     let design = audit_design(&points, policy.rank_tolerance)?;
     record_design_geometry(manifest.inference_track, &design, &mut ledger);
 
-    let selection_ok = selection_gate(manifest.selection, &policy, &mut ledger);
+    let selection_ok = selection_gate(manifest.selection, selection_evidence, &policy, &mut ledger);
     let four_law_geometry_ok = !design.square_faces.is_empty();
     let four_law_eligible = selection_ok && four_law_geometry_ok;
     let proportions: BTreeMap<DesignPoint, f64> = manifest
@@ -611,22 +769,21 @@ pub fn run_preflight(
         InferenceTrack::ProductFactorial => product_factorial_eligible,
         InferenceTrack::Both => four_law_eligible && product_factorial_eligible,
     };
-    let unvalidated_selection_override = matches!(manifest.selection, SelectionContract::Modeled)
-        && policy.accept_unvalidated_selection_model;
-    let status = if unvalidated_selection_override {
+    let unvalidated_selection_override = matches!(
+        manifest.selection,
+        SelectionContract::StateIndependentWithinRegime | SelectionContract::Modeled
+    ) && policy.accept_unvalidated_selection_model
+        && selection_evidence.is_none();
+    let status = if manifest.strict && (ledger.has_blocking_error() || !requested_eligible) {
+        PreflightStatus::Blocked
+    } else if unvalidated_selection_override || !manifest.strict {
         PreflightStatus::DiagnosticOnly
-    } else if manifest.strict {
-        if ledger.has_blocking_error() || !requested_eligible {
-            PreflightStatus::Blocked
-        } else {
-            PreflightStatus::Ready
-        }
     } else {
-        PreflightStatus::DiagnosticOnly
+        PreflightStatus::Ready
     };
 
     Ok(PreflightReport {
-        schema_version: "1.1.0".into(),
+        schema_version: "1.2.0".into(),
         experiment_id: manifest.experiment_id.clone(),
         manifest_canonical_sha256,
         policy,
@@ -645,6 +802,79 @@ fn canonical_manifest_sha256(manifest: &ExperimentManifest) -> Result<String, En
 
     let bytes = serde_json::to_vec(manifest).map_err(EngineError::ManifestFingerprint)?;
     let digest = Sha256::digest(bytes);
+    let mut encoded = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        write!(&mut encoded, "{byte:02x}").expect("writing hex into a String cannot fail");
+    }
+    Ok(encoded)
+}
+
+fn hex_sha256(bytes: &[u8]) -> String {
+    use core::fmt::Write as _;
+
+    let digest = Sha256::digest(bytes);
+    let mut encoded = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        write!(&mut encoded, "{byte:02x}").expect("writing hex into a String cannot fail");
+    }
+    encoded
+}
+
+fn resolve_relative_path(path: &Path, base_dir: Option<&Path>) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else if let Some(base) = base_dir {
+        base.join(path)
+    } else {
+        path.to_path_buf()
+    }
+}
+
+fn read_bounded_evidence(path: &Path, maximum: u64) -> Result<Vec<u8>, EngineError> {
+    use std::io::Read as _;
+
+    let file = std::fs::File::open(path).map_err(EngineError::SelectionEvidenceIo)?;
+    let length = file
+        .metadata()
+        .map_err(EngineError::SelectionEvidenceIo)?
+        .len();
+    if length > maximum {
+        return Err(EngineError::InvalidSelectionEvidence(format!(
+            "{} exceeds the {maximum}-byte evidence limit",
+            path.display()
+        )));
+    }
+    let capacity = usize::try_from(length.min(maximum)).unwrap_or(0);
+    let mut bytes = Vec::with_capacity(capacity);
+    file.take(maximum + 1)
+        .read_to_end(&mut bytes)
+        .map_err(EngineError::SelectionEvidenceIo)?;
+    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > maximum {
+        return Err(EngineError::InvalidSelectionEvidence(format!(
+            "{} grew beyond the {maximum}-byte evidence limit",
+            path.display()
+        )));
+    }
+    Ok(bytes)
+}
+
+fn sha256_file(path: &Path) -> Result<String, EngineError> {
+    use core::fmt::Write as _;
+    use std::io::Read as _;
+
+    let mut file = std::fs::File::open(path).map_err(EngineError::SelectionEvidenceIo)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0_u8; 64 * 1024];
+    loop {
+        let count = file
+            .read(&mut buffer)
+            .map_err(EngineError::SelectionEvidenceIo)?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+    let digest = hasher.finalize();
     let mut encoded = String::with_capacity(digest.len() * 2);
     for byte in digest {
         write!(&mut encoded, "{byte:02x}").expect("writing hex into a String cannot fail");
@@ -685,11 +915,60 @@ fn record_design_geometry(
 
 fn selection_gate(
     selection: SelectionContract,
+    evidence: Option<&ValidatedSelectionEvidence>,
     policy: &PreflightPolicy,
     ledger: &mut EvidenceLedger,
 ) -> bool {
+    if let Some(evidence) = evidence {
+        if evidence.declaration != selection {
+            ledger.note(
+                Severity::Error,
+                "selection",
+                code::SELECTION_MODEL_UNVALIDATED,
+                "resolved selection evidence does not match the manifest declaration",
+            );
+            return false;
+        }
+        ledger.provenance("selection_evidence_receipt_id", &evidence.receipt_id);
+        ledger.provenance(
+            "selection_evidence_receipt_sha256",
+            &evidence.receipt_sha256,
+        );
+        ledger.provenance(
+            "selection_evidence_data_sha256",
+            &evidence.data_content_sha256,
+        );
+        ledger.provenance(
+            "selection_evidence_authority_source_sha256",
+            &evidence.authority_source_sha256,
+        );
+        ledger.provenance(
+            "selection_evidence_class",
+            format!("{:?}", evidence.evidence_class),
+        );
+        return true;
+    }
     match selection {
-        SelectionContract::StateIndependentWithinRegime => true,
+        SelectionContract::StateIndependentWithinRegime
+            if policy.accept_unvalidated_selection_model =>
+        {
+            ledger.note(
+                Severity::Warning,
+                "selection",
+                code::SELECTION_MODEL_UNVALIDATED,
+                "state-independent inclusion is only caller-declared; policy permits diagnostic use, but strict readiness requires separately resolved selection evidence",
+            );
+            true
+        }
+        SelectionContract::StateIndependentWithinRegime => {
+            ledger.note(
+                Severity::Error,
+                "selection",
+                code::SELECTION_MODEL_UNVALIDATED,
+                "state-independent inclusion is only caller-declared; no validated selection evidence is attached",
+            );
+            false
+        }
         SelectionContract::Modeled if policy.accept_unvalidated_selection_model => {
             ledger.note(
                 Severity::Warning,
@@ -824,11 +1103,65 @@ mod tests {
     }
 
     #[test]
-    fn product_design_is_ready() {
+    fn selection_declaration_does_not_mint_readiness() {
         let report = run_preflight(&manifest([0.25; 4], true), PreflightPolicy::default()).unwrap();
-        assert_eq!(report.status, PreflightStatus::Ready);
+        assert_eq!(report.status, PreflightStatus::Blocked);
+        assert!(!report.four_law_eligible);
+        assert!(!report.product_factorial_eligible);
+        assert!(blocking_codes(&report).contains(code::SELECTION_MODEL_UNVALIDATED));
+    }
+
+    #[test]
+    fn declared_selection_override_is_diagnostic_never_ready() {
+        let policy = PreflightPolicy {
+            accept_unvalidated_selection_model: true,
+            ..PreflightPolicy::default()
+        };
+        let report = run_preflight(&manifest([0.25; 4], true), policy).unwrap();
+        assert_eq!(report.status, PreflightStatus::DiagnosticOnly);
+        assert!(report.four_law_eligible);
         assert!(report.product_factorial_eligible);
-        assert!(blocking_codes(&report).is_empty());
+        assert!(report.ledger.findings().iter().any(|finding| {
+            finding.code == code::SELECTION_MODEL_UNVALIDATED
+                && finding.severity == Severity::Warning
+        }));
+    }
+
+    #[test]
+    fn content_bound_selection_evidence_can_satisfy_strict_readiness() {
+        let manifest = manifest([0.25; 4], true);
+        let data = b"exact analyzed table bytes";
+        let authority = b"external sampling log asserting state-independent inclusion";
+        let receipt = serde_json::to_vec(&serde_json::json!({
+            "schema_version": "1.0.0",
+            "receipt_id": "selection-receipt-001",
+            "experiment_id": manifest.experiment_id.clone(),
+            "manifest_canonical_sha256": canonical_manifest_sha256(&manifest).unwrap(),
+            "data_content_sha256": hex_sha256(data),
+            "declaration": "state_independent_within_regime",
+            "evidence_class": "external_sampling_record",
+            "authority_source_sha256": hex_sha256(authority),
+        }))
+        .unwrap();
+        let evidence = resolve_selection_evidence(&manifest, &receipt, data, authority).unwrap();
+        let report =
+            run_preflight_with_selection_evidence(&manifest, PreflightPolicy::default(), &evidence)
+                .unwrap();
+        assert_eq!(report.status, PreflightStatus::Ready);
+        assert!(report.four_law_eligible);
+        assert!(report.product_factorial_eligible);
+        assert_eq!(
+            report
+                .ledger
+                .provenance_fields()
+                .get("selection_evidence_receipt_id")
+                .map(String::as_str),
+            Some("selection-receipt-001")
+        );
+        assert!(matches!(
+            resolve_selection_evidence(&manifest, &receipt, b"mutated data", authority),
+            Err(EngineError::InvalidSelectionEvidence(_))
+        ));
     }
 
     #[test]
@@ -885,7 +1218,7 @@ mod tests {
         let report = run_preflight(&modeled, policy).unwrap();
         assert_eq!(report.status, PreflightStatus::DiagnosticOnly);
         assert!(report.policy().accept_unvalidated_selection_model);
-        assert_eq!(report.schema_version(), "1.1.0");
+        assert_eq!(report.schema_version(), "1.2.0");
         assert!(
             report
                 .ledger
