@@ -951,6 +951,17 @@ mod tests {
         assert!(report.next_step.contains("11"));
         assert!(report.next_step.contains("do not impute"));
         assert!(report.next_step.contains("Ranked next corner `11`"));
+        assert_eq!(
+            report
+                .information_content
+                .recommended_next_corner
+                .as_deref(),
+            Some("11")
+        );
+        assert_eq!(
+            report.information_content.recommended_next_corner_cost,
+            Some(1000)
+        );
     }
 
     #[test]
@@ -1035,6 +1046,7 @@ mod tests {
         )
         .unwrap();
         assert_atlas_only_complete_pair(&report, "elev", "season");
+        assert!(report.information_content.recommended_next_corner.is_none());
     }
 
     /// S2b: season moves temperature and moisture. Still atlas-only.
