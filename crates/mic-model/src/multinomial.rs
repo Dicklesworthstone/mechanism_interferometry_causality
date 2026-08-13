@@ -85,12 +85,29 @@ impl MultinomialLinearModel {
         samples: &[MultinomialSample],
         config: FitConfig,
     ) -> Result<Self, MultinomialFitError> {
+        let weights = vec![1.0; samples.len()];
+        Self::fit_weighted(samples, &weights, config)
+    }
+
+    /// Fits with caller-supplied positive row weights.
+    ///
+    /// The objective divides by total supplied weight. This lets an outer
+    /// cluster orchestrator make its effective pooling law exactly match the
+    /// sampling offsets later removed from posterior odds.
+    pub fn fit_weighted(
+        samples: &[MultinomialSample],
+        weights: &[f64],
+        config: FitConfig,
+    ) -> Result<Self, MultinomialFitError> {
         validate_config(config)?;
         let n_features = validate_samples(samples, config.n_classes)?;
+        let total_weight = validate_weights(samples, weights)?;
         let mut parameters = vec![0.0; (config.n_classes - 1) * (n_features + 1)];
         for accepted_steps in 0..config.max_iterations {
             let (objective, gradient) = objective_and_gradient(
                 samples,
+                weights,
+                total_weight,
                 config.n_classes,
                 n_features,
                 config.l2_penalty,
@@ -100,12 +117,15 @@ impl MultinomialLinearModel {
             if gradient_l2 <= config.gradient_tolerance {
                 return Ok(build_model(
                     samples,
+                    weights,
                     config,
                     n_features,
                     &parameters,
-                    accepted_steps,
-                    objective,
-                    gradient_l2,
+                    Convergence {
+                        iterations: accepted_steps,
+                        objective,
+                        gradient_l2,
+                    },
                 ));
             }
 
@@ -120,6 +140,8 @@ impl MultinomialLinearModel {
                     .collect();
                 let candidate_objective = penalized_objective(
                     samples,
+                    weights,
+                    total_weight,
                     config.n_classes,
                     n_features,
                     config.l2_penalty,
@@ -138,6 +160,8 @@ impl MultinomialLinearModel {
 
         let (_, gradient) = objective_and_gradient(
             samples,
+            weights,
+            total_weight,
             config.n_classes,
             n_features,
             config.l2_penalty,
@@ -187,11 +211,22 @@ impl MultinomialLinearModel {
 
     /// Computes mean held-out logarithmic loss without refitting.
     pub fn mean_log_loss(&self, samples: &[MultinomialSample]) -> Result<f64, MultinomialFitError> {
+        let weights = vec![1.0; samples.len()];
+        self.mean_weighted_log_loss(samples, &weights)
+    }
+
+    /// Computes weighted mean held-out logarithmic loss without refitting.
+    pub fn mean_weighted_log_loss(
+        &self,
+        samples: &[MultinomialSample],
+        weights: &[f64],
+    ) -> Result<f64, MultinomialFitError> {
         if samples.is_empty() {
             return Err(MultinomialFitError::EmptySamples);
         }
+        let total_weight = validate_weights(samples, weights)?;
         let mut total = 0.0;
-        for sample in samples {
+        for (sample, weight) in samples.iter().zip(weights) {
             if sample.class >= self.n_classes {
                 return Err(MultinomialFitError::ClassOutOfRange {
                     class: sample.class,
@@ -199,9 +234,9 @@ impl MultinomialLinearModel {
                 });
             }
             let probabilities = self.predict_probabilities(&sample.features)?;
-            total -= probabilities[sample.class].ln();
+            total -= weight * probabilities[sample.class].ln();
         }
-        Ok(total / samples.len() as f64)
+        Ok(total / total_weight)
     }
 }
 
@@ -276,6 +311,9 @@ pub enum MultinomialFitError {
     /// Optimizer configuration was invalid.
     #[error("invalid optimizer configuration: {0}")]
     InvalidConfiguration(&'static str),
+    /// Weights were missing, nonfinite, nonpositive, or had zero total mass.
+    #[error("weights must match samples and be finite and positive")]
+    InvalidWeights,
     /// Backtracking could not find a finite descending step.
     #[error("deterministic optimizer could not find a descending step")]
     OptimizationStalled,
@@ -358,14 +396,20 @@ fn validate_samples(
     Ok(n_features)
 }
 
-fn build_model(
-    samples: &[MultinomialSample],
-    config: FitConfig,
-    n_features: usize,
-    parameters: &[f64],
+#[derive(Clone, Copy)]
+struct Convergence {
     iterations: usize,
     objective: f64,
     gradient_l2: f64,
+}
+
+fn build_model(
+    samples: &[MultinomialSample],
+    weights: &[f64],
+    config: FitConfig,
+    n_features: usize,
+    parameters: &[f64],
+    convergence: Convergence,
 ) -> MultinomialLinearModel {
     let n_classes = config.n_classes;
     let width = n_features + 1;
@@ -376,9 +420,12 @@ fn build_model(
         intercepts.push(parameters[start]);
         coefficients.push(parameters[start + 1..start + width].to_vec());
     }
-    let training_log_loss = mean_log_loss_from_parts(samples, &coefficients, &intercepts);
+    let training_log_loss =
+        mean_weighted_log_loss_from_parts(samples, weights, &coefficients, &intercepts);
     debug_assert!(
-        (objective - (training_log_loss + 0.5 * config.l2_penalty * squared_l2(parameters))).abs()
+        (convergence.objective
+            - (training_log_loss + 0.5 * config.l2_penalty * squared_l2(parameters)))
+        .abs()
             < 1e-8
     );
     MultinomialLinearModel {
@@ -387,16 +434,18 @@ fn build_model(
         coefficients,
         intercepts,
         summary: FitSummary {
-            iterations,
+            iterations: convergence.iterations,
             training_log_loss,
-            penalized_objective: objective,
-            gradient_l2,
+            penalized_objective: convergence.objective,
+            gradient_l2: convergence.gradient_l2,
         },
     }
 }
 
 fn objective_and_gradient(
     samples: &[MultinomialSample],
+    weights: &[f64],
+    total_weight: f64,
     n_classes: usize,
     n_features: usize,
     l2_penalty: f64,
@@ -405,20 +454,20 @@ fn objective_and_gradient(
     let width = n_features + 1;
     let mut gradient = vec![0.0; parameters.len()];
     let mut log_loss = 0.0;
-    for sample in samples {
+    for (sample, weight) in samples.iter().zip(weights) {
         let probabilities =
             probabilities_from_parameters(&sample.features, n_classes, n_features, parameters);
-        log_loss -= probabilities[sample.class].ln();
+        log_loss -= weight * probabilities[sample.class].ln();
         for (class, probability) in probabilities.iter().enumerate().take(n_classes).skip(1) {
             let residual = *probability - f64::from(sample.class == class);
             let start = (class - 1) * width;
-            gradient[start] += residual;
+            gradient[start] += weight * residual;
             for (feature_index, feature) in sample.features.iter().enumerate() {
-                gradient[start + 1 + feature_index] += residual * feature;
+                gradient[start + 1 + feature_index] += weight * residual * feature;
             }
         }
     }
-    let scale = 1.0 / samples.len() as f64;
+    let scale = 1.0 / total_weight;
     for (derivative, parameter) in gradient.iter_mut().zip(parameters) {
         *derivative = *derivative * scale + l2_penalty * parameter;
     }
@@ -428,34 +477,56 @@ fn objective_and_gradient(
 
 fn penalized_objective(
     samples: &[MultinomialSample],
+    weights: &[f64],
+    total_weight: f64,
     n_classes: usize,
     n_features: usize,
     l2_penalty: f64,
     parameters: &[f64],
 ) -> f64 {
     let mut log_loss = 0.0;
-    for sample in samples {
+    for (sample, weight) in samples.iter().zip(weights) {
         let probabilities =
             probabilities_from_parameters(&sample.features, n_classes, n_features, parameters);
-        log_loss -= probabilities[sample.class].ln();
+        log_loss -= weight * probabilities[sample.class].ln();
     }
-    log_loss / samples.len() as f64 + 0.5 * l2_penalty * squared_l2(parameters)
+    log_loss / total_weight + 0.5 * l2_penalty * squared_l2(parameters)
 }
 
-fn mean_log_loss_from_parts(
+fn mean_weighted_log_loss_from_parts(
     samples: &[MultinomialSample],
+    weights: &[f64],
     coefficients: &[Vec<f64>],
     intercepts: &[f64],
 ) -> f64 {
     samples
         .iter()
-        .map(|sample| {
+        .zip(weights)
+        .map(|(sample, weight)| {
             let probabilities =
                 probabilities_from_parts(&sample.features, coefficients, intercepts);
-            -probabilities[sample.class].ln()
+            -weight * probabilities[sample.class].ln()
         })
         .sum::<f64>()
-        / samples.len() as f64
+        / weights.iter().sum::<f64>()
+}
+
+fn validate_weights(
+    samples: &[MultinomialSample],
+    weights: &[f64],
+) -> Result<f64, MultinomialFitError> {
+    if weights.len() != samples.len()
+        || weights
+            .iter()
+            .any(|weight| !weight.is_finite() || *weight <= 0.0)
+    {
+        return Err(MultinomialFitError::InvalidWeights);
+    }
+    let total = weights.iter().sum::<f64>();
+    if !total.is_finite() || total <= 0.0 {
+        return Err(MultinomialFitError::InvalidWeights);
+    }
+    Ok(total)
 }
 
 fn probabilities_from_parameters(
@@ -604,6 +675,76 @@ mod tests {
         assert_eq!(
             error,
             MultinomialFitError::InvalidSimplex("sampling proportions")
+        );
+    }
+
+    #[test]
+    fn weighted_fit_is_invariant_to_mass_preserving_row_replication() {
+        let samples = vec![
+            sample(-2.0, 0),
+            sample(-1.0, 0),
+            sample(0.5, 1),
+            sample(1.5, 1),
+            sample(2.0, 2),
+            sample(3.0, 2),
+        ];
+        let weights = vec![0.05, 0.15, 0.10, 0.20, 0.20, 0.30];
+        let mut replicated = Vec::new();
+        let mut replicated_weights = Vec::new();
+        for (sample, weight) in samples.iter().zip(&weights) {
+            for _ in 0..5 {
+                replicated.push(sample.clone());
+                replicated_weights.push(weight / 5.0);
+            }
+        }
+        let config = FitConfig {
+            n_classes: 3,
+            l2_penalty: 0.1,
+            gradient_tolerance: 1e-8,
+            ..FitConfig::default()
+        };
+        let original = MultinomialLinearModel::fit_weighted(&samples, &weights, config).unwrap();
+        let duplicated =
+            MultinomialLinearModel::fit_weighted(&replicated, &replicated_weights, config).unwrap();
+
+        for features in [[-1.5], [0.0], [2.5]] {
+            let left = original.predict_probabilities(&features).unwrap();
+            let right = duplicated.predict_probabilities(&features).unwrap();
+            for (left, right) in left.iter().zip(right) {
+                assert!((left - right).abs() < 1e-8, "{left} != {right}");
+            }
+        }
+        assert!(
+            (original.mean_weighted_log_loss(&samples, &weights).unwrap()
+                - duplicated
+                    .mean_weighted_log_loss(&replicated, &replicated_weights)
+                    .unwrap())
+            .abs()
+                < 1e-8
+        );
+    }
+
+    #[test]
+    fn weighted_entry_points_reject_invalid_weights() {
+        let samples = vec![sample(-1.0, 0), sample(1.0, 1)];
+        let config = FitConfig {
+            l2_penalty: 0.1,
+            gradient_tolerance: 1e-7,
+            ..FitConfig::default()
+        };
+        for weights in [vec![1.0], vec![1.0, 0.0], vec![1.0, f64::NAN]] {
+            assert_eq!(
+                MultinomialLinearModel::fit_weighted(&samples, &weights, config).unwrap_err(),
+                MultinomialFitError::InvalidWeights
+            );
+        }
+
+        let model = MultinomialLinearModel::fit(&samples, config).unwrap();
+        assert_eq!(
+            model
+                .mean_weighted_log_loss(&samples, &[1.0, f64::INFINITY])
+                .unwrap_err(),
+            MultinomialFitError::InvalidWeights
         );
     }
 }
