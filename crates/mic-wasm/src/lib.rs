@@ -263,6 +263,7 @@ pub fn square_faces_impl(corners: &[String]) -> BoundaryResult {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(start)]
+/// Installs the browser panic hook when the WebAssembly module starts.
 pub fn start() {
     console_error_panic_hook::set_once();
 }
@@ -270,54 +271,63 @@ pub fn start() {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 #[must_use]
+/// Returns the compiled MIC engine version.
 pub fn version() -> String {
     version_impl()
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+/// Runs the deterministic built-in conformance simulations.
 pub fn simulate_all() -> Result<String, String> {
     simulate_all_impl()
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+/// Audits Boolean design geometry for the supplied corner labels.
 pub fn design_audit(corners: Vec<String>, tolerance: f64) -> Result<String, String> {
     audit_design_impl(&corners, tolerance)
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+/// Audits interaction aliasing for the supplied Boolean corner labels.
 pub fn interaction_aliasing(corners: Vec<String>, tolerance: f64) -> Result<String, String> {
     audit_aliasing_impl(&corners, tolerance)
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+/// Checks whether four declared sampling masses have product pooled odds.
 pub fn sampling_odds(probabilities: Vec<f64>, tolerance: f64) -> Result<String, String> {
     audit_sampling_odds_impl(&probabilities, tolerance)
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+/// Runs fail-closed manifest preflight and returns its JSON report.
 pub fn preflight(manifest_json: &str, policy_json: &str) -> Result<String, String> {
     preflight_impl(manifest_json, policy_json)
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+/// Validates one experiment manifest and returns a JSON result.
 pub fn validate_manifest(manifest_json: &str) -> Result<String, String> {
     validate_manifest_impl(manifest_json)
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+/// Compares a serialized lens battery under the supplied tolerance.
 pub fn lens_battery(estimates_json: &str, tolerance: f64) -> Result<String, String> {
     lens_battery_impl(estimates_json, tolerance)
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+/// Enumerates complete square faces from supplied Boolean corners.
 pub fn square_faces(corners: Vec<String>) -> Result<String, String> {
     square_faces_impl(&corners)
 }
