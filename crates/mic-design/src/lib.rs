@@ -5,9 +5,11 @@ mod multilevel;
 
 pub use multilevel::{
     FamilyClassificationInput, MultiLevelPoint, NextCornerCandidate, ObservedFamilyClassification,
-    OrientationTestability, RectangleFace, classify_multilevel_family, classify_observed_family,
-    enumerate_rectangles, multilevel_main_effects_matrix, orientation_testability,
-    rank_missing_boolean_corners, rank_missing_boolean_corners_with_costs, rectangle_contrast,
+    OrientationTestability, RectangleFace, RectangleLawAudit, audit_rectangle_laws,
+    classify_multilevel_family, classify_observed_family, enumerate_rectangles,
+    multilevel_main_effects_matrix, orientation_testability, rank_missing_boolean_corners,
+    rank_missing_boolean_corners_with_costs, rank_missing_multilevel_cells,
+    rank_missing_multilevel_cells_with_costs, rectangle_contrast,
 };
 
 use serde::{Deserialize, Serialize};

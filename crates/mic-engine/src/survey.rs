@@ -91,6 +91,8 @@ pub struct InterferometerProposal {
     pub identified_set_dimension: Option<usize>,
     /// Highest-ranked unobserved corner for shrinking that set, if any.
     pub recommended_next_corner: Option<String>,
+    /// Integer cost of that recommended corner (default 1000).
+    pub recommended_next_corner_cost: Option<u32>,
     /// Modular-completion class. Survey never supplies laws, so this is untestable.
     pub modular_completion: ModularCompletionClass,
     /// Orientation testability. Catalog squares with no tilt family are untestable.
@@ -118,6 +120,12 @@ pub struct CausalInformationContent {
     pub confirmatory_units_per_corner_min: Option<usize>,
     /// Largest retained corner count on the headline interferometer.
     pub confirmatory_units_per_corner_max: Option<usize>,
+    /// Ranked next cell on the highest-priority incomplete design, if any.
+    pub recommended_next_corner: Option<String>,
+    /// Identified-set dimension of that incomplete design.
+    pub identified_set_dimension: Option<usize>,
+    /// Integer cost of the recommended cell (default 1000).
+    pub recommended_next_corner_cost: Option<u32>,
     /// Reminder that this header is not an arrow.
     pub note: String,
 }
@@ -475,6 +483,7 @@ fn propose(
     let recommended_next_corner = family
         .as_ref()
         .and_then(|item| item.recommended_next_corner.clone());
+    let recommended_next_corner_cost = family.as_ref().and_then(|item| item.next_corner_cost);
     let near_square = design
         .points
         .first()
@@ -500,6 +509,7 @@ fn propose(
         lack_of_fit_dimension,
         identified_set_dimension,
         recommended_next_corner,
+        recommended_next_corner_cost,
         modular_completion,
         orientation,
         priority,
@@ -534,6 +544,9 @@ fn information_content(
                 item.design.counts.iter().copied().max(),
             )
         });
+    let incomplete = interferometers
+        .iter()
+        .find(|item| item.recommended_next_corner.is_some());
     Ok(CausalInformationContent {
         n_rows,
         n_independent_units,
@@ -542,6 +555,10 @@ fn information_content(
         n_complete_testable_squares,
         confirmatory_units_per_corner_min,
         confirmatory_units_per_corner_max,
+        recommended_next_corner: incomplete
+            .and_then(|item| item.recommended_next_corner.clone()),
+        identified_set_dimension: incomplete.and_then(|item| item.identified_set_dimension),
+        recommended_next_corner_cost: incomplete.and_then(|item| item.recommended_next_corner_cost),
         note: "Independent units are clusters when a unit column is declared or inferred, otherwise rows. Complete squares are design facts, not arrows.".into(),
     })
 }
@@ -997,6 +1014,7 @@ mod tests {
             square.recommended_next_corner.as_deref(),
             Some("01" | "10")
         ));
+        assert_eq!(square.recommended_next_corner_cost, Some(1000));
         assert_eq!(report.information_content.n_distinct_supported_regimes, 2);
     }
 
