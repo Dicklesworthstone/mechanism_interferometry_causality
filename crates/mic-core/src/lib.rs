@@ -356,13 +356,19 @@ pub fn gamma_sensitivity(
             value: gamma,
         });
     }
+    let center = observed_kappa + delta_log_z;
+    finite("observed_kappa_plus_delta_log_z", center)?;
+    let source_kappa_low = center - gamma;
+    let source_kappa_high = center + gamma;
+    finite("source_kappa_low", source_kappa_low)?;
+    finite("source_kappa_high", source_kappa_high)?;
     Ok(GammaSensitivity {
         observed_kappa,
         gamma,
         normalizer_contrast,
-        source_kappa_low: observed_kappa - gamma + delta_log_z,
-        source_kappa_high: observed_kappa + gamma + delta_log_z,
-        min_abs_selection_interaction_to_null: (observed_kappa + delta_log_z).abs(),
+        source_kappa_low,
+        source_kappa_high,
+        min_abs_selection_interaction_to_null: center.abs(),
         authority: SensitivityAuthority::DiagnosticOnly,
     })
 }
@@ -775,6 +781,13 @@ mod tests {
         assert!(matches!(
             gamma_sensitivity(0.1, -0.2, declared_normalizer(0.0)),
             Err(CoreError::Negative { name: "gamma", .. })
+        ));
+        assert!(matches!(
+            gamma_sensitivity(f64::MAX, f64::MAX, declared_normalizer(0.0)),
+            Err(CoreError::NonFinite {
+                name: "source_kappa_high",
+                ..
+            })
         ));
     }
 
