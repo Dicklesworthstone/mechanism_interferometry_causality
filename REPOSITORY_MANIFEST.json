@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-13T00:41:44Z",
+  "generated_at_utc": "2026-08-13T00:44:06Z",
   "hash_algorithm": "sha256",
-  "file_count": 158,
-  "aggregate_sha256": "230198afd523c5eb4dde99b1954aa8dda3cd98813233c83d9dc1a3c1af20899e",
+  "file_count": 164,
+  "aggregate_sha256": "fa56d9c3fa824393ff25383384db9f8c3f20a33a6c18c7f006198b2e0048e6a8",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -128,18 +128,18 @@
     },
     {
       "path": "crates/mic-data/src/franken.rs",
-      "bytes": 18538,
-      "sha256": "f49d2fd28368135d3cb70c72b71c32675c63fe62c6eaefc2da3cd79e895c86cc"
+      "bytes": 20531,
+      "sha256": "c86885e0561a9b3173fc1ec1e9222f425403a6ed30664e0df0142cca2d5c4dc0"
     },
     {
       "path": "crates/mic-data/src/lib.rs",
-      "bytes": 14727,
-      "sha256": "3dcc89c3539f3afb0749111eac73518ccf472544ec0113fc404f8ec175d69195"
+      "bytes": 14733,
+      "sha256": "0556b0b040afad497264e11a4a060eeb6b2df85a6da97e3c2a7cfdaf0daed05d"
     },
     {
       "path": "crates/mic-data/src/table.rs",
-      "bytes": 30553,
-      "sha256": "b462dbc46d90f830fbaf8bc35bc4fac3741780000356e6c3c632fe6735726c54"
+      "bytes": 31856,
+      "sha256": "013ea0070fc40b1c91fe53cc26e940c1da78ff91cb659fe0f35bb221b915ca62"
     },
     {
       "path": "crates/mic-design/Cargo.toml",
@@ -295,6 +295,11 @@
       "path": "docs/SECURITY_AND_REPRODUCIBILITY.md",
       "bytes": 814,
       "sha256": "7c2149d2c807891021cafddf1c2992a638b86c591991ccbfd70021ecb4c684eb"
+    },
+    {
+      "path": "docs/SELF_DRIVING_CAMPAIGN.md",
+      "bytes": 21399,
+      "sha256": "4b61ada1cbf9c6de85e53d31435a0aaf89c08e3de66522b5a2c5bd1b3ab8647d"
     },
     {
       "path": "examples/README.md",
@@ -695,6 +700,31 @@
       "path": "scripts/package_release.sh",
       "bytes": 1331,
       "sha256": "1e251f85ede4d4370784a76cc5bfa151fe14aafd02630235bb63b622713f885a"
+    },
+    {
+      "path": "scripts/public_extracts/README.md",
+      "bytes": 471,
+      "sha256": "a1d08bcd5f91141a12664fe4c12549bae1854c9d45329e906b08ac068f527733"
+    },
+    {
+      "path": "scripts/public_extracts/build_s1s3.py",
+      "bytes": 1728,
+      "sha256": "82ace8d79ec2e77338c90e52b993611f87aca03fba1a38d42000d9d9f94fcdb1"
+    },
+    {
+      "path": "scripts/public_extracts/common.py",
+      "bytes": 3778,
+      "sha256": "3d9b0ac20c6c5028b56ba2874e700c3bd9e52ecd5b2dfbf068854f6375dfce84"
+    },
+    {
+      "path": "scripts/public_extracts/process_extracts.py",
+      "bytes": 30999,
+      "sha256": "1af48d0e155e76b4b84b3986f8b3651eff56ae165c1b26d6da71d20d4d4446b2"
+    },
+    {
+      "path": "scripts/public_extracts/write_blocked_receipts.py",
+      "bytes": 3507,
+      "sha256": "03b9390ce6b87e8e239954e07fe487297039763d3a5018df5a006a249452316a"
     },
     {
       "path": "scripts/publish_repo.sh",
