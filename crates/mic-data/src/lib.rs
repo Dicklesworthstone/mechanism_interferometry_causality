@@ -9,7 +9,7 @@ use thiserror::Error;
 
 mod table;
 #[cfg(feature = "franken")]
-pub(crate) use table::parse_csv_header_line;
+pub(crate) use table::tokenize_csv_with_std_rules;
 pub use table::{
     ClusterFold, IngestReport, Observation, RawTable, RegimeCount, TableError, TableFingerprint,
     build_ingest_report, fold_for_cluster, load_csv_table, load_raw_csv, resolve_data_path,
