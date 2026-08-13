@@ -83,8 +83,10 @@ also in place. The remaining work is the authority-bearing integration below.
   sampling offsets, explicit curvature field, and diagnostic held-out
   proper-loss comparison (implemented; not a calibrated test);
 - deterministic cluster-fold orchestration, equal total weight per declared
-  unit, and untouched proper-loss comparison for the linear reference model
-  (implemented; the seed and fold-plan fingerprint are serialized);
+  unit within each corner under the declared pooling law, stratified coverage,
+  untouched proper-loss comparison, and out-of-fold baseline curvature moments
+  for the linear reference model (implemented; the seed and versioned fold-plan
+  fingerprint are serialized);
 - adaptive witness confirmation and calibrated cluster-level inference (not yet wired);
 - FrankenTorch main-effect and interaction models;
 - sampling-offset and intercept contract;

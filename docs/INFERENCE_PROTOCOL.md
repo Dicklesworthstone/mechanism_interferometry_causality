@@ -112,7 +112,10 @@ importance ratio, asymptotic ESS fraction, and held-out total variation and
 Hellinger distance. This exact oracle is a conformance target for the future
 fitted ratio path; it is not a calibrated finite-sample test. The implemented
 linear joint-regime path also provides deterministic outer cluster folds and
-held-out proper-loss comparison, but adaptive witness selection and
+held-out proper-loss comparison. Folds are stratified by corner, training mass
+matches the exact declared classifier pooling proportions, and held-out
+baseline clusters produce signed mean, mean-absolute, RMS, and maximum-absolute
+curvature summaries. These summaries remain uncalibrated; adaptive witness selection and
 cluster-resampled calibration remain outstanding.
 
 ## 10. State expansion

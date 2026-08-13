@@ -116,8 +116,10 @@ The repository includes the complete mathematical paper, website, exact simulati
 The first fitted reference diagnostic is also executable. `mic
 closure-crossfit` fits the tied-main-effect and interaction-augmented joint
 regime models out of deterministic cluster folds, gives every declared unit
-equal total weight, records the seed and fold-plan fingerprint, and compares
-held-out logarithmic loss. Its output is always `diagnostic_only` and
+equal weight within its corner under the declared pooling law, records the seed
+and versioned stratified fold-plan fingerprint, compares held-out logarithmic
+loss, and reports signed and non-cancelling out-of-fold curvature moments under
+the baseline law. Its output is always `diagnostic_only` and
 `certificate_eligible: false`: a learner's proper-loss advantage is not a
 calibrated closure test, and the command cannot verify that a caller's declared
 identifier is the physical assignment unit.

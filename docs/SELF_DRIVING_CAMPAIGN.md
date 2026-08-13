@@ -318,6 +318,9 @@ qualification.
   where a Markov or design-image necessary condition already refutes it.
 - [x] State only solver properties supported by the finite-state parameterization;
   keep nonparametric finite-sample classification unresolved.
+- [x] Make the linear closure cross-fit pooling-honest and corner-stratified;
+  export signed and non-cancelling out-of-fold baseline curvature moments while
+  retaining `calibrated_test: false`.
 - [ ] Specify interventional mechanism dictionary learning with sparse environment codes, anchors, local support, normalization, and label/gauge ambiguity.
 - [ ] Prove or delimit dictionary identifiability under sparse combinations and repeated backgrounds.
 - [ ] Specify curvature tomography only under an infinitesimal or explicit latent-score factor model.
