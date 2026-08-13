@@ -76,6 +76,11 @@ also in place. The remaining work is the authority-bearing integration below.
 
 ## Packet 4: joint multinomial ratios
 
+- deterministic CPU reference-class multinomial linear model with strict
+  convergence, held-out log loss, and arbitrary-quota posterior-to-density-ratio
+  reconstruction (implemented; nuisance model only, no certificate authority);
+- cluster-fold orchestration and a restricted-versus-saturated hierarchical
+  design head (not yet wired);
 - FrankenTorch main-effect and interaction models;
 - sampling-offset and intercept contract;
 - posterior calibration;
