@@ -351,6 +351,15 @@ pub mod code {
     /// the incomplete cells carry, so this belongs with the refusals even though a small
     /// shortfall is emitted as a warning.
     pub const INCOMPLETE_COMMON_SUPPORT: &str = "incomplete_common_support";
+    /// Declared cluster is one-to-one with included rows.
+    ///
+    /// Warning, not a refusal: the unit may honestly be the row, but more rows are not
+    /// more experimental units unless that column is the randomization unit.
+    pub const UNITS_ARE_ROWS: &str = "units_are_rows";
+    /// A complete square has fewer than two independent units on at least one corner.
+    ///
+    /// Warning, not a refusal: the design is complete as a catalog. It is not confirmatory.
+    pub const NOT_CONFIRMATORY: &str = "not_confirmatory";
 
     /// Informational codes. These record what a run established, not why it refused.
     ///

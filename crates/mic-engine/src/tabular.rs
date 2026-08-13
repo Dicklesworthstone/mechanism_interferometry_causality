@@ -127,6 +127,8 @@ pub struct TabularInformationContent {
     pub confirmatory_units_per_corner_min: Option<usize>,
     /// Largest included-cluster count among the headline face corners.
     pub confirmatory_units_per_corner_max: Option<usize>,
+    /// True only when a complete square has at least two units on every corner.
+    pub confirmatory: bool,
     /// Reminder that this header is not an arrow.
     pub note: String,
 }
@@ -480,7 +482,11 @@ fn tabular_information_content(
     };
     let confirmatory_units_per_corner_min = corner_counts.iter().copied().min();
     let confirmatory_units_per_corner_max = corner_counts.iter().copied().max();
-    let note = if units_are_rows {
+    let confirmatory = n_complete_testable_squares > 0
+        && confirmatory_units_per_corner_min.is_some_and(|count| count >= 2);
+    let note = if n_complete_testable_squares > 0 && !confirmatory {
+        "Complete as a design, not confirmatory: at least one corner has fewer than two independent units. Collect more units before treating this projection as a confirmation split. Complete squares are design facts, not arrows.".into()
+    } else if units_are_rows {
         "Declared cluster is one-to-one with included rows. Independent units equal row count. More rows are not more experimental units unless that column is the randomization unit. Complete squares are design facts, not arrows.".into()
     } else {
         "Independent units are included clusters, not rows. Complete squares are design facts, not arrows.".into()
@@ -493,6 +499,7 @@ fn tabular_information_content(
         n_complete_testable_squares,
         confirmatory_units_per_corner_min,
         confirmatory_units_per_corner_max,
+        confirmatory,
         note,
     }
 }
@@ -513,8 +520,16 @@ fn record_information_content(info: &TabularInformationContent, ledger: &mut Evi
         ledger.note(
             Severity::Warning,
             "ingest",
-            "units_are_rows",
+            code::UNITS_ARE_ROWS,
             "declared cluster is one-to-one with included rows; more rows are not more experimental units unless that column is the randomization unit",
+        );
+    }
+    if info.n_complete_testable_squares > 0 && !info.confirmatory {
+        ledger.note(
+            Severity::Warning,
+            "four_law",
+            code::NOT_CONFIRMATORY,
+            "complete as a design, not confirmatory: at least one corner has fewer than two independent units",
         );
     }
 }
@@ -539,8 +554,15 @@ fn render_information_content(info: &TabularInformationContent) -> String {
             info.n_independent_units
         )
     };
+    let confirmatory_status = if info.confirmatory {
+        "yes"
+    } else if info.n_complete_testable_squares > 0 {
+        "no — complete as a design, not confirmatory"
+    } else {
+        "no complete square"
+    };
     format!(
-        "Rows: {}.\n{unit_line}\nDistinct supported regimes: {}.\nComplete testable squares: {}.\nConfirmatory units per corner: {}.\n{}",
+        "Rows: {}.\n{unit_line}\nDistinct supported regimes: {}.\nComplete testable squares: {}.\nConfirmatory units per corner: {}.\nConfirmatory: {confirmatory_status}.\n{}",
         info.n_rows,
         info.n_distinct_supported_regimes,
         info.n_complete_testable_squares,
@@ -1150,6 +1172,8 @@ mod tests {
             Some(20)
         );
         assert_eq!(report.four_law[0].clusters_per_corner, [20, 20, 20, 20]);
+        assert!(report.information_content().confirmatory);
+        assert!(narrative.markdown().contains("Confirmatory: yes."));
         assert!(
             narrative
                 .markdown()
@@ -1245,9 +1269,18 @@ mod tests {
         assert_eq!(info.n_complete_testable_squares, 1);
         assert_eq!(info.confirmatory_units_per_corner_min, Some(1));
         assert_eq!(info.confirmatory_units_per_corner_max, Some(1));
+        assert!(!info.confirmatory);
         assert_eq!(report.four_law[0].clusters_per_corner, [1, 1, 1, 1]);
+        assert!(
+            report
+                .ledger()
+                .findings()
+                .iter()
+                .any(|finding| finding.code == code::NOT_CONFIRMATORY)
+        );
         let narrative = report.narrative();
         let markdown = narrative.markdown();
+        assert!(markdown.contains("not confirmatory"));
         assert!(markdown.contains("## Causal information content"));
         assert!(markdown.contains("Rows: 16."));
         assert!(
@@ -1292,6 +1325,14 @@ mod tests {
         assert!(report.four_law.is_empty());
         assert_eq!(report.status(), CertificateStatus::Abstained);
         assert_eq!(report.information_content().n_complete_testable_squares, 0);
+        assert!(!report.information_content().confirmatory);
+        assert!(
+            !report
+                .ledger()
+                .findings()
+                .iter()
+                .any(|finding| finding.code == code::NOT_CONFIRMATORY)
+        );
         assert!(report.information_content().n_rows > 0);
         assert!(
             report

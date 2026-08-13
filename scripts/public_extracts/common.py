@@ -116,6 +116,7 @@ def summarize_survey(report_path: Path) -> dict:
         "recommended_next_corner_kind": info.get("recommended_next_corner_kind"),
         "ranked_next_corners": info.get("ranked_next_corners") or [],
         "units_are_rows": info.get("units_are_rows"),
+        "confirmatory": info.get("confirmatory"),
         "information_content_note": info.get("note"),
         "n_interferometers": len(squares),
         "complete_squares": [item["id"] for item in squares if item["complete"]],

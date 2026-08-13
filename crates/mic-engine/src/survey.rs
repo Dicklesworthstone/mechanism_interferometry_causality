@@ -125,6 +125,8 @@ pub struct CausalInformationContent {
     pub confirmatory_units_per_corner_min: Option<usize>,
     /// Largest retained corner count on the headline interferometer.
     pub confirmatory_units_per_corner_max: Option<usize>,
+    /// True only when a complete square has at least two units on every corner.
+    pub confirmatory: bool,
     /// Ranked next cell on the highest-priority incomplete design, if any.
     pub recommended_next_corner: Option<String>,
     /// Identified-set dimension of that incomplete design.
@@ -569,6 +571,10 @@ fn information_content(
         .iter()
         .find(|item| item.recommended_next_corner.is_some());
     let units_are_rows = unit_basis == ClusterUnitBasis::Row || n_independent_units == n_rows;
+    let confirmatory = is_confirmatory(
+        n_complete_testable_squares,
+        confirmatory_units_per_corner_min,
+    );
     Ok(CausalInformationContent {
         n_rows,
         n_independent_units,
@@ -577,6 +583,7 @@ fn information_content(
         n_complete_testable_squares,
         confirmatory_units_per_corner_min,
         confirmatory_units_per_corner_max,
+        confirmatory,
         recommended_next_corner: incomplete.and_then(|item| item.recommended_next_corner.clone()),
         identified_set_dimension: incomplete.and_then(|item| item.identified_set_dimension),
         recommended_next_corner_cost: incomplete.and_then(|item| item.recommended_next_corner_cost),
@@ -607,8 +614,9 @@ fn survey_next_step(
     let header = format_information_header(info);
     let action = if interferometers.iter().any(|item| item.complete_square) {
         format!(
-            "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Orientation is untestable: this atlas has no same-target tilt family. Do not treat this atlas as orientation.{}",
-            row_unit_clause(info)
+            "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Orientation is untestable: this atlas has no same-target tilt family. Do not treat this atlas as orientation.{}{}",
+            row_unit_clause(info),
+            confirmatory_clause(info)
         )
     } else if let Some(item) = interferometers
         .iter()
@@ -660,12 +668,13 @@ fn format_information_header(info: &CausalInformationContent) -> String {
         _ => "none".into(),
     };
     format!(
-        "Rows: {}. Independent experimental units: {}. Distinct supported regimes: {}. Complete testable squares: {}. Confirmatory units per corner: {}. ",
+        "Rows: {}. Independent experimental units: {}. Distinct supported regimes: {}. Complete testable squares: {}. Confirmatory units per corner: {}. Confirmatory: {}. ",
         info.n_rows,
         info.n_independent_units,
         info.n_distinct_supported_regimes,
         info.n_complete_testable_squares,
-        confirmatory
+        confirmatory,
+        if info.confirmatory { "yes" } else { "no" }
     )
 }
 
@@ -692,6 +701,22 @@ fn row_unit_clause(info: &CausalInformationContent) -> String {
     } else {
         String::new()
     }
+}
+
+fn confirmatory_clause(info: &CausalInformationContent) -> String {
+    if info.n_complete_testable_squares > 0 && !info.confirmatory {
+        " This square is complete as a design, not confirmatory: at least one corner has fewer than two independent units. Collect more units before four-law.".into()
+    } else {
+        String::new()
+    }
+}
+
+fn is_confirmatory(
+    n_complete_testable_squares: usize,
+    confirmatory_units_per_corner_min: Option<usize>,
+) -> bool {
+    n_complete_testable_squares > 0
+        && confirmatory_units_per_corner_min.is_some_and(|count| count >= 2)
 }
 
 fn extension_note(base: &str, missing: &[String], dropped: &[String]) -> String {
@@ -923,6 +948,8 @@ mod tests {
         assert!(report.information_content.n_complete_testable_squares >= 1);
         assert_eq!(report.information_content.n_distinct_supported_regimes, 4);
         assert!(report.information_content.units_are_rows);
+        assert!(report.information_content.confirmatory);
+        assert!(report.next_step.contains("Confirmatory: yes."));
         assert!(
             report
                 .information_content
@@ -1168,6 +1195,47 @@ mod tests {
                 .next_step
                 .contains("Independent unit is a row: more rows are not more experimental units")
         );
+        assert!(!report.information_content.confirmatory);
+        assert_eq!(report.information_content.n_complete_testable_squares, 0);
+    }
+
+    #[test]
+    fn one_unit_per_corner_is_complete_not_confirmatory() {
+        let dir = std::env::temp_dir().join("mic-survey-not-confirmatory");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("thin.csv");
+        std::fs::write(
+            &path,
+            "cluster_id,regime,x\n\
+             c00,00,0\n\
+             c10,10,0\n\
+             c01,01,0\n\
+             c11,11,0\n",
+        )
+        .unwrap();
+        let policy = SurveyPolicy {
+            min_corner_count: 1,
+            ..SurveyPolicy::default()
+        };
+        let report = run_unsupervised_survey(&path, None, Some("cluster_id"), policy).unwrap();
+        assert!(
+            report
+                .interferometers
+                .iter()
+                .any(|item| item.complete_square)
+        );
+        assert_eq!(report.information_content.n_independent_units, 4);
+        assert_eq!(
+            report.information_content.confirmatory_units_per_corner_min,
+            Some(1)
+        );
+        assert!(!report.information_content.confirmatory);
+        assert!(
+            report
+                .next_step
+                .contains("complete as a design, not confirmatory")
+        );
+        assert!(report.next_step.contains("Confirmatory: no."));
     }
 
     #[test]
