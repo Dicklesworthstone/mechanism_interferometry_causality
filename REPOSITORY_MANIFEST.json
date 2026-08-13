@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-13T03:05:58Z",
+  "generated_at_utc": "2026-08-13T03:21:10Z",
   "hash_algorithm": "sha256",
   "file_count": 186,
-  "aggregate_sha256": "b5db5ed33c07f01ff33101a787ec5b60dcbe42925767ccaef642f18d9844866d",
+  "aggregate_sha256": "3be62ad049adc0013894233f2642775691c465edf7a191e066fc2dd4bc1d216f",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -43,8 +43,8 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 59049,
-      "sha256": "d6eb2e7ff3bf777bc0adb2c65e26717eec4d337b45cb7cb28c81fcde17cd33fe"
+      "bytes": 59036,
+      "sha256": "0a59511a46304232af510c3d2958a74e8da791cfed782847226344dc9c3bf71b"
     },
     {
       "path": "Cargo.toml",
@@ -58,13 +58,13 @@
     },
     {
       "path": "Makefile",
-      "bytes": 572,
-      "sha256": "cb2d7b0c3e3597b31a21361fbd0f1bee690f0b84c969180736a1b96814147355"
+      "bytes": 924,
+      "sha256": "d0147c6028c8bed6d85325ea55f5ad8cca4429754fca97e70a5270391b8a972a"
     },
     {
       "path": "README.md",
-      "bytes": 12420,
-      "sha256": "96aece02bb42ec4a3adc30206a5b601bc8d50f8653ef51566a967d40b2502f68"
+      "bytes": 12572,
+      "sha256": "975a7c6d4dad78938b27324d59a7d7840adad73e456e9d5216f5699e525d1f17"
     },
     {
       "path": "artifacts/simulations/exact_results.json",
@@ -173,23 +173,23 @@
     },
     {
       "path": "crates/mic-engine/src/lib.rs",
-      "bytes": 41371,
-      "sha256": "83e1d4f10dc30e7aa6e0c87ce1cc20bade3bccde81e4ce53b0bc3e5879687cd5"
+      "bytes": 41398,
+      "sha256": "9ec9f628aaa359f9a803c5e377e6c5f37b505313ae18df20a80e547130374807"
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 48589,
-      "sha256": "7887644d2e1a55ee118fa7fe4931ce85cd8e809ede5f1d435c6be975631e30fa"
+      "bytes": 48645,
+      "sha256": "3d8b2936c3475536ee93753084b497c7746b19578219c58c6381af1c15eabd15"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
-      "bytes": 43037,
-      "sha256": "238ed8256ca22f3b30551e7cab2c2a1bcb85558dc0d8c90e89c82d371581a6da"
+      "bytes": 53692,
+      "sha256": "f87828f89931824291e31a1d4940f4c916d80be0b6fbb1e5dac5f9e13245fabf"
     },
     {
       "path": "crates/mic-model/Cargo.toml",
-      "bytes": 657,
-      "sha256": "65da1ed099d7e6e0028876f55e8ca8268a174f2b01ef67f760f5101e073ae529"
+      "bytes": 621,
+      "sha256": "a47c083504aa5486a0feb2338c8eabacc000201e23aa4d7ae7cf10d00ae30458"
     },
     {
       "path": "crates/mic-model/src/closure.rs",
@@ -198,18 +198,18 @@
     },
     {
       "path": "crates/mic-model/src/crossfit.rs",
-      "bytes": 17337,
-      "sha256": "37c8492cf5e5a97818e5a3a82f2a7914c1fcfcc2b9dfee6b85f5b76cc9dfdb0f"
+      "bytes": 28573,
+      "sha256": "d2a482ce055dec2d72e525e9d8170a96a9f3bf2f86e871635e64ff2a4ac3147d"
     },
     {
       "path": "crates/mic-model/src/finite_completion.rs",
-      "bytes": 37893,
-      "sha256": "c9b59d7db2f76e11856db583d57711741ddb16e4304ede861a55638535895149"
+      "bytes": 39804,
+      "sha256": "7f71a25dde2e200a5b4f891f1286d2a92c41aa8d80551f70c869e4b4b62c6cb0"
     },
     {
       "path": "crates/mic-model/src/lib.rs",
-      "bytes": 6963,
-      "sha256": "57b0e74ea7435ecb8395ac0f0a58d4ec537ed66010835a143f984fa09429d5d7"
+      "bytes": 6990,
+      "sha256": "7a666aae3977a8bfa9d773c329dce8b894a61d32f459af47449b834b34480a39"
     },
     {
       "path": "crates/mic-model/src/multinomial.rs",
@@ -313,8 +313,8 @@
     },
     {
       "path": "docs/INFERENCE_PROTOCOL.md",
-      "bytes": 14363,
-      "sha256": "af829f16c004dd3be44bcdfb764a0b88faf8023f12909058425cd42117f1d5b1"
+      "bytes": 14615,
+      "sha256": "1af443efc85f3f902046c314d9714ad568a86a5fb870c32ade1f779e7e05dc5e"
     },
     {
       "path": "docs/PARTIAL_DESIGNS.md",
@@ -328,8 +328,8 @@
     },
     {
       "path": "docs/ROADMAP.md",
-      "bytes": 6808,
-      "sha256": "743dc318dd90fb3f97d3642f4a7a5f848828759b63ee7dec545a551fa2aa9c9e"
+      "bytes": 6933,
+      "sha256": "4bca7a93f6a1bbcd0895e8bdc1eeb66784e6246d02617ef3e099799cab7e60b6"
     },
     {
       "path": "docs/SECURITY_AND_REPRODUCIBILITY.md",
@@ -338,8 +338,8 @@
     },
     {
       "path": "docs/SELF_DRIVING_CAMPAIGN.md",
-      "bytes": 25230,
-      "sha256": "a8a437083ec63237eda7158bf8c39d0eac6bc14f6ca52c2b521728eae460d1d4"
+      "bytes": 25426,
+      "sha256": "26ad14e94bc09e0d5e84058e7fa353dce833e5578ec46fbad6d6b35568cfb3f3"
     },
     {
       "path": "examples/README.md",
@@ -648,13 +648,13 @@
     },
     {
       "path": "paper/main.pdf",
-      "bytes": 568945,
-      "sha256": "5fba35ef9d45ff2e519a12197a21f394681a21a29b37ebf79b6727ee79acfe86"
+      "bytes": 569628,
+      "sha256": "a9bce0f7744aada4da5699a60208a540251cad84557da8b5b4d4a81003d58e7c"
     },
     {
       "path": "paper/main.tex",
-      "bytes": 110427,
-      "sha256": "5e626eaf07b55553f15e5dfbc81f1eb591f3a73a5cc89e993cc907982c935eb9"
+      "bytes": 110497,
+      "sha256": "eb47cb03c0d5fe071b1a664a1037ec42f99e2457c975a3211cad9685f1f9ef57"
     },
     {
       "path": "paper/references.bib",
@@ -768,8 +768,8 @@
     },
     {
       "path": "scripts/build_all.sh",
-      "bytes": 839,
-      "sha256": "6684d4248b00079227fffa140472bf266b5529fc1f15507f9496635bbd8fd67b"
+      "bytes": 1551,
+      "sha256": "2c6dde0da68656dbca3d00f0f6d8f0c62eca781b960daa78622429733fe24967"
     },
     {
       "path": "scripts/build_wasm.sh",
@@ -798,8 +798,8 @@
     },
     {
       "path": "scripts/package_release.sh",
-      "bytes": 1331,
-      "sha256": "1e251f85ede4d4370784a76cc5bfa151fe14aafd02630235bb63b622713f885a"
+      "bytes": 2019,
+      "sha256": "4a8c0392ef54cf56978871676637594d7000ab7b05da6a27e921ec0484ac2231"
     },
     {
       "path": "scripts/public_extracts/README.md",
@@ -843,8 +843,8 @@
     },
     {
       "path": "scripts/serve_site.sh",
-      "bytes": 267,
-      "sha256": "4c2ea2358c7b83539f0a33b59dad21a60b0c0dd21ebd87cbea27d9156194be70"
+      "bytes": 955,
+      "sha256": "94b28ddc76ed313681918bfa6f83cad9b51811342b69a693993cb9eafa6f669d"
     },
     {
       "path": "site/README.md",
@@ -898,8 +898,8 @@
     },
     {
       "path": "site/mechanism_interferometry.pdf",
-      "bytes": 568945,
-      "sha256": "5fba35ef9d45ff2e519a12197a21f394681a21a29b37ebf79b6727ee79acfe86"
+      "bytes": 569628,
+      "sha256": "a9bce0f7744aada4da5699a60208a540251cad84557da8b5b4d4a81003d58e7c"
     },
     {
       "path": "site/pkg/mic.d.ts",
