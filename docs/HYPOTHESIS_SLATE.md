@@ -35,7 +35,9 @@ evaluates a supplied log-law rectangle. `audit_rectangle_laws` scores every
 observed rectangle under supplied log-laws and stays diagnostic even when all
 are flat. Incomplete-survey `next_step` names the ranked next corner and its
 default cost. Multi-level ranking accepts the same cost map. The survey
-information-content header now carries the headline next corner. Still blocked:
+information-content header now carries the headline next corner, its kind
+(never-seen vs under-supported), and a ranked list of at most three cells.
+Still blocked:
 RoseLark's identified-set *theorem*,
 the gated estimator, Chambers hidden-sensor collection, dictionary learning,
 tomography. Γ-intervals do not refute H-002.

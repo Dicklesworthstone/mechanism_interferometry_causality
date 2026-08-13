@@ -131,6 +131,10 @@ pub struct CausalInformationContent {
     pub identified_set_dimension: Option<usize>,
     /// Integer cost of the recommended cell (default 1000).
     pub recommended_next_corner_cost: Option<u32>,
+    /// Never-seen versus under-supported for that cell.
+    pub recommended_next_corner_kind: Option<NextCornerKind>,
+    /// Top ranked cells from the headline incomplete design, at most three.
+    pub ranked_next_corners: Vec<NextCornerCandidate>,
     /// Reminder that this header is not an arrow.
     pub note: String,
 }
@@ -574,6 +578,10 @@ fn information_content(
             .and_then(|item| item.recommended_next_corner.clone()),
         identified_set_dimension: incomplete.and_then(|item| item.identified_set_dimension),
         recommended_next_corner_cost: incomplete.and_then(|item| item.recommended_next_corner_cost),
+        recommended_next_corner_kind: incomplete.and_then(|item| item.recommended_next_corner_kind),
+        ranked_next_corners: incomplete
+            .map(|item| item.ranked_next_corners.clone())
+            .unwrap_or_default(),
         note: "Independent units are clusters when a unit column is declared or inferred, otherwise rows. Complete squares are design facts, not arrows.".into(),
     })
 }
@@ -989,6 +997,11 @@ mod tests {
             report.information_content.recommended_next_corner_cost,
             Some(1000)
         );
+        assert_eq!(
+            report.information_content.recommended_next_corner_kind,
+            Some(NextCornerKind::NeverSeen)
+        );
+        assert_eq!(report.information_content.ranked_next_corners.len(), 1);
     }
 
     #[test]
@@ -1020,6 +1033,10 @@ mod tests {
         assert!(!square.note.contains("never-seen corners [11]"));
         assert_eq!(
             square.recommended_next_corner_kind,
+            Some(NextCornerKind::UnderSupported)
+        );
+        assert_eq!(
+            report.information_content.recommended_next_corner_kind,
             Some(NextCornerKind::UnderSupported)
         );
         assert!(report.next_step.contains("under-supported"));
@@ -1079,6 +1096,7 @@ mod tests {
         .unwrap();
         assert_atlas_only_complete_pair(&report, "elev", "season");
         assert!(report.information_content.recommended_next_corner.is_none());
+        assert!(report.information_content.ranked_next_corners.is_empty());
     }
 
     /// S2b: season moves temperature and moisture. Still atlas-only.

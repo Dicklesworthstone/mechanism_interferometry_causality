@@ -113,6 +113,8 @@ def summarize_survey(report_path: Path) -> dict:
         "recommended_next_corner": info.get("recommended_next_corner"),
         "identified_set_dimension": info.get("identified_set_dimension"),
         "recommended_next_corner_cost": info.get("recommended_next_corner_cost"),
+        "recommended_next_corner_kind": info.get("recommended_next_corner_kind"),
+        "ranked_next_corners": info.get("ranked_next_corners") or [],
         "n_interferometers": len(squares),
         "complete_squares": [item["id"] for item in squares if item["complete"]],
         "has_direction_scout": "direction_scout" in data and data["direction_scout"] is not None,
