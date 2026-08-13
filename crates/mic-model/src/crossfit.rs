@@ -2,8 +2,9 @@
 //! Cluster-honest cross-fitting for the four-corner closure diagnostic.
 //!
 //! Fold assignment is deterministic from a recorded seed. A cluster is never
-//! split, every cluster receives equal total weight, and every training and
-//! confirmation fold must contain all four corners. The resulting proper-loss
+//! split, every cluster receives equal weight within its corner, declared
+//! corner pooling mass matches the classifier offsets, and every training and
+//! confirmation fold contains all four corners. The resulting proper-loss
 //! advantage remains diagnostic: this module does not calibrate a hypothesis
 //! test or issue causal authority.
 

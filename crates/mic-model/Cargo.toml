@@ -17,7 +17,6 @@ serde.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 mic-core = { path = "../mic-core" }
-mic-data = { path = "../mic-data" }
 mic-design = { path = "../mic-design" }
 ft-api = { workspace = true, optional = true }
 fnp-ndarray = { workspace = true, optional = true }
