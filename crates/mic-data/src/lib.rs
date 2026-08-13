@@ -98,6 +98,7 @@ pub type SelectionContract = SelectionDeclaration;
 
 /// One regime/corner declaration.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct RegimeSpec {
     /// Stable regime identifier.
     pub id: String,
@@ -112,6 +113,7 @@ pub struct RegimeSpec {
 
 /// Data source declaration.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct DataSource {
     /// CSV, Parquet, Arrow, JSONL, or synthetic.
     pub format: String,
@@ -121,6 +123,7 @@ pub struct DataSource {
 
 /// Complete experiment manifest.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct ExperimentManifest {
     /// Schema version.
     pub schema_version: String,
