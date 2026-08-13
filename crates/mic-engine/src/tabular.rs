@@ -103,6 +103,32 @@ pub struct FourLawFaceAudit {
     pub max_abs_delta: f64,
     /// Mean `|δ|` under empirical `P_0`.
     pub mean_abs_delta: f64,
+    /// Included clusters observed at corners `00, 10, 01, 11`.
+    pub clusters_per_corner: [usize; 4],
+}
+
+/// Rows-versus-units header for a four-law tabular run.
+///
+/// A million cells with three replicates is three units. This header is a
+/// design-support count, not an arrow.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TabularInformationContent {
+    /// Raw table rows, including excluded ones.
+    pub n_rows: usize,
+    /// Distinct included clusters. This is the independent-unit count.
+    pub n_independent_units: usize,
+    /// True when each included row is its own cluster.
+    pub units_are_rows: bool,
+    /// Declared regimes with at least one included cluster.
+    pub n_distinct_supported_regimes: usize,
+    /// Complete square faces that were actually projected.
+    pub n_complete_testable_squares: usize,
+    /// Smallest included-cluster count among the headline face corners.
+    pub confirmatory_units_per_corner_min: Option<usize>,
+    /// Largest included-cluster count among the headline face corners.
+    pub confirmatory_units_per_corner_max: Option<usize>,
+    /// Reminder that this header is not an arrow.
+    pub note: String,
 }
 
 /// Complete tabular audit: preflight, ingest, four-law projection, overlap.
@@ -120,6 +146,8 @@ pub struct TabularAuditReport {
     preflight: PreflightReport,
     /// Table fingerprints and realized quotas.
     ingest: TabularIngestSummary,
+    /// Rows, independent units, regimes, and complete squares.
+    information_content: TabularInformationContent,
     /// Four-law faces. Empty when ingest or preflight blocked the projection.
     four_law: Vec<FourLawFaceAudit>,
     /// Overlap audit on baseline ratio weights, if they could be formed.
@@ -173,6 +201,12 @@ impl TabularAuditReport {
         &self.ingest
     }
 
+    /// Returns the rows-versus-units header.
+    #[must_use]
+    pub const fn information_content(&self) -> &TabularInformationContent {
+        &self.information_content
+    }
+
     /// Returns the projected four-law faces.
     #[must_use]
     pub fn four_law(&self) -> &[FourLawFaceAudit] {
@@ -195,6 +229,10 @@ impl TabularAuditReport {
     #[must_use]
     pub fn narrative(&self) -> NarrativeReport {
         let mut extra = Vec::new();
+        extra.push((
+            "Causal information content",
+            render_information_content(&self.information_content),
+        ));
         extra.push((
             "Ingest",
             format!(
@@ -389,6 +427,8 @@ fn finish(
     mut ledger: EvidenceLedger,
 ) -> TabularAuditReport {
     ledger.provenance("projection", "histogram_cluster_weighted");
+    let information_content = tabular_information_content(&ingest, &four_law);
+    record_information_content(&information_content, &mut ledger);
     ledger.note(
         Severity::Info,
         "certificate",
@@ -406,11 +446,107 @@ fn finish(
         gates,
         preflight,
         ingest,
+        information_content,
         four_law,
         overlap,
         projection,
         ledger,
     }
+}
+
+fn tabular_information_content(
+    ingest: &TabularIngestSummary,
+    four_law: &[FourLawFaceAudit],
+) -> TabularInformationContent {
+    let n_rows = ingest.fingerprint.n_rows;
+    let n_independent_units = ingest.fingerprint.n_included_clusters;
+    let units_are_rows = ingest.fingerprint.n_included_rows > 0
+        && n_independent_units == ingest.fingerprint.n_included_rows;
+    let n_distinct_supported_regimes = ingest
+        .regime_counts
+        .iter()
+        .filter(|regime| regime.n_included_clusters > 0)
+        .count();
+    let n_complete_testable_squares = four_law.len();
+    let corner_counts: Vec<usize> = if let Some(face) = four_law.first() {
+        face.clusters_per_corner.to_vec()
+    } else {
+        ingest
+            .regime_counts
+            .iter()
+            .filter(|regime| regime.n_included_clusters > 0)
+            .map(|regime| regime.n_included_clusters)
+            .collect()
+    };
+    let confirmatory_units_per_corner_min = corner_counts.iter().copied().min();
+    let confirmatory_units_per_corner_max = corner_counts.iter().copied().max();
+    let note = if units_are_rows {
+        "Declared cluster is one-to-one with included rows. Independent units equal row count. More rows are not more experimental units unless that column is the randomization unit. Complete squares are design facts, not arrows.".into()
+    } else {
+        "Independent units are included clusters, not rows. Complete squares are design facts, not arrows.".into()
+    };
+    TabularInformationContent {
+        n_rows,
+        n_independent_units,
+        units_are_rows,
+        n_distinct_supported_regimes,
+        n_complete_testable_squares,
+        confirmatory_units_per_corner_min,
+        confirmatory_units_per_corner_max,
+        note,
+    }
+}
+
+fn record_information_content(info: &TabularInformationContent, ledger: &mut EvidenceLedger) {
+    ledger.provenance("n_rows", info.n_rows.to_string());
+    ledger.provenance("n_independent_units", info.n_independent_units.to_string());
+    ledger.provenance("units_are_rows", info.units_are_rows.to_string());
+    ledger.provenance(
+        "n_distinct_supported_regimes",
+        info.n_distinct_supported_regimes.to_string(),
+    );
+    ledger.provenance(
+        "n_complete_testable_squares",
+        info.n_complete_testable_squares.to_string(),
+    );
+    if info.units_are_rows {
+        ledger.note(
+            Severity::Warning,
+            "ingest",
+            "units_are_rows",
+            "declared cluster is one-to-one with included rows; more rows are not more experimental units unless that column is the randomization unit",
+        );
+    }
+}
+
+fn render_information_content(info: &TabularInformationContent) -> String {
+    let confirmatory = match (
+        info.confirmatory_units_per_corner_min,
+        info.confirmatory_units_per_corner_max,
+    ) {
+        (Some(min), Some(max)) if min == max => min.to_string(),
+        (Some(min), Some(max)) => format!("{min}–{max}"),
+        _ => "none".into(),
+    };
+    let unit_line = if info.units_are_rows {
+        format!(
+            "Independent experimental units: {} (declared cluster is one-to-one with included rows; more rows are not more experimental units unless that column is the randomization unit).",
+            info.n_independent_units
+        )
+    } else {
+        format!(
+            "Independent experimental units: {} (included clusters, not rows).",
+            info.n_independent_units
+        )
+    };
+    format!(
+        "Rows: {}.\n{unit_line}\nDistinct supported regimes: {}.\nComplete testable squares: {}.\nConfirmatory units per corner: {}.\n{}",
+        info.n_rows,
+        info.n_distinct_supported_regimes,
+        info.n_complete_testable_squares,
+        confirmatory,
+        info.note
+    )
 }
 
 fn record_ingest(
@@ -711,6 +847,7 @@ fn audit_face(
         mean_abs_kappa,
         max_abs_delta,
         mean_abs_delta,
+        clusters_per_corner: regime_cluster_count,
     })
 }
 
@@ -836,6 +973,14 @@ fn record_face(face: &FourLawFaceAudit, ledger: &mut EvidenceLedger) {
     );
     context.insert("scalar_moment".into(), format!("{:.6}", face.scalar_moment));
     context.insert("incomplete_cells".into(), face.incomplete_cells.to_string());
+    context.insert(
+        "clusters_per_corner".into(),
+        face.clusters_per_corner
+            .iter()
+            .map(usize::to_string)
+            .collect::<Vec<_>>()
+            .join(","),
+    );
     context.insert(
         "omitted_baseline_mass".into(),
         format!("{:.6}", face.omitted_baseline_mass),
@@ -987,6 +1132,41 @@ mod tests {
                     .find("## Informational findings")
                     .unwrap()
         );
+        assert_eq!(report.information_content().n_rows, 80);
+        assert_eq!(report.information_content().n_independent_units, 80);
+        assert!(report.information_content().units_are_rows);
+        assert_eq!(report.information_content().n_distinct_supported_regimes, 4);
+        assert_eq!(report.information_content().n_complete_testable_squares, 1);
+        assert_eq!(
+            report
+                .information_content()
+                .confirmatory_units_per_corner_min,
+            Some(20)
+        );
+        assert_eq!(
+            report
+                .information_content()
+                .confirmatory_units_per_corner_max,
+            Some(20)
+        );
+        assert_eq!(report.four_law[0].clusters_per_corner, [20, 20, 20, 20]);
+        assert!(
+            narrative
+                .markdown()
+                .contains("## Causal information content")
+        );
+        assert!(
+            narrative
+                .markdown()
+                .contains("more rows are not more experimental units")
+        );
+        assert!(
+            narrative
+                .markdown()
+                .find("## Causal information content")
+                .unwrap()
+                < narrative.markdown().find("## Ingest").unwrap()
+        );
     }
 
     #[test]
@@ -1004,6 +1184,82 @@ mod tests {
         assert!(face.scalar_moment.abs() < 1e-12);
         assert!((face.normalizer_a - 1.0).abs() < 1e-12);
         assert_eq!(report.status(), CertificateStatus::Abstained);
+        assert_eq!(report.information_content().n_rows, 80);
+        assert_eq!(report.information_content().n_independent_units, 80);
+        assert!(report.information_content().units_are_rows);
+        assert_eq!(report.information_content().n_complete_testable_squares, 1);
+        assert_eq!(face.clusters_per_corner, [20, 20, 20, 20]);
+    }
+
+    #[test]
+    fn duplicated_rows_inside_a_cluster_do_not_inflate_units() {
+        let dir = std::env::temp_dir().join("mic-engine-row-vs-unit");
+        std::fs::create_dir_all(&dir).unwrap();
+        let csv = dir.join("units.csv");
+        std::fs::write(
+            &csv,
+            "cluster_id,regime,x,included\n\
+             c00,00,0,1\nc00,00,1,1\nc00,00,0,1\nc00,00,1,1\n\
+             c10,10,0,1\nc10,10,1,1\nc10,10,0,1\nc10,10,1,1\n\
+             c01,01,0,1\nc01,01,1,1\nc01,01,0,1\nc01,01,1,1\n\
+             c11,11,0,1\nc11,11,1,1\nc11,11,0,1\nc11,11,1,1\n",
+        )
+        .unwrap();
+        let manifest = ExperimentManifest {
+            schema_version: "1.0.0".into(),
+            experiment_id: "row-vs-unit".into(),
+            strict: true,
+            inference_track: InferenceTrack::FourLaw,
+            selection: SelectionContract::StateIndependentWithinRegime,
+            cluster_column: "cluster_id".into(),
+            regime_column: "regime".into(),
+            state_columns: vec!["x".into()],
+            candidate_state_blocks: Vec::new(),
+            regimes: ["00", "10", "01", "11"]
+                .iter()
+                .map(|label| RegimeSpec {
+                    id: (*label).into(),
+                    design: DesignPoint::parse(label).unwrap(),
+                    sampling_proportion: 0.25,
+                    perturbations: Vec::new(),
+                })
+                .collect(),
+            data: DataSource {
+                format: "csv".into(),
+                path: csv,
+            },
+            seed: 13,
+        };
+        let report = run_tabular_audit(
+            &manifest,
+            FourLawPolicy::default(),
+            PreflightPolicy::default(),
+            None,
+        )
+        .unwrap();
+        let info = report.information_content();
+        assert_eq!(info.n_rows, 16);
+        assert_eq!(info.n_independent_units, 4);
+        assert!(!info.units_are_rows);
+        assert_eq!(info.n_distinct_supported_regimes, 4);
+        assert_eq!(info.n_complete_testable_squares, 1);
+        assert_eq!(info.confirmatory_units_per_corner_min, Some(1));
+        assert_eq!(info.confirmatory_units_per_corner_max, Some(1));
+        assert_eq!(report.four_law[0].clusters_per_corner, [1, 1, 1, 1]);
+        let markdown = report.narrative().markdown();
+        assert!(markdown.contains("## Causal information content"));
+        assert!(markdown.contains("Rows: 16."));
+        assert!(
+            markdown.contains("Independent experimental units: 4 (included clusters, not rows).")
+        );
+        assert!(markdown.contains("Complete testable squares: 1."));
+        assert!(
+            !report
+                .ledger()
+                .findings()
+                .iter()
+                .any(|finding| finding.code == "units_are_rows")
+        );
     }
 
     #[test]
@@ -1034,6 +1290,14 @@ mod tests {
         assert!(!report.preflight.four_law_eligible);
         assert!(report.four_law.is_empty());
         assert_eq!(report.status(), CertificateStatus::Abstained);
+        assert_eq!(report.information_content().n_complete_testable_squares, 0);
+        assert!(report.information_content().n_rows > 0);
+        assert!(
+            report
+                .narrative()
+                .markdown()
+                .contains("Complete testable squares: 0.")
+        );
     }
 
     #[test]

@@ -21,7 +21,7 @@ pub use survey::{
 };
 pub use tabular::{
     CellCurvature, ColumnProjection, FourLawFaceAudit, FourLawPolicy, ProjectionSpec,
-    TabularAuditReport, TabularIngestSummary, run_tabular_audit,
+    TabularAuditReport, TabularInformationContent, TabularIngestSummary, run_tabular_audit,
 };
 
 /// Numerical and policy settings for preflight validation.
