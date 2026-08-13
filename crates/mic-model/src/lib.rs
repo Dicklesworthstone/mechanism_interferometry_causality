@@ -33,7 +33,7 @@ impl PosteriorSquare {
         let sampling =
             audit_sampling_odds(rho, 0.0).map_err(|error| ModelError::Design(error.to_string()))?;
         let [q00, q10, q01, q11] = self.q;
-        let conditional_log_or = (q11 * q00 / (q10 * q01)).ln();
+        let conditional_log_or = q11.ln() + q00.ln() - q10.ln() - q01.ln();
         Ok(conditional_log_or - sampling.log_odds_ratio)
     }
 }
@@ -178,5 +178,16 @@ mod tests {
         let rho = [0.1, 0.2, 0.3, 0.4];
         let q = PosteriorSquare { q: rho };
         assert!(q.density_curvature(rho).unwrap().abs() < 1e-14);
+    }
+
+    #[test]
+    fn posterior_curvature_is_stable_for_tiny_probabilities() {
+        let q = PosteriorSquare {
+            q: [1e-300, 1e-300, 1e-300, 1.0 - 3e-300],
+        };
+        let rho = [0.25; 4];
+        let curvature = q.density_curvature(rho).unwrap();
+        assert!(curvature.is_finite());
+        assert!((curvature - 300.0 * 10.0_f64.ln()).abs() < 1e-12);
     }
 }
