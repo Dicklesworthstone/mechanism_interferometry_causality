@@ -92,8 +92,8 @@
           "conventional_scale",
           "general_linear_mixing",
           "rank_degeneracy",
-          "almost_everywhere_support_aliasing"
-          ,"external_atom_independence_unverified"
+          "almost_everywhere_support_aliasing",
+          "external_atom_independence_unverified"
         ]
       }
     },

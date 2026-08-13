@@ -72,7 +72,7 @@ pub struct DictionarySearchBudget {
 }
 
 /// Immutable preregistered plan for an algebraic dictionary search.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct DictionarySearchPlan {
     /// Plan schema version. Currently `1.0.0`.
@@ -477,7 +477,9 @@ pub fn freeze_transport_dictionary_proposal(
         require_opaque("attempt_id", &attempt.attempt_id, "attempt_")?;
         require_sha256("attempt specification", &attempt.specification_sha256)?;
         if attempt.specification_sha256 != *planned_sha256 {
-            return invalid("attempt outcome is detached from the preregistered specification library");
+            return invalid(
+                "attempt outcome is detached from the preregistered specification library",
+            );
         }
         if previous_attempt.is_some_and(|previous| previous >= attempt.attempt_id.as_str()) {
             return invalid("attempt identifiers must be unique and lexically sorted");
@@ -630,7 +632,9 @@ fn validate_plan(plan: &DictionarySearchPlan) -> Result<(), ProposalError> {
             .windows(2)
             .all(|pair| pair[0] < pair[1])
     {
-        return invalid("attempt specification library must be nonempty, sorted, unique, and within budget");
+        return invalid(
+            "attempt specification library must be nonempty, sorted, unique, and within budget",
+        );
     }
     let budget = &plan.budget;
     if !(1..=MAX_ATTEMPTS).contains(&budget.max_attempts)
@@ -893,7 +897,9 @@ fn validate_candidate(
                 return invalid("unknown-code case conflicts with the preregistered code policy");
             }
             if *observed_design_rank != code_rank {
-                return invalid("unknown-code claimed rank disagrees with the displayed code matrix");
+                return invalid(
+                    "unknown-code claimed rank disagrees with the displayed code matrix",
+                );
             }
             ambiguities.insert(DictionaryAmbiguity::GeneralLinearMixing);
             if code_rank < n_atoms {
@@ -985,9 +991,7 @@ fn require_anchor_codes(
             .iter()
             .find(|row| row.environment_id == *identifier)
             .ok_or_else(|| {
-                ProposalError::InvalidDictionaryContract(
-                    "pure-anchor environment is absent".into(),
-                )
+                ProposalError::InvalidDictionaryContract("pure-anchor environment is absent".into())
             })?;
         if row
             .coefficients
@@ -1010,8 +1014,11 @@ fn matrix_rank(matrix: &[Vec<f64>], tolerance: f64) -> usize {
     let columns = work[0].len();
     let mut rank = 0usize;
     for column in 0..columns {
-        let pivot = (rank..rows)
-            .max_by(|left, right| work[*left][column].abs().total_cmp(&work[*right][column].abs()));
+        let pivot = (rank..rows).max_by(|left, right| {
+            work[*left][column]
+                .abs()
+                .total_cmp(&work[*right][column].abs())
+        });
         let Some(pivot) = pivot.filter(|pivot| work[*pivot][column].abs() > tolerance) else {
             continue;
         };

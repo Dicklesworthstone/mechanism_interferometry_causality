@@ -193,11 +193,17 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["case", "observed_edge_rank", "marked_zero"],
+          "required": [
+            "case",
+            "observed_edge_rank",
+            "marked_zero",
+            "edge_function_independence_verified"
+          ],
           "properties": {
             "case": { "const": "complete_binary_cube" },
             "observed_edge_rank": { "type": "integer", "minimum": 0, "maximum": 64 },
-            "marked_zero": { "type": "boolean" }
+            "marked_zero": { "type": "boolean" },
+            "edge_function_independence_verified": { "const": false }
           }
         },
         {
