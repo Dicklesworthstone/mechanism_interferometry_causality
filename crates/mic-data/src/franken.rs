@@ -433,6 +433,25 @@ mod tests {
         }
     }
 
+    /// A BOM-prefixed file must load, and load identically, under both backends.
+    ///
+    /// Before the standard reader stripped the mark, the two disagreed on the failure:
+    /// the standard path reported a missing `cluster_id` while the adapter reported a
+    /// missing `\u{feff}cluster_id`, because the sibling drops the mark from its header
+    /// and the standard tokenizer did not.
+    #[test]
+    fn byte_order_mark_agrees_across_backends() {
+        let path = write_fixture(
+            "bom.csv",
+            "\u{feff}cluster_id,regime,x,included\nc0,base,0.5,1\nc1,a,0.25,1\n",
+        );
+        let manifest = manifest_for(&path);
+        let std_report = load_csv_table(&manifest, None, 2).unwrap();
+        let franken_report = load_csv_table_franken(&manifest, None, 2).unwrap();
+        assert_eq!(std_report.fingerprint.n_rows, 2);
+        assert_eq!(std_report, franken_report);
+    }
+
     /// A CRLF file must load, and load identically, under both backends.
     #[test]
     fn crlf_line_endings_agree_across_backends() {

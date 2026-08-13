@@ -141,6 +141,20 @@ pub enum TableError {
     },
 }
 
+/// Strips a leading UTF-8 byte-order mark.
+///
+/// Spreadsheet exports routinely prepend one, and without this the first header name
+/// silently carries an invisible `U+FEFF`. The column lookup then misses, and the run
+/// fails with "missing required column `cluster_id`" naming a column that is plainly
+/// present in the file — a confusing failure for a very common input. Stripping it here
+/// keeps the header names the reader sees identical to the ones a human sees.
+///
+/// The content fingerprint is taken over the raw bytes before this runs, so the recorded
+/// hash still identifies the file exactly as delivered.
+fn strip_bom(text: &str) -> &str {
+    text.strip_prefix('\u{feff}').unwrap_or(text)
+}
+
 /// Loads a CSV declared by the manifest and fingerprints rows and clusters.
 pub fn load_csv_table(
     manifest: &ExperimentManifest,
@@ -164,7 +178,7 @@ pub fn load_csv_table(
         row: 0,
         message: "csv is not valid UTF-8".into(),
     })?;
-    let mut lines = text.lines();
+    let mut lines = strip_bom(&text).lines();
     let header_line = lines.next().ok_or(TableError::EmptyTable)?;
     let headers =
         parse_csv_line(header_line).map_err(|message| TableError::Parse { row: 0, message })?;
@@ -282,7 +296,7 @@ pub fn load_raw_csv(
         row: 0,
         message: "csv is not valid UTF-8".into(),
     })?;
-    let mut lines = text.lines();
+    let mut lines = strip_bom(&text).lines();
     let header_line = lines.next().ok_or(TableError::EmptyTable)?;
     let headers =
         parse_csv_line(header_line).map_err(|message| TableError::Parse { row: 0, message })?;
@@ -623,7 +637,7 @@ fn parse_flag(raw: &str, row: usize) -> Result<bool, TableError> {
 pub(crate) fn tokenize_csv_with_std_rules(
     text: &str,
 ) -> Result<(Vec<String>, Vec<Vec<String>>), TableError> {
-    let mut lines = text.lines();
+    let mut lines = strip_bom(text).lines();
     let header_line = lines.next().ok_or(TableError::EmptyTable)?;
     let headers =
         parse_csv_line(header_line).map_err(|message| TableError::Parse { row: 0, message })?;
@@ -813,6 +827,24 @@ mod tests {
         // Identical to the error the file-reading entry point produces.
         let via_file = load_csv_table(&manifest, None, 0).unwrap_err();
         assert_eq!(error.to_string(), via_file.to_string());
+    }
+
+    #[test]
+    fn reads_a_csv_with_a_utf8_byte_order_mark() {
+        // Spreadsheet exports prepend a BOM. Without stripping it the first header name
+        // carries an invisible U+FEFF and the run fails with "missing required column
+        // cluster_id" while pointing at a column the file plainly contains.
+        let dir = std::env::temp_dir().join("mic-data-bom");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("bom.csv");
+        fs::write(
+            &path,
+            "\u{feff}cluster_id,regime,x,included\nc0,00,0.5,1\nc1,10,0.25,1\n",
+        )
+        .unwrap();
+        let report = load_csv_table(&manifest_for(&path), None, 2).unwrap();
+        assert_eq!(report.fingerprint.n_rows, 2);
+        assert_eq!(report.rows[0].cluster_id, "c0");
     }
 
     #[test]
