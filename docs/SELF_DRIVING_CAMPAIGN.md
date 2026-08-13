@@ -314,7 +314,7 @@ qualification.
   and distinct target assignment: observed-law Markov checks, exact design-image
   feasibility, identified locality, and conditional normalization.
 - [ ] Extend the finite-state solver across rank-deficient nonlinear fibers;
-  current output conservatively reports algebraic set identification except
+  current output conservatively reports the causal completion as unresolved except
   where a Markov or design-image necessary condition already refutes it.
 - [x] State only solver properties supported by the finite-state parameterization;
   keep nonparametric finite-sample classification unresolved.
@@ -345,8 +345,15 @@ qualification.
 - [x] Implement exact finite-state leave-the-entire-combination-arm-out law
   prediction with mandatory raw normalizer/residual, log overlap concentration,
   asymptotic ESS fraction, and nonnegative held-out TV/Hellinger discrepancies.
-- [ ] Extend held-out combination prediction to fitted cross-fold ratios and a
-  cluster-resampled weighted-law discrepancy with calibrated uncertainty.
+- [x] Extend held-out combination prediction to a fitted two-stage reference
+  path: the primitive API accepts only `00/10/01`; the CLI freezes it before
+  opening the separate `11` file; ratios remain in the log domain; global and
+  per-fold raw normalizers, cluster ESS, a linear-time held-out proper score,
+  separate stage fingerprints, and optional exact weighted energy distance are
+  serialized with diagnostic-only authority.
+- [ ] Add cluster-resampled full-pipeline refits and calibrated weighted-law
+  equivalence/change inference; ordinary row permutations are invalid for the
+  cross-fitted weighted empirical law.
 - [ ] Calibrate cluster-level type-I error and coverage before adding flexible learner families.
 - [ ] Add one controlled-real factorial experiment before making general discovery claims.
 - [ ] Add Python, Arrow, Parquet, Polars/pandas, and AnnData surfaces only after the reference estimator is end to end.

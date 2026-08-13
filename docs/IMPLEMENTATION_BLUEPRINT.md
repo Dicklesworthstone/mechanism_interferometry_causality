@@ -70,6 +70,10 @@ Owns learned nuisance and diagnostic models:
   four-corner coverage on every training and confirmation slice;
 - exact finite-state held-out combination prediction with raw normalizer,
   overlap/ESS diagnostics, and nonnegative law discrepancies;
+- a two-stage fitted combination predictor that freezes primitive-only
+  cross-fits before opening `11`, preserves raw product mass, computes
+  cluster-level ESS, and reports a descriptive proper score plus optional exact
+  weighted energy distance;
 - a full-rank finite-state fixed-DAG completion solver that separates design
   inconsistency, Markov failure, nonlocality, conditional-normalization failure,
   and conservative rank-deficient set identification;

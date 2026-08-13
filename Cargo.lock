@@ -1338,6 +1338,7 @@ dependencies = [
  "mic-model",
  "mic-sim",
  "mic-stats",
+ "serde_json",
 ]
 
 [[package]]
@@ -1392,6 +1393,7 @@ dependencies = [
  "mic-core",
  "mic-design",
  "serde",
+ "serde_json",
  "sha2",
  "thiserror",
 ]

@@ -21,5 +21,8 @@ mic-design = { path = "../mic-design" }
 ft-api = { workspace = true, optional = true }
 fnp-ndarray = { workspace = true, optional = true }
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

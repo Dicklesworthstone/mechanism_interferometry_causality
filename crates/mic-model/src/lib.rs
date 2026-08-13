@@ -6,6 +6,7 @@ pub mod crossfit;
 pub mod finite_completion;
 pub mod multinomial;
 pub mod prediction;
+pub mod transport;
 
 pub use closure::{
     ClosureFitConfig, ClosureFitError, ClosureModelKind, FourCornerClosureModel,
@@ -28,6 +29,14 @@ pub use multinomial::{
 };
 pub use prediction::{
     FiniteLawPredictionDiagnostic, FiniteLawPredictionError, predict_combination_law,
+};
+pub use transport::{
+    CombinationConfirmationSample, CombinationUseFacts, ExternalVerification,
+    FittedCombinationPredictionReport, FittedTransportAuthority, FittedTransportError,
+    FrozenFeatureContract, FrozenPrimitiveTransport, HeldOutDensityRatioScore, NormalizerFacts,
+    PrimitiveArm, PrimitiveTransportConfig, PrimitiveTransportFoldSummary,
+    PrimitiveTransportReceipt, PrimitiveTransportSample, TransportContractFacts,
+    WeightedEnergyDistance, freeze_primitive_transport, score_combination_confirmation,
 };
 
 use mic_design::audit_sampling_odds;

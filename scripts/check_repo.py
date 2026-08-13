@@ -738,6 +738,8 @@ def required_files() -> None:
         "schemas/active_tilt_input.schema.json",
         "schemas/orientation_input.schema.json",
         "schemas/closure_crossfit_request.schema.json",
+        "schemas/primitive_transport_request.schema.json",
+        "schemas/combination_confirmation_request.schema.json",
         "schemas/finite_completion_request.schema.json",
         "schemas/proposal_batch.schema.json",
         "schemas/self_driving_request.schema.json",
@@ -750,6 +752,8 @@ def required_files() -> None:
         "schemas/scalar_response_contract.schema.json",
         "examples/orientation/parity_demo.json",
         "examples/closure_crossfit_request.json",
+        "examples/primitive_transport_request.json",
+        "examples/combination_confirmation_request.json",
         "examples/finite_completion_request.json",
         "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
@@ -805,6 +809,8 @@ def validate_schemas_and_manifests() -> None:
     manifest_schema = schemas.get("experiment_manifest.schema.json")
     orientation_schema = schemas.get("orientation_input.schema.json")
     closure_crossfit_schema = schemas.get("closure_crossfit_request.schema.json")
+    primitive_transport_schema = schemas.get("primitive_transport_request.schema.json")
+    combination_confirmation_schema = schemas.get("combination_confirmation_request.schema.json")
     finite_completion_schema = schemas.get("finite_completion_request.schema.json")
     proposal_input_schema = schemas.get("active_tilt_input.schema.json")
     proposal_schema = schemas.get("proposal_batch.schema.json")
@@ -859,6 +865,63 @@ def validate_schemas_and_manifests() -> None:
             check(
                 bool(list(closure_validator.iter_errors(unknown))),
                 "closure-crossfit schema accepts an authority-bearing unknown field",
+            )
+
+    check(primitive_transport_schema is not None, "primitive-transport schema was not loaded")
+    check(
+        combination_confirmation_schema is not None,
+        "combination-confirmation schema was not loaded",
+    )
+    if primitive_transport_schema is not None and combination_confirmation_schema is not None:
+        primitive_request = load_json(ROOT / "examples" / "primitive_transport_request.json")
+        confirmation_request = load_json(
+            ROOT / "examples" / "combination_confirmation_request.json"
+        )
+        primitive_validator = Draft202012Validator(primitive_transport_schema)
+        confirmation_validator = Draft202012Validator(combination_confirmation_schema)
+        for label, validator, request in [
+            ("primitive-transport", primitive_validator, primitive_request),
+            ("combination-confirmation", confirmation_validator, confirmation_request),
+        ]:
+            for error in sorted(
+                validator.iter_errors(request), key=lambda item: list(item.path)
+            ):
+                location = ".".join(str(part) for part in error.path) or "<root>"
+                fail(f"{label} request schema violation at {location}: {error.message}")
+        if isinstance(primitive_request, dict) and isinstance(confirmation_request, dict):
+            proportions = primitive_request.get("primitive_sampling_proportions", [])
+            check(
+                len(proportions) == 3
+                and all(
+                    isinstance(value, (int, float)) and math.isfinite(value)
+                    for value in proportions
+                )
+                and math.isclose(sum(proportions), 1.0, abs_tol=1e-10),
+                "primitive-transport pooling proportions must form a finite simplex",
+            )
+            primitive_samples = primitive_request.get("samples", [])
+            confirmation_samples = confirmation_request.get("samples", [])
+            widths = {
+                len(sample.get("features", []))
+                for sample in primitive_samples + confirmation_samples
+                if isinstance(sample, dict)
+            }
+            check(widths and len(widths) == 1, "fitted-transport feature dimensions differ")
+            check(
+                primitive_request.get("feature_contract")
+                == confirmation_request.get("feature_contract"),
+                "fitted-transport feature contracts differ across stages",
+            )
+            check(
+                primitive_request.get("declared_independent_unit")
+                == confirmation_request.get("declared_independent_unit"),
+                "fitted-transport independent-unit declarations differ across stages",
+            )
+            unknown = copy.deepcopy(confirmation_request)
+            unknown["certificate_eligible"] = True
+            check(
+                bool(list(confirmation_validator.iter_errors(unknown))),
+                "combination-confirmation schema accepts an authority-bearing unknown field",
             )
 
     check(finite_completion_schema is not None, "finite-completion schema was not loaded")

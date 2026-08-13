@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mechanism-interferometry.invalid/schemas/primitive_transport_request.schema.json",
+  "title": "Primitive-only fitted transport request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "declared_independent_unit",
+    "primitive_sampling_proportions",
+    "feature_contract",
+    "config",
+    "samples"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "declared_independent_unit": {"type": "string", "minLength": 1},
+    "primitive_sampling_proportions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "number", "exclusiveMinimum": 0}
+    },
+    "feature_contract": {"$ref": "#/$defs/feature_contract"},
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "n_folds", "fit"],
+      "properties": {
+        "seed": {"type": "integer", "minimum": 0},
+        "n_folds": {"type": "integer", "minimum": 2},
+        "fit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n_classes",
+            "l2_penalty",
+            "max_iterations",
+            "gradient_tolerance",
+            "initial_step"
+          ],
+          "properties": {
+            "n_classes": {"const": 3},
+            "l2_penalty": {"type": "number", "exclusiveMinimum": 0},
+            "max_iterations": {"type": "integer", "minimum": 1},
+            "gradient_tolerance": {"type": "number", "exclusiveMinimum": 0},
+            "initial_step": {"type": "number", "exclusiveMinimum": 0}
+          }
+        }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["features", "arm", "cluster_id"],
+        "properties": {
+          "features": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "number"}
+          },
+          "arm": {"enum": ["baseline", "first", "second"]},
+          "cluster_id": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "feature_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feature_schema_sha256", "feature_transform_sha256"],
+      "properties": {
+        "feature_schema_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "feature_transform_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

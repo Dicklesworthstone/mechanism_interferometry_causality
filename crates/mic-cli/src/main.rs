@@ -40,6 +40,7 @@ fn run(args: &[String]) -> Result<(), String> {
         "validate-manifest" => validate_manifest(&args[1..]),
         "preflight" => preflight(&args[1..]),
         "closure-crossfit" => closure_crossfit(&args[1..]),
+        "predict-combination" => predict_combination(&args[1..]),
         "finite-completion" => finite_completion(&args[1..]),
         "orient" => orient(&args[1..]),
         "propose-tilt" => propose_tilt(&args[1..]),
@@ -201,6 +202,129 @@ fn closure_crossfit(args: &[String]) -> Result<(), String> {
         "ledger": ledger,
     });
     write_json_value(&value, output.as_deref())
+}
+
+/// Stage-A request. It cannot represent the combination arm.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PrimitiveTransportRequest {
+    schema_version: String,
+    declared_independent_unit: String,
+    primitive_sampling_proportions: [f64; 3],
+    feature_contract: mic_model::FrozenFeatureContract,
+    config: mic_model::PrimitiveTransportConfig,
+    samples: Vec<mic_model::PrimitiveTransportSample>,
+}
+
+/// Stage-B request, opened only after the primitive transport is frozen.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CombinationConfirmationRequest {
+    schema_version: String,
+    declared_independent_unit: String,
+    feature_contract: mic_model::FrozenFeatureContract,
+    samples: Vec<mic_model::CombinationConfirmationSample>,
+}
+
+fn predict_combination(args: &[String]) -> Result<(), String> {
+    let (primitive_path, confirmation_path, output) = match args {
+        [primitive, confirmation] => (primitive, confirmation, None),
+        [primitive, confirmation, flag, output]
+            if flag == "--output" && !output.trim().is_empty() =>
+        {
+            (primitive, confirmation, Some(PathBuf::from(output)))
+        }
+        _ => {
+            return Err(
+                "usage: mic predict-combination PRIMITIVES.json CONFIRMATION.json [--output PATH]"
+                    .into(),
+            );
+        }
+    };
+
+    let primitive_bytes = fs::read(primitive_path).map_err(|error| error.to_string())?;
+    let primitive_request_sha256 = sha256_bytes(&primitive_bytes);
+    let primitive: PrimitiveTransportRequest =
+        serde_json::from_slice(&primitive_bytes).map_err(|error| error.to_string())?;
+    validate_transport_schema_version(&primitive.schema_version)?;
+    if primitive.declared_independent_unit.trim().is_empty() {
+        return Err("declared_independent_unit must not be empty".into());
+    }
+    let frozen = mic_model::freeze_primitive_transport(
+        &primitive.samples,
+        primitive.primitive_sampling_proportions,
+        &primitive.declared_independent_unit,
+        primitive.feature_contract.clone(),
+        primitive.config,
+    )
+    .map_err(|error| error.to_string())?;
+
+    // Deliberately open Stage B only after Stage A has been fully frozen.
+    let confirmation_bytes = fs::read(confirmation_path).map_err(|error| error.to_string())?;
+    let confirmation_request_sha256 = sha256_bytes(&confirmation_bytes);
+    let confirmation: CombinationConfirmationRequest =
+        serde_json::from_slice(&confirmation_bytes).map_err(|error| error.to_string())?;
+    validate_transport_schema_version(&confirmation.schema_version)?;
+    if primitive.declared_independent_unit != confirmation.declared_independent_unit {
+        return Err("primitive and confirmation independent-unit declarations differ".into());
+    }
+    if primitive.feature_contract != confirmation.feature_contract {
+        return Err("primitive and confirmation feature contracts differ".into());
+    }
+    let report = mic_model::score_combination_confirmation(
+        &frozen,
+        &confirmation.declared_independent_unit,
+        &confirmation.feature_contract,
+        &confirmation.samples,
+    )
+    .map_err(|error| error.to_string())?;
+
+    let mut ledger = EvidenceLedger::new(ExecutionMode::Exploratory);
+    ledger.provenance(
+        "primitive_transport_request_sha256",
+        &primitive_request_sha256,
+    );
+    ledger.provenance(
+        "combination_confirmation_request_sha256",
+        &confirmation_request_sha256,
+    );
+    ledger.provenance(
+        "primitive_transport_input_sha256",
+        report.primitive_receipt().primitive_input_sha256(),
+    );
+    ledger.provenance(
+        "primitive_transport_fold_plan_sha256",
+        report.primitive_receipt().fold_plan_sha256(),
+    );
+    ledger.provenance(
+        "primitive_transport_seed",
+        report.primitive_receipt().seed().to_string(),
+    );
+    ledger.provenance(
+        "declared_independent_unit",
+        &primitive.declared_independent_unit,
+    );
+    let value = serde_json::json!({
+        "schema_version": "1.0.0",
+        "authority": "diagnostic_only",
+        "certificate_eligible": false,
+        "product_design_required": false,
+        "stage_order": "primitive_frozen_before_confirmation_opened",
+        "primitive_request_sha256": primitive_request_sha256,
+        "confirmation_request_sha256": confirmation_request_sha256,
+        "declared_independent_unit": primitive.declared_independent_unit,
+        "diagnostic": report,
+        "ledger": ledger,
+    });
+    write_json_value(&value, output.as_deref())
+}
+
+fn validate_transport_schema_version(version: &str) -> Result<(), String> {
+    if version == "1.0.0" {
+        Ok(())
+    } else {
+        Err("fitted transport schema_version must be 1.0.0".into())
+    }
 }
 
 /// Input contract for the finite-state fixed-model completion diagnostic.
@@ -486,6 +610,7 @@ fn print_help() {
            mic validate-manifest MANIFEST.json\n\
            mic preflight MANIFEST.json [--output PATH]\n\
            mic closure-crossfit INPUT.json [--output PATH]\n\
+           mic predict-combination PRIMITIVES.json CONFIRMATION.json [--output PATH]\n\
            mic finite-completion INPUT.json [--output PATH]\n\
            mic orient INPUT.json [--output PATH]\n\
            mic propose-tilt INPUT.json [--output PATH]\n\
@@ -557,6 +682,40 @@ mod tests {
         assert_eq!(
             closure_crossfit(&missing_output).unwrap_err(),
             "usage: mic closure-crossfit INPUT.json [--output PATH]"
+        );
+    }
+
+    #[test]
+    fn fitted_transport_examples_are_closed_and_options_fail_before_io() {
+        let primitive: PrimitiveTransportRequest = serde_json::from_str(include_str!(
+            "../../../examples/primitive_transport_request.json"
+        ))
+        .unwrap();
+        let confirmation: CombinationConfirmationRequest = serde_json::from_str(include_str!(
+            "../../../examples/combination_confirmation_request.json"
+        ))
+        .unwrap();
+        assert_eq!(primitive.schema_version, "1.0.0");
+        assert_eq!(primitive.samples.len(), 6);
+        assert_eq!(confirmation.samples.len(), 2);
+
+        let unknown = vec![
+            "primitive.json".into(),
+            "confirmation.json".into(),
+            "--bogus".into(),
+        ];
+        assert_eq!(
+            predict_combination(&unknown).unwrap_err(),
+            "usage: mic predict-combination PRIMITIVES.json CONFIRMATION.json [--output PATH]"
+        );
+        let missing_output = vec![
+            "primitive.json".into(),
+            "confirmation.json".into(),
+            "--output".into(),
+        ];
+        assert_eq!(
+            predict_combination(&missing_output).unwrap_err(),
+            "usage: mic predict-combination PRIMITIVES.json CONFIRMATION.json [--output PATH]"
         );
     }
 

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// One labeled row supplied to the deterministic reference optimizer.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct MultinomialSample {
     /// Finite feature vector.
@@ -209,6 +209,43 @@ impl MultinomialLinearModel {
         ))
     }
 
+    /// Reconstructs log density ratios directly from finite fitted logits.
+    ///
+    /// Unlike a posterior-probability round trip, this remains finite when a
+    /// softmax component would underflow to zero.
+    pub fn predict_log_density_ratios(
+        &self,
+        features: &[f64],
+        pooling_proportions: &[f64],
+        baseline: usize,
+    ) -> Result<Vec<f64>, MultinomialFitError> {
+        if features.len() != self.n_features {
+            return Err(MultinomialFitError::FeatureDimension {
+                expected: self.n_features,
+                actual: features.len(),
+            });
+        }
+        if features.iter().any(|value| !value.is_finite()) {
+            return Err(MultinomialFitError::NonFiniteFeature);
+        }
+        validate_simplex(pooling_proportions, "pooling proportions")?;
+        if pooling_proportions.len() != self.n_classes || baseline >= self.n_classes {
+            return Err(MultinomialFitError::InvalidSimplex("pooling proportions"));
+        }
+        let logits = logits_from_parts(features, &self.coefficients, &self.intercepts);
+        let baseline_logit = logits[baseline];
+        let baseline_pooling = pooling_proportions[baseline].ln();
+        let ratios = logits
+            .iter()
+            .zip(pooling_proportions)
+            .map(|(logit, pooling)| logit - baseline_logit - pooling.ln() + baseline_pooling)
+            .collect::<Vec<_>>();
+        if ratios.iter().any(|ratio| !ratio.is_finite()) {
+            return Err(MultinomialFitError::NonFinitePrediction);
+        }
+        Ok(ratios)
+    }
+
     /// Computes mean held-out logarithmic loss without refitting.
     pub fn mean_log_loss(&self, samples: &[MultinomialSample]) -> Result<f64, MultinomialFitError> {
         let weights = vec![1.0; samples.len()];
@@ -308,6 +345,9 @@ pub enum MultinomialFitError {
     /// A feature was NaN or infinite.
     #[error("features must be finite")]
     NonFiniteFeature,
+    /// Finite inputs exceeded the representable fitted-logit range.
+    #[error("fitted prediction is not representable as a finite f64")]
+    NonFinitePrediction,
     /// Optimizer configuration was invalid.
     #[error("invalid optimizer configuration: {0}")]
     InvalidConfiguration(&'static str),
@@ -556,19 +596,26 @@ fn probabilities_from_parts(
     coefficients: &[Vec<f64>],
     intercepts: &[f64],
 ) -> Vec<f64> {
+    stable_softmax(&logits_from_parts(features, coefficients, intercepts))
+}
+
+fn logits_from_parts(features: &[f64], coefficients: &[Vec<f64>], intercepts: &[f64]) -> Vec<f64> {
     let mut logits = Vec::with_capacity(intercepts.len() + 1);
     logits.push(0.0);
-    for (coefficient, intercept) in coefficients.iter().zip(intercepts) {
-        logits.push(
-            intercept
-                + coefficient
-                    .iter()
-                    .zip(features)
-                    .map(|(weight, feature)| weight * feature)
-                    .sum::<f64>(),
-        );
-    }
-    stable_softmax(&logits)
+    logits.extend(
+        coefficients
+            .iter()
+            .zip(intercepts)
+            .map(|(coefficient, intercept)| {
+                intercept
+                    + coefficient
+                        .iter()
+                        .zip(features)
+                        .map(|(weight, feature)| weight * feature)
+                        .sum::<f64>()
+            }),
+    );
+    logits
 }
 
 fn stable_softmax(logits: &[f64]) -> Vec<f64> {
@@ -746,5 +793,27 @@ mod tests {
                 .unwrap_err(),
             MultinomialFitError::InvalidWeights
         );
+    }
+
+    #[test]
+    fn log_density_ratios_do_not_underflow_through_softmax() {
+        let model = MultinomialLinearModel {
+            n_features: 1,
+            n_classes: 3,
+            coefficients: vec![vec![1_000.0], vec![-1_000.0]],
+            intercepts: vec![0.0, 0.0],
+            summary: FitSummary {
+                iterations: 0,
+                training_log_loss: 0.0,
+                penalized_objective: 0.0,
+                gradient_l2: 0.0,
+            },
+        };
+        let posterior = model.predict_probabilities(&[1.0]).unwrap();
+        assert_eq!(posterior[2], 0.0);
+        let ratios = model
+            .predict_log_density_ratios(&[1.0], &[1.0 / 3.0; 3], 0)
+            .unwrap();
+        assert_eq!(ratios, vec![0.0, 1_000.0, -1_000.0]);
     }
 }

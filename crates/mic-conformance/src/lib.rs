@@ -19,10 +19,13 @@ mod tests {
     };
     use mic_model::{
         ClosureCrossFitConfig, ClosureFitConfig, ClosureModelKind, ClusteredMultinomialSample,
-        CompletionFailure, CompletionStatus, FiniteCompletionAuthority, FiniteCompletionInput,
-        FiniteLawSemantics, FiniteMechanismFamily, FiniteObservedRegime, FourCornerClosureModel,
-        MultinomialSample, PosteriorSquare, compare_held_out_closure_models,
-        cross_fit_closure_models, predict_combination_law, solve_finite_modular_completion,
+        CombinationConfirmationSample, CompletionFailure, CompletionStatus,
+        FiniteCompletionAuthority, FiniteCompletionInput, FiniteLawSemantics,
+        FiniteMechanismFamily, FiniteObservedRegime, FitConfig, FourCornerClosureModel,
+        FrozenFeatureContract, MultinomialSample, PosteriorSquare, PrimitiveArm,
+        PrimitiveTransportConfig, PrimitiveTransportSample, compare_held_out_closure_models,
+        cross_fit_closure_models, freeze_primitive_transport, predict_combination_law,
+        score_combination_confirmation, solve_finite_modular_completion,
     };
     use mic_sim::{
         HiddenSensorTomography, causal_tomography_chain, exact_suite, flat_noncausal_cube,
@@ -80,6 +83,81 @@ mod tests {
         .unwrap();
         assert!(observed_prediction.normalizer_residual.abs() < 1e-14);
         assert!((observed_prediction.heldout_total_variation - 0.1).abs() < 1e-14);
+    }
+
+    fn fitted_tomography_samples(
+        example: &HiddenSensorTomography,
+        complete_state: bool,
+    ) -> (
+        Vec<PrimitiveTransportSample>,
+        Vec<CombinationConfirmationSample>,
+    ) {
+        let complete_counts = [
+            [10, 10, 10, 10],
+            [6, 6, 14, 14],
+            [5, 15, 5, 15],
+            [3, 9, 7, 21],
+        ];
+        let observed_counts = [[20, 20], [20, 20], [20, 20], [16, 24]];
+        let primitive_arms = [
+            PrimitiveArm::Baseline,
+            PrimitiveArm::First,
+            PrimitiveArm::Second,
+        ];
+        let mut primitive = Vec::new();
+        let mut confirmation = Vec::new();
+        for cluster in 0..2 {
+            for (law, arm) in example.laws[..3].iter().zip(primitive_arms) {
+                if complete_state {
+                    for (state, count) in complete_counts[arm as usize].into_iter().enumerate() {
+                        let features = match state {
+                            0 => vec![-1.0, -1.0],
+                            1 => vec![-1.0, 1.0],
+                            2 => vec![1.0, -1.0],
+                            _ => vec![1.0, 1.0],
+                        };
+                        primitive.extend((0..count).map(|_| PrimitiveTransportSample {
+                            features: features.clone(),
+                            arm,
+                            cluster_id: format!("complete-{arm:?}-{cluster}"),
+                        }));
+                    }
+                } else {
+                    for (state, count) in observed_counts[arm as usize].into_iter().enumerate() {
+                        let features = vec![if state == 0 { -1.0 } else { 1.0 }];
+                        primitive.extend((0..count).map(|_| PrimitiveTransportSample {
+                            features: features.clone(),
+                            arm,
+                            cluster_id: format!("observed-{arm:?}-{cluster}"),
+                        }));
+                    }
+                }
+                assert!(!law.complete_probabilities.is_empty());
+            }
+            if complete_state {
+                for (state, count) in complete_counts[3].into_iter().enumerate() {
+                    let features = match state {
+                        0 => vec![-1.0, -1.0],
+                        1 => vec![-1.0, 1.0],
+                        2 => vec![1.0, -1.0],
+                        _ => vec![1.0, 1.0],
+                    };
+                    confirmation.extend((0..count).map(|_| CombinationConfirmationSample {
+                        features: features.clone(),
+                        cluster_id: format!("complete-combination-{cluster}"),
+                    }));
+                }
+            } else {
+                for (state, count) in observed_counts[3].into_iter().enumerate() {
+                    let features = vec![if state == 0 { -1.0 } else { 1.0 }];
+                    confirmation.extend((0..count).map(|_| CombinationConfirmationSample {
+                        features: features.clone(),
+                        cluster_id: format!("observed-combination-{cluster}"),
+                    }));
+                }
+            }
+        }
+        (primitive, confirmation)
     }
 
     #[test]
@@ -200,6 +278,73 @@ mod tests {
         assert_eq!(cross_fitted.n_clusters, 8);
         assert!(cross_fitted.saturated_advantage > 0.0);
         assert!(!cross_fitted.calibrated_test);
+    }
+
+    #[test]
+    fn fitted_combination_prediction_exposes_hidden_state_but_never_certifies() {
+        let example = hidden_sensor_tomography();
+        let feature_contract = FrozenFeatureContract {
+            feature_schema_sha256: "a".repeat(64),
+            feature_transform_sha256: "b".repeat(64),
+        };
+        let config = PrimitiveTransportConfig {
+            seed: 41,
+            n_folds: 2,
+            fit: FitConfig {
+                n_classes: 3,
+                l2_penalty: 0.1,
+                max_iterations: 5_000,
+                gradient_tolerance: 1e-6,
+                initial_step: 1.0,
+            },
+        };
+
+        let (complete_primitive, complete_confirmation) = fitted_tomography_samples(&example, true);
+        let complete = freeze_primitive_transport(
+            &complete_primitive,
+            [1.0 / 3.0; 3],
+            "experimental_run",
+            feature_contract.clone(),
+            config,
+        )
+        .unwrap();
+        let complete_report = score_combination_confirmation(
+            &complete,
+            "experimental_run",
+            &feature_contract,
+            &complete_confirmation,
+        )
+        .unwrap();
+        assert!(
+            (complete.receipt().raw_normalizer() - 1.0).abs() < 0.05,
+            "raw normalizer was {}",
+            complete.receipt().raw_normalizer()
+        );
+        assert!(complete_report.heldout_proper_score_gain() > 0.01);
+
+        let (observed_primitive, observed_confirmation) =
+            fitted_tomography_samples(&example, false);
+        let observed = freeze_primitive_transport(
+            &observed_primitive,
+            [1.0 / 3.0; 3],
+            "experimental_run",
+            feature_contract.clone(),
+            config,
+        )
+        .unwrap();
+        let observed_report = score_combination_confirmation(
+            &observed,
+            "experimental_run",
+            &feature_contract,
+            &observed_confirmation,
+        )
+        .unwrap();
+        assert!((observed.receipt().raw_normalizer() - 1.0).abs() < 1e-8);
+        assert!(observed_report.heldout_proper_score_gain().abs() < 1e-8);
+        let json = serde_json::to_value(observed_report).unwrap();
+        assert_eq!(json["authority"], "diagnostic_only");
+        assert_eq!(json["certificate_eligible"], false);
+        assert_eq!(json["contracts"]["independent_unit"], "unverified");
     }
 
     #[test]

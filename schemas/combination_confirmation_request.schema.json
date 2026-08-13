@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mechanism-interferometry.invalid/schemas/combination_confirmation_request.schema.json",
+  "title": "Untouched combination confirmation request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "declared_independent_unit",
+    "feature_contract",
+    "samples"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "declared_independent_unit": {"type": "string", "minLength": 1},
+    "feature_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feature_schema_sha256", "feature_transform_sha256"],
+      "properties": {
+        "feature_schema_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "feature_transform_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["features", "cluster_id"],
+        "properties": {
+          "features": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "number"}
+          },
+          "cluster_id": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

@@ -67,6 +67,7 @@ cargo run -p mic-cli -- simulate hidden-sensor
 cargo run -p mic-cli -- design audit examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- preflight examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- closure-crossfit examples/closure_crossfit_request.json
+cargo run -p mic-cli -- predict-combination examples/primitive_transport_request.json examples/combination_confirmation_request.json
 cargo run -p mic-cli -- orient examples/orientation/parity_demo.json
 cargo run -p mic-cli -- propose-tilt examples/proposal_inputs/parity_active_tilt.json
 cargo run -p mic-cli -- freeze-scout examples/scout_inputs/self_driving_request.json examples/scout_inputs/shift_factorization_draft.json
@@ -130,6 +131,22 @@ product normalizer and its residual before normalization, reports overlap and
 asymptotic ESS loss, and scores the untouched combination with nonnegative total
 variation and Hellinger discrepancies. It is a reference oracle for the future
 fitted ratio path, not a substitute for cluster-resampled inference.
+
+The fitted ratio path is now executable as a strict two-stage diagnostic. `mic
+predict-combination` opens and freezes a `00/10/01` primitive request before it
+opens the separate `11` confirmation request. A three-class classifier is fit
+under the declared cluster-weighted pooling law; out-of-fold baseline ratios are
+combined in the log domain; and the report preserves global and per-fold raw
+normalizers, a cluster-level ESS, weight-tail diagnostics, an
+`O(n_0 + F n_11)` held-out
+density-ratio proper score, and an optional exact weighted energy distance for
+small inputs. Separate primitive, fold-plan, and confirmation fingerprints make
+the stage boundary auditable. The result remains `diagnostic_only`, explicitly
+does not verify common support, selection, or the physical assignment unit, and
+does not prove that an upstream analyst chose the feature transform without
+seeing `11`; that historical isolation requires a trusted external receipt. It
+does not turn either a small normalized-law discrepancy or a near-unit raw
+normalizer into a closure certificate.
 
 Passive DAG learners, parsimony searches, residual heuristics, and previous audit runs may be connected only as proposal adapters. They can prioritize candidate supports, measurements, or follow-up interventions, but their scores never count as certificate evidence and data-adaptive proposals require independent confirmation.
 

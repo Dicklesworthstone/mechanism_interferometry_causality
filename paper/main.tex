@@ -147,7 +147,7 @@ The paper makes eight main contributions.
 
 \item \textbf{Partial-design geometry.}  On an arbitrary observed binary or categorical design, testable flatness is exactly the lack-of-fit space of a main-effects-only design matrix with a function-valued response.  The causal completion fiber may nevertheless be empty, point identified, or set identified; algebraic testability is a separate axis from causal feasibility.
 
-\item \textbf{An auditable empirical and software protocol.}  We specify localization, orientation, curvature testing, overlap gates, compositional prediction, state expansion, simulations, engineered feature-flag validation, Perturb-seq analysis, and a safe-Rust implementation architecture.  The current release implements the exact algebra, design audits, fail-closed gates, proposal boundaries, and reference diagnostics; the scalable cross-fitted estimator and autonomous mechanism-dictionary loop remain research and implementation targets rather than claimed results.
+\item \textbf{An auditable empirical and software protocol.}  We specify localization, orientation, curvature testing, overlap gates, compositional prediction, state expansion, simulations, engineered feature-flag validation, Perturb-seq analysis, and a safe-Rust implementation architecture.  The current release implements the exact algebra, design audits, fail-closed gates, proposal boundaries, cluster-weighted joint-model cross-fitting, and a two-stage fitted compositional-prediction diagnostic.  Cluster-resampled calibrated closure inference and the autonomous mechanism-dictionary loop remain research and implementation targets rather than claimed results.
 \end{enumerate}
 
 \section{Setup and scope}
@@ -979,7 +979,21 @@ Use
 \qquad
 d\widetilde P_T=\widetilde r_T\,dP_0.
 \end{equation}
-Report \(\widehat Z_T-1\) rather than silently discarding it: it is itself a failed moment restriction.  Compare \(\widetilde P_T\) with held-out samples from \(P_T\) using proper scores, MMD, energy distance, or prespecified transported moments.
+Report \(\widehat Z_T-1\) rather than silently discarding it: it is the empirical residual of a necessary moment restriction.  Only calibrated bounds excluding a declared equivalence region license calling that restriction failed.  Compare \(\widetilde P_T\) with held-out samples from \(P_T\) using proper scores, MMD, energy distance, or prespecified transported moments.
+
+The reference fitted implementation enforces this separation in two stages.  The first stage accepts only \(00,10,01\), fits three-class regime classifiers under a declared cluster-weighted pooling law, and constructs fold-indexed out-of-fold baseline values
+\[
+  \widehat g_{-f}(x)
+  = \widehat{\log r_{A,-f}}(x)+\widehat{\log r_{B,-f}}(x)-\log\widehat Z .
+\]
+The API can then accept only a separately supplied \(11\) sample under the same declared unit and feature-transform fingerprints; the reference CLI freezes stage one before it opens the stage-two file.  This proves that \(11\) rows were not passed to the nuisance-fitting API, but it does not prove the historical claim that an upstream analyst chose the feature transform without inspecting \(11\).  That stronger isolation claim requires a trusted execution receipt and remains false in the diagnostic contract by default.  A descriptive score, computable in \(O(n_0+F n_{11})\) time for \(F\) folds, is the equal-prior density-ratio log loss
+\begin{equation}
+  \widehat L
+  = \frac12\sum_f\omega_f\widehat\E_{0,f}\!\left[\log(1+e^{\widehat g_{-f}(X)})\right]
+  + \frac12\sum_f\omega_f\widehat\E_{11}\!\left[\log(1+e^{-\widehat g_{-f}(X)})\right],
+  \label{eq:heldout-ratio-score}
+\end{equation}
+where \(\omega_f\) is the baseline-unit mass in fold \(f\).  The same frozen fold mixture is used in both class expectations, with equal mass per declared independent unit; \(\log 2-\widehat L\) is reported as improvement over the uninformative ratio-one prediction.  This is a proper loss for the frozen-feature fold mixture, not by itself a claim of raw-state agreement.  For modest samples the implementation also reports the exact weighted empirical energy distance under a frozen Euclidean feature metric, rejecting distances outside finite floating-point range.  Neither number is a calibrated equivalence test.  More importantly, neither may replace the other component of the closure claim: \(\widehat Z\approx1\) alone does not imply agreement with \(P_{11}\), while a self-normalized predicted law can agree perfectly with \(P_{11}\) even when \(\widehat Z\ne1\).  Valid uncertainty for the weighted, cross-fitted statistic must resample independent units and refit the complete primitive nuisance pipeline; an ordinary row permutation is not justified.
 
 \subsection{Localization by Design-IAMB}
 

@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "declared_independent_unit": "experimental_run",
+  "feature_contract": {
+    "feature_schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "feature_transform_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "samples": [
+    {"features": [0.0], "cluster_id": "combination-0"},
+    {"features": [0.0], "cluster_id": "combination-1"}
+  ]
+}

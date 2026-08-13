@@ -17,6 +17,7 @@ mic-engine = { path = "../mic-engine" }
 mic-model = { path = "../mic-model" }
 mic-sim = { path = "../mic-sim" }
 mic-stats = { path = "../mic-stats" }
+serde_json.workspace = true
 
 [lints]
 workspace = true

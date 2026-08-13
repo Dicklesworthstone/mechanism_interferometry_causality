@@ -103,9 +103,13 @@ also in place. The remaining work is the authority-bearing integration below.
 - exact finite-state `00/10/01 -> 11` prediction with mandatory raw normalizer
   residual, log overlap concentration, asymptotic ESS fraction, and held-out
   total-variation/Hellinger discrepancies (implemented reference path);
-- fitted cross-fold ratio prediction and cluster-resampled weighted-law
-  discrepancy (not yet wired);
-- held-out combination scoring;
+- fitted cross-fold `00/10/01 -> 11` ratio prediction with a primitive-only
+  freeze stage, log-domain product weights, raw normalizer, cluster ESS,
+  linear-time proper scoring, and optional exact weighted energy distance
+  (implemented diagnostic path);
+- cluster-resampled refit uncertainty and calibrated weighted-law equivalence
+  inference (outstanding);
+- held-out combination scoring (implemented descriptively);
 - effective sample-size and truncation sensitivity.
 
 ## Packet 6: localization and orientation
