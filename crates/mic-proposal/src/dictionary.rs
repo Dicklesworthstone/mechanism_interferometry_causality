@@ -1451,8 +1451,7 @@ mod tests {
     fn partial_cube_shear_retains_general_linear_ambiguity_and_no_causal_identity() {
         let request = request();
         let shift = shift_draft();
-        let mut plan = plan(&request, &shift);
-        plan.attempt_specification_sha256s = vec![digest('9')];
+        let plan = plan(&request, &shift);
         // {0,f,g}: (f,g) with codes 00,10,01 and (f,g-f) with 00,10,11.
         let draft = TransportDictionaryDraft {
             proposal_id: "dictionary_001".into(),
@@ -1523,7 +1522,8 @@ mod tests {
     fn rejected_attempt_is_bound_into_the_library_fingerprint() {
         let request = request();
         let shift = shift_draft();
-        let plan = plan(&request, &shift);
+        let mut plan = plan(&request, &shift);
+        plan.attempt_specification_sha256s = vec![digest('9')];
         let mut draft = TransportDictionaryDraft {
             proposal_id: "dictionary_001".into(),
             execution: execution(),
