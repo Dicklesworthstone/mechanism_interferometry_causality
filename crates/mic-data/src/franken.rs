@@ -5,7 +5,10 @@
 //! adapter hands cell strings to [`build_ingest_report`], which is the same function the
 //! standard-library reader uses, so both backends share every semantic rule.
 
-use crate::{ExperimentManifest, IngestReport, TableError, build_ingest_report, resolve_data_path};
+use crate::{
+    ExperimentManifest, IngestReport, TableError, TabularAdapter, build_ingest_report,
+    resolve_data_path,
+};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
@@ -20,6 +23,25 @@ pub const REVISION: &str = "9599d6f4a12306897a9bc19be3d2ba2ac228a97c";
 #[must_use]
 pub const fn backend_name() -> &'static str {
     "FrankenPandas"
+}
+
+/// Feature-gated FrankenPandas CSV adapter behind the stable ingest contract.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FrankenPandasAdapter;
+
+impl TabularAdapter for FrankenPandasAdapter {
+    fn backend_name(&self) -> &'static str {
+        backend_name()
+    }
+
+    fn load(
+        &self,
+        manifest: &ExperimentManifest,
+        base_dir: Option<&Path>,
+        n_folds: usize,
+    ) -> Result<IngestReport, TableError> {
+        load_csv_table_franken(manifest, base_dir, n_folds)
+    }
 }
 
 /// Loads the manifest's CSV through `FrankenPandas`.

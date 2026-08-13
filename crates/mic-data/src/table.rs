@@ -109,7 +109,7 @@ pub enum TableError {
     Io(#[from] std::io::Error),
     /// The declared format is not the std CSV reader.
     #[error(
-        "std tabular reader supports csv only, got {0}; parquet/arrow require the franken adapter"
+        "std tabular reader supports csv only, got {0}; this format requires an explicit adapter"
     )]
     UnsupportedFormat(String),
     /// The data file could not be resolved.
