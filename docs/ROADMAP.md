@@ -79,8 +79,10 @@ also in place. The remaining work is the authority-bearing integration below.
 - deterministic CPU reference-class multinomial linear model with strict
   convergence, held-out log loss, and arbitrary-quota posterior-to-density-ratio
   reconstruction (implemented; nuisance model only, no certificate authority);
-- cluster-fold orchestration and a restricted-versus-saturated hierarchical
-  design head (not yet wired);
+- restricted-versus-saturated four-corner hierarchical design head with known
+  sampling offsets, explicit curvature field, and diagnostic held-out
+  proper-loss comparison (implemented; not a calibrated test);
+- cluster-fold orchestration and untouched witness confirmation (not yet wired);
 - FrankenTorch main-effect and interaction models;
 - sampling-offset and intercept contract;
 - posterior calibration;

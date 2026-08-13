@@ -88,9 +88,7 @@ impl MultinomialLinearModel {
         validate_config(config)?;
         let n_features = validate_samples(samples, config.n_classes)?;
         let mut parameters = vec![0.0; (config.n_classes - 1) * (n_features + 1)];
-        let mut accepted_steps = 0;
-
-        for _ in 0..config.max_iterations {
+        for accepted_steps in 0..config.max_iterations {
             let (objective, gradient) = objective_and_gradient(
                 samples,
                 config.n_classes,
@@ -100,16 +98,15 @@ impl MultinomialLinearModel {
             );
             let gradient_l2 = squared_l2(&gradient).sqrt();
             if gradient_l2 <= config.gradient_tolerance {
-                return build_model(
+                return Ok(build_model(
                     samples,
-                    config.n_classes,
+                    config,
                     n_features,
-                    config.l2_penalty,
-                    parameters,
+                    &parameters,
                     accepted_steps,
                     objective,
                     gradient_l2,
-                );
+                ));
             }
 
             let gradient_sq = squared_l2(&gradient);
@@ -137,7 +134,6 @@ impl MultinomialLinearModel {
                 step *= 0.5;
             }
             parameters = accepted.ok_or(MultinomialFitError::OptimizationStalled)?;
-            accepted_steps += 1;
         }
 
         let (_, gradient) = objective_and_gradient(
@@ -364,14 +360,14 @@ fn validate_samples(
 
 fn build_model(
     samples: &[MultinomialSample],
-    n_classes: usize,
+    config: FitConfig,
     n_features: usize,
-    l2_penalty: f64,
-    parameters: Vec<f64>,
+    parameters: &[f64],
     iterations: usize,
     objective: f64,
     gradient_l2: f64,
-) -> Result<MultinomialLinearModel, MultinomialFitError> {
+) -> MultinomialLinearModel {
+    let n_classes = config.n_classes;
     let width = n_features + 1;
     let mut coefficients = Vec::with_capacity(n_classes - 1);
     let mut intercepts = Vec::with_capacity(n_classes - 1);
@@ -382,9 +378,10 @@ fn build_model(
     }
     let training_log_loss = mean_log_loss_from_parts(samples, &coefficients, &intercepts);
     debug_assert!(
-        (objective - (training_log_loss + 0.5 * l2_penalty * squared_l2(&parameters))).abs() < 1e-8
+        (objective - (training_log_loss + 0.5 * config.l2_penalty * squared_l2(parameters))).abs()
+            < 1e-8
     );
-    Ok(MultinomialLinearModel {
+    MultinomialLinearModel {
         n_features,
         n_classes,
         coefficients,
@@ -395,7 +392,7 @@ fn build_model(
             penalized_objective: objective,
             gradient_l2,
         },
-    })
+    }
 }
 
 fn objective_and_gradient(
@@ -412,8 +409,8 @@ fn objective_and_gradient(
         let probabilities =
             probabilities_from_parameters(&sample.features, n_classes, n_features, parameters);
         log_loss -= probabilities[sample.class].ln();
-        for class in 1..n_classes {
-            let residual = probabilities[class] - f64::from(sample.class == class);
+        for (class, probability) in probabilities.iter().enumerate().take(n_classes).skip(1) {
+            let residual = *probability - f64::from(sample.class == class);
             let start = (class - 1) * width;
             gradient[start] += residual;
             for (feature_index, feature) in sample.features.iter().enumerate() {

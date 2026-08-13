@@ -1,8 +1,13 @@
 #![forbid(unsafe_code)]
 //! Model-independent posterior-odds reconstruction and hierarchical contracts.
 
+pub mod closure;
 pub mod multinomial;
 
+pub use closure::{
+    ClosureFitConfig, ClosureFitError, ClosureModelKind, FourCornerClosureModel,
+    HeldOutClosureComparison, compare_held_out_closure_models,
+};
 pub use multinomial::{
     FitConfig, FitSummary, MultinomialFitError, MultinomialLinearModel, MultinomialSample,
     posterior_log_density_ratios,

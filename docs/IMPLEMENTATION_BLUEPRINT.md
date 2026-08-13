@@ -62,6 +62,9 @@ Owns learned nuisance and diagnostic models:
   unless its explicit gradient criterion converges;
 - held-out logarithmic loss and posterior-odds reconstruction under supplied
   state-independent sampling proportions;
+- a four-corner hierarchical classifier whose restricted `11` logit is tied to
+  the two primitive fields and whose saturated alternative adds one explicit
+  curvature field;
 - calibrated flexible binary and multinomial regime prediction (roadmap);
 - hierarchical main-effect and interaction fields;
 - primitive ratio extraction and normalization;
@@ -69,11 +72,13 @@ Owns learned nuisance and diagnostic models:
 - implementations of exploratory predictors behind `mic-proposal` adapter traits;
 - optional FrankenTorch CPU/Metal backends.
 
-The reference optimizer consumes an already frozen training slice and is
+The reference optimizers consume an already frozen training slice and are
 deliberately ignorant of causal status. Cluster-level fold construction,
 confirmation isolation, and validation of the sampling/selection contract stay
 outside `mic-model`; a posterior ratio is a nuisance estimate, not evidence that
-the contract authorizing it is true.
+the contract authorizing it is true. A held-out proper-loss advantage of the
+saturated model is serialized as diagnostic only; flexible-learner advantage is
+not a calibrated hypothesis test.
 
 Proposal adapters may order candidate tests but never implement certificate policy. Their serialized outputs use explicit score semantics and flow through the discovery/confirmation boundary in [`PROPOSAL_ADAPTERS.md`](PROPOSAL_ADAPTERS.md). External passive-discovery or residual-asymmetry code cannot become a dependency of `mic-core`.
 
