@@ -138,8 +138,8 @@ pub struct FittedOverlapSummary {
     max_regime_posterior: f64,
     /// Equal-cluster share of untouched units containing a posterior near zero or one.
     boundary_cluster_fraction: f64,
-    /// Count of baseline-row ratio evaluations that were zero or nonfinite.
-    nonfinite_ratio_count: u32,
+    /// Counts of zero/nonfinite baseline evaluations for `10`, `01`, and `11` ratios.
+    nonfinite_ratio_count: [u32; 3],
     /// True when the frozen descriptive thresholds flag an overlap concern.
     overlap_alarm: bool,
     /// Frozen posterior boundary used by this descriptive lens.
@@ -757,12 +757,12 @@ fn fold_overlap_summary(
     model: &FourCornerClosureModel,
     sampling_proportions: [f64; N_CLASSES],
 ) -> Result<FittedOverlapSummary, ClosureCrossFitError> {
-    let mut ratio_sums = BTreeMap::<String, ([f64; 3], u32, bool)>::new();
+    let mut ratio_sums = BTreeMap::<String, ([f64; 3], u32, [bool; 3])>::new();
     let mut boundary_by_cluster = BTreeMap::<String, bool>::new();
     let mut min_regime_posterior = 1.0_f64;
     let mut max_regime_posterior = 0.0_f64;
     let mut max_abs_log_density_ratio = None::<f64>;
-    let mut nonfinite_ratio_count = 0_u32;
+    let mut nonfinite_ratio_count = [0_u32; 3];
 
     let mut held_out = samples
         .iter()
@@ -787,7 +787,7 @@ fn fold_overlap_summary(
         }
         let entry = ratio_sums
             .entry(sample.dependence_unit_id.clone())
-            .or_insert(([0.0; 3], 0, false));
+            .or_insert(([0.0; 3], 0, [false; 3]));
         entry.1 = entry
             .1
             .checked_add(1)
@@ -797,21 +797,22 @@ fn fold_overlap_summary(
         for class in 1..N_CLASSES {
             let ratio = posterior[class] / posterior[0] * sampling_proportions[0]
                 / sampling_proportions[class];
+            let ratio_index = class - 1;
             if !ratio.is_finite() || ratio <= 0.0 {
-                nonfinite_ratio_count = nonfinite_ratio_count
+                nonfinite_ratio_count[ratio_index] = nonfinite_ratio_count[ratio_index]
                     .checked_add(1)
                     .ok_or(ClosureCrossFitError::InvalidFoldCount)?;
-                entry.2 = true;
+                entry.2[ratio_index] = true;
             } else {
-                let next_sum = entry.0[class - 1] + ratio;
+                let next_sum = entry.0[ratio_index] + ratio;
                 if !next_sum.is_finite() {
-                    nonfinite_ratio_count = nonfinite_ratio_count
+                    nonfinite_ratio_count[ratio_index] = nonfinite_ratio_count[ratio_index]
                         .checked_add(1)
                         .ok_or(ClosureCrossFitError::InvalidFoldCount)?;
-                    entry.2 = true;
+                    entry.2[ratio_index] = true;
                     continue;
                 }
-                entry.0[class - 1] = next_sum;
+                entry.0[ratio_index] = next_sum;
                 let magnitude = ratio.ln().abs();
                 max_abs_log_density_ratio =
                     Some(max_abs_log_density_ratio.map_or(magnitude, |old| old.max(magnitude)));
@@ -822,7 +823,7 @@ fn fold_overlap_summary(
     let mut cluster_weights = [Vec::new(), Vec::new(), Vec::new()];
     for (sums, count, invalid) in ratio_sums.values() {
         for index in 0..3 {
-            cluster_weights[index].push(if *invalid {
+            cluster_weights[index].push(if invalid[index] {
                 0.0
             } else {
                 sums[index] / f64::from(*count)
@@ -839,7 +840,8 @@ fn fold_overlap_summary(
         max_regime_posterior,
         boundary_cluster_fraction,
         nonfinite_ratio_count,
-        overlap_alarm: nonfinite_ratio_count > 0 || boundary_clusters > 0,
+        overlap_alarm: nonfinite_ratio_count.iter().any(|count| *count > 0)
+            || boundary_clusters > 0,
         posterior_floor: OVERLAP_POSTERIOR_FLOOR,
         calibrated_test: false,
     })

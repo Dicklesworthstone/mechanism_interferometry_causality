@@ -190,7 +190,7 @@ impl FourCornerClosureModel {
             .interaction
             .as_ref()
             .map_or(0.0, |field| dot(field, &basis));
-        Ok(probabilities([
+        let logits = [
             0.0,
             (self.sampling_proportions[1] / self.sampling_proportions[0]).ln() + a,
             (self.sampling_proportions[2] / self.sampling_proportions[0]).ln() + b,
@@ -198,7 +198,15 @@ impl FourCornerClosureModel {
                 + a
                 + b
                 + interaction,
-        ]))
+        ];
+        if logits.iter().any(|value| !value.is_finite()) {
+            return Err(ClosureFitError::NonFinitePrediction);
+        }
+        let prediction = probabilities(logits);
+        if prediction.iter().any(|value| !value.is_finite()) {
+            return Err(ClosureFitError::NonFinitePrediction);
+        }
+        Ok(prediction)
     }
 
     /// Evaluates the regularized model's fitted interaction projection.
@@ -213,10 +221,14 @@ impl FourCornerClosureModel {
     /// an unqualified curvature estimate.
     pub fn fitted_interaction_field(&self, features: &[f64]) -> Result<f64, ClosureFitError> {
         validate_feature_vector(features, self.n_features)?;
-        Ok(self
+        let value = self
             .interaction
             .as_ref()
-            .map_or(0.0, |field| dot(field, &basis(features))))
+            .map_or(0.0, |field| dot(field, &basis(features)));
+        if !value.is_finite() {
+            return Err(ClosureFitError::NonFinitePrediction);
+        }
+        Ok(value)
     }
 
     /// Mean logarithmic loss on untouched rows.
@@ -349,6 +361,9 @@ pub enum ClosureFitError {
     /// Weights were missing, nonfinite, or non-positive.
     #[error("weights must match samples and be finite and positive")]
     InvalidWeights,
+    /// Finite inputs produced a nonrepresentable logit or probability.
+    #[error("closure model prediction is not representable as finite f64")]
+    NonFinitePrediction,
     /// Configuration was invalid.
     #[error("invalid closure optimizer configuration: {0}")]
     InvalidConfiguration(&'static str),
@@ -438,7 +453,11 @@ fn validate_weights(
     {
         return Err(ClosureFitError::InvalidWeights);
     }
-    Ok(weights.iter().sum())
+    let total = weights.iter().sum::<f64>();
+    if !total.is_finite() || total <= 0.0 {
+        return Err(ClosureFitError::InvalidWeights);
+    }
+    Ok(total)
 }
 
 fn validate_feature_vector(features: &[f64], expected: usize) -> Result<(), ClosureFitError> {
@@ -750,5 +769,34 @@ mod tests {
         assert!(!comparison.calibrated_test);
         assert!(saturated.fitted_interaction_field(&[-1.0]).unwrap() < 0.0);
         assert!(saturated.fitted_interaction_field(&[1.0]).unwrap() > 0.0);
+    }
+
+    #[test]
+    fn finite_extreme_features_and_overflowing_weight_totals_fail_closed() {
+        let model = FourCornerClosureModel {
+            n_features: 1,
+            kind: ClosureModelKind::MainEffectsPlusInteraction,
+            sampling_proportions: [0.25; 4],
+            primitive_a: vec![0.0, f64::MAX],
+            primitive_b: vec![0.0, 0.0],
+            interaction: Some(vec![0.0, 0.0]),
+            summary: FitSummary {
+                iterations: 0,
+                training_log_loss: 0.0,
+                penalized_objective: 0.0,
+                gradient_l2: 0.0,
+            },
+        };
+        assert_eq!(
+            model.predict_probabilities(&[2.0]).unwrap_err(),
+            ClosureFitError::NonFinitePrediction
+        );
+        let rows = interaction_rows();
+        assert_eq!(
+            model
+                .mean_weighted_log_loss(&rows[..2], &[f64::MAX, f64::MAX])
+                .unwrap_err(),
+            ClosureFitError::InvalidWeights
+        );
     }
 }

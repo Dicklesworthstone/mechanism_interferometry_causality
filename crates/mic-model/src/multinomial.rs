@@ -49,7 +49,7 @@ impl Default for FitConfig {
 }
 
 /// Optimization facts attached to the fitted nuisance model.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct FitSummary {
     /// Accepted full-batch steps.
@@ -66,7 +66,7 @@ pub struct FitSummary {
 ///
 /// The reference class has an identically zero logit. Row `c - 1` of
 /// `coefficients` and `intercepts` parameterizes class `c`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct MultinomialLinearModel {
     n_features: usize,
@@ -202,11 +202,15 @@ impl MultinomialLinearModel {
         if features.iter().any(|value| !value.is_finite()) {
             return Err(MultinomialFitError::NonFiniteFeature);
         }
-        Ok(probabilities_from_parts(
-            features,
-            &self.coefficients,
-            &self.intercepts,
-        ))
+        let probabilities =
+            probabilities_from_parts(features, &self.coefficients, &self.intercepts);
+        if probabilities
+            .iter()
+            .any(|probability| !probability.is_finite())
+        {
+            return Err(MultinomialFitError::NonFinitePrediction);
+        }
+        Ok(probabilities)
     }
 
     /// Reconstructs log density ratios directly from finite fitted logits.
@@ -815,5 +819,25 @@ mod tests {
             .predict_log_density_ratios(&[1.0], &[1.0 / 3.0; 3], 0)
             .unwrap();
         assert_eq!(ratios, vec![0.0, 1_000.0, -1_000.0]);
+    }
+
+    #[test]
+    fn finite_extreme_prediction_fails_closed_instead_of_returning_nan() {
+        let model = MultinomialLinearModel {
+            n_features: 1,
+            n_classes: 2,
+            coefficients: vec![vec![f64::MAX]],
+            intercepts: vec![0.0],
+            summary: FitSummary {
+                iterations: 0,
+                training_log_loss: 0.0,
+                penalized_objective: 0.0,
+                gradient_l2: 0.0,
+            },
+        };
+        assert_eq!(
+            model.predict_probabilities(&[2.0]).unwrap_err(),
+            MultinomialFitError::NonFinitePrediction
+        );
     }
 }

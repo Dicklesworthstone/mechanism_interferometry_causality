@@ -38,6 +38,10 @@ pub enum CompletionGridSerialization {
     Included,
     /// The categorical grid exceeded the fixed report-size budget.
     OmittedByBudget,
+    /// Free unobserved level kernels prevent a unique grid serialization.
+    NotApplicableSetIdentified,
+    /// Incompatible observed kernels prevent any modular grid serialization.
+    NotApplicableInfeasible,
 }
 
 /// Fixed authority scope of the solver.
@@ -144,6 +148,18 @@ impl KernelCompletionReport {
         &self.findings
     }
 
+    /// Compatible observed family-level kernels. Empty when the fixed model is infeasible.
+    #[must_use]
+    pub fn identified_kernels(&self) -> &[IdentifiedConditionalKernel] {
+        &self.identified_kernels
+    }
+
+    /// Why the completed grid is present or deliberately absent.
+    #[must_use]
+    pub fn completion_grid_serialization(&self) -> CompletionGridSerialization {
+        self.completion_grid_serialization
+    }
+
     /// Family levels absent from every supplied regime.
     #[must_use]
     pub fn unobserved_family_levels(&self) -> &[(usize, u32)] {
@@ -215,16 +231,20 @@ pub fn solve_finite_kernel_completion(
     } else {
         KernelCompletionStatus::ExactInfeasible
     };
-    let identified_kernels = observed
-        .iter()
-        .map(
-            |(&(family, level), (_, values))| IdentifiedConditionalKernel {
-                family,
-                level,
-                conditional_probability_by_state: values.clone(),
-            },
-        )
-        .collect::<Vec<_>>();
+    let identified_kernels = if status == KernelCompletionStatus::ExactInfeasible {
+        Vec::new()
+    } else {
+        observed
+            .iter()
+            .map(
+                |(&(family, level), (_, values))| IdentifiedConditionalKernel {
+                    family,
+                    level,
+                    conditional_probability_by_state: values.clone(),
+                },
+            )
+            .collect::<Vec<_>>()
+    };
 
     let grid_size = input.families.iter().try_fold(1usize, |size, family| {
         usize::try_from(family.cardinality)
@@ -247,11 +267,10 @@ pub fn solve_finite_kernel_completion(
         identified_kernels,
         unobserved_family_levels,
         completed_missing_laws,
-        completion_grid_serialization: if completion_grid_omitted_by_budget {
-            CompletionGridSerialization::OmittedByBudget
-        } else {
-            CompletionGridSerialization::Included
-        },
+        completion_grid_serialization: completion_grid_serialization(
+            status,
+            completion_grid_omitted_by_budget,
+        ),
         model_input_sha256: fingerprint_input(input),
         law_semantics: input.law_semantics,
         scope: KernelCompletionScope::FixedDagAndTargets,
@@ -260,6 +279,24 @@ pub fn solve_finite_kernel_completion(
         authority: FiniteCompletionAuthority::DiagnosticOnly,
         certificate_eligibility: KernelCertificateEligibility::Ineligible,
     })
+}
+
+fn completion_grid_serialization(
+    status: KernelCompletionStatus,
+    omitted_by_budget: bool,
+) -> CompletionGridSerialization {
+    match status {
+        KernelCompletionStatus::ExactInfeasible => {
+            CompletionGridSerialization::NotApplicableInfeasible
+        }
+        KernelCompletionStatus::SetIdentified => {
+            CompletionGridSerialization::NotApplicableSetIdentified
+        }
+        KernelCompletionStatus::PointIdentified if omitted_by_budget => {
+            CompletionGridSerialization::OmittedByBudget
+        }
+        KernelCompletionStatus::PointIdentified => CompletionGridSerialization::Included,
+    }
 }
 
 fn audit_regime_kernels(
@@ -470,6 +507,10 @@ mod tests {
         .unwrap();
         assert_eq!(report.status(), KernelCompletionStatus::SetIdentified);
         assert_eq!(report.unobserved_family_levels(), &[(1, 1)]);
+        assert_eq!(
+            report.completion_grid_serialization(),
+            CompletionGridSerialization::NotApplicableSetIdentified
+        );
     }
 
     #[test]
@@ -480,6 +521,11 @@ mod tests {
         }]))
         .unwrap();
         assert_eq!(report.status(), KernelCompletionStatus::ExactInfeasible);
+        assert!(report.identified_kernels().is_empty());
+        assert_eq!(
+            report.completion_grid_serialization(),
+            CompletionGridSerialization::NotApplicableInfeasible
+        );
         assert!(report.findings().iter().any(|finding| matches!(
             finding,
             KernelCompletionFinding::InactiveKernelChanged { node: 1, .. }
