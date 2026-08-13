@@ -333,7 +333,11 @@ qualification.
 - [ ] Add adaptive witness separation and calibrated cluster-level inference
   around the global closure comparison; held-out proper-loss advantage remains
   diagnostic until this lands.
-- [ ] Implement leave-the-entire-combination-arm-out law prediction with raw normalizer, ESS, overlap, and weighted-law discrepancy.
+- [x] Implement exact finite-state leave-the-entire-combination-arm-out law
+  prediction with mandatory raw normalizer/residual, log overlap concentration,
+  asymptotic ESS fraction, and nonnegative held-out TV/Hellinger discrepancies.
+- [ ] Extend held-out combination prediction to fitted cross-fold ratios and a
+  cluster-resampled weighted-law discrepancy with calibrated uncertainty.
 - [ ] Calibrate cluster-level type-I error and coverage before adding flexible learner families.
 - [ ] Add one controlled-real factorial experiment before making general discovery claims.
 - [ ] Add Python, Arrow, Parquet, Polars/pandas, and AnnData surfaces only after the reference estimator is end to end.

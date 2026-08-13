@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-13T02:42:06Z",
+  "generated_at_utc": "2026-08-13T02:45:41Z",
   "hash_algorithm": "sha256",
-  "file_count": 180,
-  "aggregate_sha256": "14c1c359173e789a9be1b622eab4bc369a7c7ff773716efef9f6a9a6a2d41faa",
+  "file_count": 182,
+  "aggregate_sha256": "5ba661579be5c4fd18cb5fef8d03f4fb567218a568a63b1135e8be22e97b6b53",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -63,8 +63,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 11150,
-      "sha256": "de63b4148a99cc12798940bd211027c0d330d71e68b605d771dbc3c32b7e72cb"
+      "bytes": 11616,
+      "sha256": "ed8862aca759e8127db9a2fe867b1e50f7f03d2dfd9e5f4e514bde88ace3d7b3"
     },
     {
       "path": "artifacts/simulations/exact_results.json",
@@ -113,8 +113,8 @@
     },
     {
       "path": "crates/mic-conformance/src/lib.rs",
-      "bytes": 24180,
-      "sha256": "50db59762ed8b9bce448cca58f25c4491b2ff8d24548b97d6133da5fcf426322"
+      "bytes": 25228,
+      "sha256": "c0b0d83bb7b5a92fd270b2b4e4d0ab7f4531de9732016a2257ed0dedd3379fcc"
     },
     {
       "path": "crates/mic-core/Cargo.toml",
@@ -203,8 +203,8 @@
     },
     {
       "path": "crates/mic-model/src/lib.rs",
-      "bytes": 6531,
-      "sha256": "8fd6268592d369d1842b4ac68426f3f5bd399bce3dfb47766e5b3c95b329bd9e"
+      "bytes": 6662,
+      "sha256": "0f2ade9d9c192d54df35f01c19943b5ba0d0d29049221148876b582ff25a728b"
     },
     {
       "path": "crates/mic-model/src/multinomial.rs",
@@ -328,8 +328,8 @@
     },
     {
       "path": "docs/SELF_DRIVING_CAMPAIGN.md",
-      "bytes": 24620,
-      "sha256": "0b675a382861124151e8b019d1c2dc70d95c4222c73d96b6433d4e3cd5095999"
+      "bytes": 24876,
+      "sha256": "a904d3ca13e3cd6304581adb06c352659d3e9f839a85ae38c375469c2b8a71c0"
     },
     {
       "path": "examples/README.md",
@@ -405,6 +405,11 @@
       "path": "examples/benchmarks/authority_ablation_template/transformation.json",
       "bytes": 146,
       "sha256": "6c9fea494d651d34130d060fba5eff311073a1f1e45af7f98adb45f3fc83da34"
+    },
+    {
+      "path": "examples/closure_crossfit_request.json",
+      "bytes": 938,
+      "sha256": "52347927dcb048b2981e5f2492adf494e98307957bbc27ce8c8df1135430000a"
     },
     {
       "path": "examples/configs/feature_flag_pilot.json",
@@ -680,6 +685,11 @@
       "path": "schemas/benchmark_routing_view.schema.json",
       "bytes": 4067,
       "sha256": "efd1eab3f629f8a3c797bf2c2089a61da063239a02f578bad952147ad3763f7c"
+    },
+    {
+      "path": "schemas/closure_crossfit_request.schema.json",
+      "bytes": 2010,
+      "sha256": "1b31344c85f82cd1b1e6936a30a05df174ac62971253e6356746e6e19305cb40"
     },
     {
       "path": "schemas/design_authority_receipt.schema.json",

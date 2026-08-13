@@ -4,6 +4,7 @@
 pub mod closure;
 pub mod crossfit;
 pub mod multinomial;
+pub mod prediction;
 
 pub use closure::{
     ClosureFitConfig, ClosureFitError, ClosureModelKind, FourCornerClosureModel,
@@ -17,6 +18,9 @@ pub use crossfit::{
 pub use multinomial::{
     FitConfig, FitSummary, MultinomialFitError, MultinomialLinearModel, MultinomialSample,
     posterior_log_density_ratios,
+};
+pub use prediction::{
+    FiniteLawPredictionDiagnostic, FiniteLawPredictionError, predict_combination_law,
 };
 
 use mic_design::audit_sampling_odds;

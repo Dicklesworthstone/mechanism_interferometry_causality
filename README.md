@@ -111,6 +111,13 @@ held-out logarithmic loss. Its output is always `diagnostic_only` and
 calibrated closure test, and the command cannot verify that a caller's declared
 identifier is the physical assignment unit.
 
+For exact finite-state benchmarks, the model crate can also predict the entire
+held-out `11` law from `00`, `10`, and `01`. That diagnostic preserves the raw
+product normalizer and its residual before normalization, reports overlap and
+asymptotic ESS loss, and scores the untouched combination with nonnegative total
+variation and Hellinger discrepancies. It is a reference oracle for the future
+fitted ratio path, not a substitute for cluster-resampled inference.
+
 Passive DAG learners, parsimony searches, residual heuristics, and previous audit runs may be connected only as proposal adapters. They can prioritize candidate supports, measurements, or follow-up interventions, but their scores never count as certificate evidence and data-adaptive proposals require independent confirmation.
 
 The longer-term self-driving campaign is **causal mechanism tomography**, not a

@@ -20,11 +20,11 @@ mod tests {
     use mic_model::{
         ClosureCrossFitConfig, ClosureFitConfig, ClosureModelKind, ClusteredMultinomialSample,
         FourCornerClosureModel, MultinomialSample, PosteriorSquare,
-        compare_held_out_closure_models, cross_fit_closure_models,
+        compare_held_out_closure_models, cross_fit_closure_models, predict_combination_law,
     };
     use mic_sim::{
-        causal_tomography_chain, exact_suite, flat_noncausal_cube, hidden_sensor_tomography,
-        identification_twins,
+        HiddenSensorTomography, causal_tomography_chain, exact_suite, flat_noncausal_cube,
+        hidden_sensor_tomography, identification_twins,
     };
     use mic_stats::{
         CandidateSupport, OrientationOutcome, classify_deletion, parsimony_frontier,
@@ -56,6 +56,28 @@ mod tests {
             }
         }
         clustered
+    }
+
+    fn assert_hidden_sensor_law_prediction(example: &HiddenSensorTomography) {
+        let complete_prediction = predict_combination_law(
+            &example.laws[0].complete_probabilities,
+            &example.laws[1].complete_probabilities,
+            &example.laws[2].complete_probabilities,
+            &example.laws[3].complete_probabilities,
+            40,
+        )
+        .unwrap();
+        assert!(complete_prediction.heldout_total_variation < 1e-14);
+        let observed_prediction = predict_combination_law(
+            &example.laws[0].observed_probabilities,
+            &example.laws[1].observed_probabilities,
+            &example.laws[2].observed_probabilities,
+            &example.laws[3].observed_probabilities,
+            40,
+        )
+        .unwrap();
+        assert!(observed_prediction.normalizer_residual.abs() < 1e-14);
+        assert!((observed_prediction.heldout_total_variation - 0.1).abs() < 1e-14);
     }
 
     #[test]
@@ -111,6 +133,7 @@ mod tests {
             .unwrap();
             assert!((observed_curvature - example.observed_curvature[state]).abs() < 1e-14);
         }
+        assert_hidden_sensor_law_prediction(&example);
 
         let mut samples = Vec::new();
         let exact_counts = [[5_usize, 5], [5, 5], [5, 5], [4, 6]];
