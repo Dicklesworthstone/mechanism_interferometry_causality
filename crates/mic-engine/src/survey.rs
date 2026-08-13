@@ -7,9 +7,10 @@
 use crate::EngineError;
 use mic_data::{RawTable, load_raw_csv};
 use mic_design::{
-    DesignPoint, FamilyClassificationInput, ModularCompletionClass, ObservedDesign,
-    OrientationTestability, SamplingOddsAudit, audit_design, audit_sampling_odds,
-    classify_observed_family, observed_design_from_rows, orientation_testability,
+    DesignPoint, FamilyClassificationInput, ModularCompletionClass, NextCornerCandidate,
+    NextCornerKind, ObservedDesign, OrientationTestability, SamplingOddsAudit, audit_design,
+    audit_sampling_odds, classify_observed_family, observed_design_from_rows,
+    orientation_testability, rank_missing_boolean_corners_from_observed,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -93,6 +94,10 @@ pub struct InterferometerProposal {
     pub recommended_next_corner: Option<String>,
     /// Integer cost of that recommended corner (default 1000).
     pub recommended_next_corner_cost: Option<u32>,
+    /// Never-seen versus under-supported for the recommended cell.
+    pub recommended_next_corner_kind: Option<NextCornerKind>,
+    /// Top ranked cells, never more than three.
+    pub ranked_next_corners: Vec<NextCornerCandidate>,
     /// Modular-completion class. Survey never supplies laws, so this is untestable.
     pub modular_completion: ModularCompletionClass,
     /// Orientation testability. Catalog squares with no tilt family are untestable.
@@ -480,10 +485,18 @@ fn propose(
     debug_assert_ne!(modular_completion, ModularCompletionClass::Unique);
     debug_assert_eq!(orientation, OrientationTestability::Untestable);
     let identified_set_dimension = family.as_ref().map(|item| item.identified_set_dimension);
-    let recommended_next_corner = family
-        .as_ref()
-        .and_then(|item| item.recommended_next_corner.clone());
-    let recommended_next_corner_cost = family.as_ref().and_then(|item| item.next_corner_cost);
+    let ranked_next_corners = rank_missing_boolean_corners_from_observed(
+        &design,
+        &std::collections::BTreeMap::new(),
+        1e-10,
+    )
+    .unwrap_or_default()
+    .into_iter()
+    .take(3)
+    .collect::<Vec<_>>();
+    let recommended_next_corner = ranked_next_corners.first().map(|item| item.corner.clone());
+    let recommended_next_corner_cost = ranked_next_corners.first().map(|item| item.cost);
+    let recommended_next_corner_kind = ranked_next_corners.first().map(|item| item.kind);
     let near_square = design
         .points
         .first()
@@ -510,6 +523,8 @@ fn propose(
         identified_set_dimension,
         recommended_next_corner,
         recommended_next_corner_cost,
+        recommended_next_corner_kind,
+        ranked_next_corners,
         modular_completion,
         orientation,
         priority,
@@ -573,12 +588,19 @@ fn survey_next_step(interferometers: &[InterferometerProposal]) -> String {
     {
         let next = match (
             item.recommended_next_corner.as_deref(),
+            item.recommended_next_corner_kind,
             item.identified_set_dimension,
         ) {
-            (Some(corner), Some(idim)) => {
-                format!(" Ranked next corner `{corner}` (identified-set dimension {idim}).")
+            (Some(corner), Some(NextCornerKind::UnderSupported), Some(idim)) => format!(
+                " Ranked next corner `{corner}` is under-supported (identified-set dimension {idim}); collect more units, do not invent the arm."
+            ),
+            (Some(corner), Some(NextCornerKind::NeverSeen), Some(idim)) => format!(
+                " Ranked next corner `{corner}` was never seen (identified-set dimension {idim})."
+            ),
+            (Some(corner), Some(NextCornerKind::UnderSupported), None) => {
+                format!(" Ranked next corner `{corner}` is under-supported; collect more units.")
             }
-            (Some(corner), None) => format!(" Ranked next corner `{corner}`."),
+            (Some(corner), _, _) => format!(" Ranked next corner `{corner}`."),
             _ => String::new(),
         };
         return format!(
@@ -952,6 +974,11 @@ mod tests {
         assert!(report.next_step.contains("do not impute"));
         assert!(report.next_step.contains("Ranked next corner `11`"));
         assert_eq!(
+            square.recommended_next_corner_kind,
+            Some(NextCornerKind::NeverSeen)
+        );
+        assert!(report.next_step.contains("never seen"));
+        assert_eq!(
             report
                 .information_content
                 .recommended_next_corner
@@ -991,6 +1018,11 @@ mod tests {
         assert_eq!(square.dropped_corners, ["11"]);
         assert!(square.note.contains("dropped below min_corner_count [11]"));
         assert!(!square.note.contains("never-seen corners [11]"));
+        assert_eq!(
+            square.recommended_next_corner_kind,
+            Some(NextCornerKind::UnderSupported)
+        );
+        assert!(report.next_step.contains("under-supported"));
         assert!(report.suggested_manifest.is_none());
     }
 
