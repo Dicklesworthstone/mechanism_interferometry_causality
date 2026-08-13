@@ -3,6 +3,8 @@
 
 use mic_core::compensated_sum;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::{collections::BTreeMap, fmt::Write as _};
 use thiserror::Error;
 
 /// Statistical primitive errors.
@@ -954,6 +956,649 @@ pub struct SimultaneousBounds {
     pub seed: u64,
 }
 
+/// Authority ceiling of the cluster-multiplier four-law witness procedure.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FourLawWitnessAuthority {
+    /// Reference asymptotic diagnostic; coverage is not yet validated for certification.
+    DiagnosticOnly,
+}
+
+/// Calibration status of the reference cluster-multiplier implementation.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WitnessCalibrationStatus {
+    /// Procedure implemented, but finite-sample coverage gauntlet is not complete.
+    ReferenceMultiplierNotCoverageValidated,
+}
+
+/// One discovery-only residual contribution for a finite/discrete state label.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct DiscreteWitnessDiscoveryContribution {
+    /// Highest declared dependence unit; duplicated rows within it are averaged first.
+    pub dependence_unit_id: String,
+    /// Frozen discrete state or representation-cell identifier.
+    pub state_id: String,
+    /// Discovery-fold estimate of the closure residual at this state.
+    pub estimated_residual: f64,
+}
+
+/// Discovery-only configuration for a bounded finite/discrete witness.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct DiscreteWitnessLearningConfig {
+    /// Positive scale in `tanh(mean_residual / shrinkage_scale)`.
+    pub shrinkage_scale: f64,
+    /// Content commitment of the discovery partition, including its unit list.
+    pub discovery_partition_sha256: String,
+}
+
+/// Authority of the supplied discovery partition and state representation.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WitnessInputAuthority {
+    /// The learner bound caller declarations but did not validate their physical provenance.
+    DeclaredUnverified,
+}
+
+/// Held-out outcome of one frozen state-expansion candidate.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StateExpansionStatus {
+    /// Supplied simultaneous bounds place the expanded statistic inside equivalence.
+    ResolvesCurvatureUnderSuppliedBounds,
+    /// Point discrepancy fell, but equivalence was not established.
+    PartiallyExplainsCurvature,
+    /// Expanded-state discrepancy increased.
+    WorsensCurvature,
+    /// Apparent gain coincided with excessive overlap/cohort support loss.
+    ApparentImprovementFromSupportLoss,
+    /// Conservation or interval evidence did not support another state.
+    Inconclusive,
+}
+
+/// One frozen candidate block evaluated on a common untouched cohort.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct StateExpansionCandidateDiagnostic {
+    /// Opaque candidate block identifier.
+    pub block_id: String,
+    /// Positive collection or computation cost.
+    pub cost: u32,
+    /// Discovery-only ordering score frozen before confirmation.
+    pub discovery_priority: f64,
+    /// Coarse-state point discrepancy and simultaneous bounds.
+    pub coarse_discrepancy: f64,
+    /// Simultaneous lower bound for the coarse discrepancy.
+    pub coarse_lower: f64,
+    /// Simultaneous upper bound for the coarse discrepancy.
+    pub coarse_upper: f64,
+    /// Expanded-state point discrepancy.
+    pub expanded_discrepancy: f64,
+    /// Simultaneous lower bound for the expanded discrepancy.
+    pub expanded_lower: f64,
+    /// Simultaneous upper bound for the expanded discrepancy.
+    pub expanded_upper: f64,
+    /// Fraction of the frozen common cohort retaining overlap before expansion.
+    pub coarse_overlap_fraction: f64,
+    /// Fraction of the frozen common cohort retaining overlap after expansion.
+    pub expanded_overlap_fraction: f64,
+    /// Residual in the nested conservation accounting.
+    pub nested_conservation_residual: f64,
+    /// Content commitment of the common untouched unit cohort.
+    pub common_cohort_sha256: String,
+}
+
+/// Frozen policy for descriptive held-out state-expansion ranking.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct StateExpansionPolicy {
+    /// Simultaneous equivalence margin for the curvature statistic.
+    pub equivalence_tolerance: f64,
+    /// Largest allowed loss of overlap-retaining cohort fraction.
+    pub max_overlap_fraction_loss: f64,
+    /// Largest allowed absolute nested-conservation residual.
+    pub conservation_tolerance: f64,
+    /// Confirmation cohort commitment every candidate must share.
+    pub common_cohort_sha256: String,
+}
+
+/// Ranked held-out candidate with diagnostic-only authority.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct RankedStateExpansion {
+    block_id: String,
+    status: StateExpansionStatus,
+    cost: u32,
+    discovery_priority: f64,
+    heldout_discrepancy_reduction: f64,
+    nested_conservation_residual: f64,
+    common_cohort_sha256: String,
+    calibrated_test: bool,
+    authority: FourLawWitnessAuthority,
+}
+
+/// Ranks frozen state-expansion candidates on a common untouched cohort.
+///
+/// The function never refits or selects candidate blocks. It rejects cohort
+/// drift, malformed simultaneous intervals, and support-loss improvements.
+/// Because this layer cannot validate the supplied bounds or cohort receipt,
+/// every output remains diagnostic-only even when its operational status says
+/// the supplied bounds meet equivalence.
+pub fn rank_state_expansion_candidates(
+    candidates: &[StateExpansionCandidateDiagnostic],
+    policy: &StateExpansionPolicy,
+) -> Result<Vec<RankedStateExpansion>, StatsError> {
+    if candidates.is_empty()
+        || !policy.equivalence_tolerance.is_finite()
+        || policy.equivalence_tolerance <= 0.0
+        || !policy.max_overlap_fraction_loss.is_finite()
+        || !(0.0..=1.0).contains(&policy.max_overlap_fraction_loss)
+        || !policy.conservation_tolerance.is_finite()
+        || policy.conservation_tolerance < 0.0
+    {
+        return Err(StatsError::Shape);
+    }
+    let cohort = validate_sha256_fingerprint(
+        &policy.common_cohort_sha256,
+        "state-expansion common cohort",
+    )?;
+    let mut seen = std::collections::BTreeSet::new();
+    let mut output = Vec::with_capacity(candidates.len());
+    for candidate in candidates {
+        if candidate.block_id.trim().is_empty()
+            || candidate.block_id.chars().count() > 1_024
+            || !seen.insert(candidate.block_id.as_str())
+            || candidate.cost == 0
+            || candidate.common_cohort_sha256 != cohort
+        {
+            return Err(StatsError::Shape);
+        }
+        let numeric = [
+            candidate.discovery_priority,
+            candidate.coarse_discrepancy,
+            candidate.coarse_lower,
+            candidate.coarse_upper,
+            candidate.expanded_discrepancy,
+            candidate.expanded_lower,
+            candidate.expanded_upper,
+            candidate.coarse_overlap_fraction,
+            candidate.expanded_overlap_fraction,
+            candidate.nested_conservation_residual,
+        ];
+        if numeric.iter().any(|value| !value.is_finite())
+            || candidate.coarse_discrepancy < 0.0
+            || candidate.expanded_discrepancy < 0.0
+            || candidate.coarse_lower > candidate.coarse_discrepancy
+            || candidate.coarse_discrepancy > candidate.coarse_upper
+            || candidate.expanded_lower > candidate.expanded_discrepancy
+            || candidate.expanded_discrepancy > candidate.expanded_upper
+            || !(0.0..=1.0).contains(&candidate.coarse_overlap_fraction)
+            || !(0.0..=1.0).contains(&candidate.expanded_overlap_fraction)
+        {
+            return Err(StatsError::Shape);
+        }
+        let reduction = candidate.coarse_discrepancy - candidate.expanded_discrepancy;
+        let support_loss = candidate.coarse_overlap_fraction - candidate.expanded_overlap_fraction
+            > policy.max_overlap_fraction_loss;
+        let status = if support_loss && reduction > 0.0 {
+            StateExpansionStatus::ApparentImprovementFromSupportLoss
+        } else if candidate.nested_conservation_residual.abs() > policy.conservation_tolerance {
+            StateExpansionStatus::Inconclusive
+        } else if candidate.coarse_lower > policy.equivalence_tolerance
+            && candidate.expanded_upper < policy.equivalence_tolerance
+        {
+            StateExpansionStatus::ResolvesCurvatureUnderSuppliedBounds
+        } else if reduction > 0.0 {
+            StateExpansionStatus::PartiallyExplainsCurvature
+        } else if reduction < 0.0 {
+            StateExpansionStatus::WorsensCurvature
+        } else {
+            StateExpansionStatus::Inconclusive
+        };
+        output.push(RankedStateExpansion {
+            block_id: candidate.block_id.clone(),
+            status,
+            cost: candidate.cost,
+            discovery_priority: candidate.discovery_priority,
+            heldout_discrepancy_reduction: reduction,
+            nested_conservation_residual: candidate.nested_conservation_residual,
+            common_cohort_sha256: cohort.clone(),
+            calibrated_test: false,
+            authority: FourLawWitnessAuthority::DiagnosticOnly,
+        });
+    }
+    output.sort_by(|left, right| {
+        state_expansion_rank(left.status)
+            .cmp(&state_expansion_rank(right.status))
+            .then_with(|| {
+                let left_value = left.heldout_discrepancy_reduction / f64::from(left.cost);
+                let right_value = right.heldout_discrepancy_reduction / f64::from(right.cost);
+                right_value.total_cmp(&left_value)
+            })
+            .then_with(|| right.discovery_priority.total_cmp(&left.discovery_priority))
+            .then_with(|| left.block_id.cmp(&right.block_id))
+    });
+    Ok(output)
+}
+
+fn state_expansion_rank(status: StateExpansionStatus) -> u8 {
+    match status {
+        StateExpansionStatus::ResolvesCurvatureUnderSuppliedBounds => 0,
+        StateExpansionStatus::PartiallyExplainsCurvature => 1,
+        StateExpansionStatus::Inconclusive => 2,
+        StateExpansionStatus::WorsensCurvature => 3,
+        StateExpansionStatus::ApparentImprovementFromSupportLoss => 4,
+    }
+}
+
+/// Frozen bounded witness learned without an API path for confirmation rows.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct FrozenDiscreteClosureWitness {
+    weights_by_state: BTreeMap<String, f64>,
+    shrinkage_scale: f64,
+    n_discovery_dependence_units: usize,
+    discovery_partition_sha256: String,
+    witness_family_sha256: String,
+    input_authority: WitnessInputAuthority,
+    authority: FourLawWitnessAuthority,
+}
+
+impl FrozenDiscreteClosureWitness {
+    /// Applies the frozen witness; an unseen confirmation state receives weight zero.
+    #[must_use]
+    pub fn apply(&self, state_ids: &[String]) -> Vec<f64> {
+        state_ids
+            .iter()
+            .map(|state| self.weights_by_state.get(state).copied().unwrap_or(0.0))
+            .collect()
+    }
+
+    /// Content fingerprint to bind into [`FourLawWitnessConfig`].
+    #[must_use]
+    pub fn witness_family_sha256(&self) -> &str {
+        &self.witness_family_sha256
+    }
+}
+
+/// Learns a bounded discrete witness on discovery contributions only.
+///
+/// The API accepts no confirmation type. Contributions are averaged first
+/// within `(dependence_unit, state)` and then equally across dependence units,
+/// so duplicating rows inside a declared unit cannot change the witness. The
+/// state representation and physical unit roles remain caller declarations.
+pub fn learn_discrete_closure_witness(
+    discovery: &[DiscreteWitnessDiscoveryContribution],
+    config: &DiscreteWitnessLearningConfig,
+) -> Result<FrozenDiscreteClosureWitness, StatsError> {
+    if discovery.is_empty() {
+        return Err(StatsError::Shape);
+    }
+    if !config.shrinkage_scale.is_finite() || config.shrinkage_scale <= 0.0 {
+        return Err(StatsError::Invalid {
+            name: "witness shrinkage scale",
+            value: config.shrinkage_scale,
+        });
+    }
+    let discovery_partition_sha256 = validate_sha256_fingerprint(
+        &config.discovery_partition_sha256,
+        "discovery partition fingerprint",
+    )?;
+    let mut unit_state = BTreeMap::<(String, String), (f64, u32)>::new();
+    for row in discovery {
+        if row.dependence_unit_id.trim().is_empty()
+            || row.state_id.trim().is_empty()
+            || row.dependence_unit_id.chars().count() > 1_024
+            || row.state_id.chars().count() > 1_024
+        {
+            return Err(StatsError::InvalidEvidenceReference {
+                name: "discovery dependence-unit or state identifier",
+            });
+        }
+        if !row.estimated_residual.is_finite() {
+            return Err(StatsError::Invalid {
+                name: "estimated discovery residual",
+                value: row.estimated_residual,
+            });
+        }
+        let entry = unit_state
+            .entry((row.dependence_unit_id.clone(), row.state_id.clone()))
+            .or_default();
+        entry.0 += row.estimated_residual;
+        if !entry.0.is_finite() {
+            return Err(StatsError::Invalid {
+                name: "summed discovery residual",
+                value: entry.0,
+            });
+        }
+        entry.1 = entry.1.checked_add(1).ok_or(StatsError::Shape)?;
+    }
+    let mut by_state = BTreeMap::<String, Vec<f64>>::new();
+    let mut units = std::collections::BTreeSet::new();
+    for ((unit, state), (sum, count)) in unit_state {
+        units.insert(unit);
+        by_state
+            .entry(state)
+            .or_default()
+            .push(sum / f64::from(count));
+    }
+    let weights_by_state = by_state
+        .into_iter()
+        .map(|(state, values)| {
+            let mean = compensated_sum(&values) / values.len() as f64;
+            (state, (mean / config.shrinkage_scale).tanh())
+        })
+        .collect::<BTreeMap<_, _>>();
+    let witness_family_sha256 = discrete_witness_fingerprint(
+        &weights_by_state,
+        config.shrinkage_scale,
+        &discovery_partition_sha256,
+    );
+    Ok(FrozenDiscreteClosureWitness {
+        weights_by_state,
+        shrinkage_scale: config.shrinkage_scale,
+        n_discovery_dependence_units: units.len(),
+        discovery_partition_sha256,
+        witness_family_sha256,
+        input_authority: WitnessInputAuthority::DeclaredUnverified,
+        authority: FourLawWitnessAuthority::DiagnosticOnly,
+    })
+}
+
+fn discrete_witness_fingerprint(
+    weights: &BTreeMap<String, f64>,
+    shrinkage_scale: f64,
+    discovery_partition_sha256: &str,
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"mic.discrete_closure_witness.v1\0");
+    hasher.update(shrinkage_scale.to_bits().to_be_bytes());
+    hasher.update(
+        u64::try_from(discovery_partition_sha256.len())
+            .unwrap_or(u64::MAX)
+            .to_be_bytes(),
+    );
+    hasher.update(discovery_partition_sha256.as_bytes());
+    for (state, weight) in weights {
+        hasher.update(u64::try_from(state.len()).unwrap_or(u64::MAX).to_be_bytes());
+        hasher.update(state.as_bytes());
+        hasher.update(weight.to_bits().to_be_bytes());
+    }
+    let mut output = String::from("sha256:");
+    for byte in hasher.finalize() {
+        write!(&mut output, "{byte:02x}").expect("writing into a String cannot fail");
+    }
+    output
+}
+
+/// Frozen calibration and provenance contract for one witness family.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct FourLawWitnessConfig {
+    /// Number of deterministic Rademacher multiplier replicates.
+    pub replicates: usize,
+    /// Nominal simultaneous coverage in `(0,1)`.
+    pub confidence: f64,
+    /// Recorded deterministic multiplier seed.
+    pub seed: u64,
+    /// Content fingerprint of the witness family frozen before confirmation.
+    pub witness_family_sha256: String,
+    /// Declared independent-unit role used for every contribution row.
+    pub independent_unit: String,
+}
+
+/// Simultaneous cluster-multiplier bounds for frozen four-law witnesses.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct FourLawWitnessBounds {
+    estimates: Vec<f64>,
+    standard_errors: Vec<f64>,
+    critical_value: f64,
+    lower: Vec<f64>,
+    upper: Vec<f64>,
+    n_joint_clusters: usize,
+    n_a_clusters: usize,
+    n_b_clusters: usize,
+    replicates: usize,
+    confidence: f64,
+    seed: u64,
+    witness_family_sha256: String,
+    independent_unit: String,
+    calibration: WitnessCalibrationStatus,
+    authority: FourLawWitnessAuthority,
+}
+
+impl FourLawWitnessBounds {
+    /// Symmetrized witness estimates in frozen witness order.
+    #[must_use]
+    pub fn estimates(&self) -> &[f64] {
+        &self.estimates
+    }
+
+    /// Simultaneous lower bounds in frozen witness order.
+    #[must_use]
+    pub fn lower(&self) -> &[f64] {
+        &self.lower
+    }
+
+    /// Simultaneous upper bounds in frozen witness order.
+    #[must_use]
+    pub fn upper(&self) -> &[f64] {
+        &self.upper
+    }
+
+    /// Deterministic multiplier seed.
+    #[must_use]
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+}
+
+/// Computes the symmetrized four-law witness moment with stratified cluster multipliers.
+///
+/// Each row is one declared independent unit and each column is one witness.
+/// `joint_w` contains cluster means of `w` in the untouched `AB` law;
+/// `a_w_r_b` contains cluster means of `w r_B` in law `A`; and `b_w_r_a`
+/// contains cluster means of `w r_A` in law `B`. The estimate is
+/// `E_AB[w] - (E_A[w r_B] + E_B[w r_A]) / 2`. Ratios and an adaptive witness
+/// must be learned on separate folds before these contributions are formed.
+///
+/// The implementation resamples the declared units within each law using a
+/// deterministic Rademacher multiplier max statistic. It is a reference
+/// asymptotic procedure, not certificate authority, until the repository's
+/// cluster-size/overlap/misspecification coverage gauntlet is complete.
+pub fn four_law_cluster_multiplier_bounds(
+    joint_w: &[Vec<f64>],
+    a_w_r_b: &[Vec<f64>],
+    b_w_r_a: &[Vec<f64>],
+    config: &FourLawWitnessConfig,
+) -> Result<FourLawWitnessBounds, StatsError> {
+    let width = validate_witness_groups(joint_w, a_w_r_b, b_w_r_a)?;
+    if config.replicates == 0 {
+        return Err(StatsError::Invalid {
+            name: "replicates",
+            value: 0.0,
+        });
+    }
+    if !config.confidence.is_finite() || config.confidence <= 0.0 || config.confidence >= 1.0 {
+        return Err(StatsError::Invalid {
+            name: "confidence",
+            value: config.confidence,
+        });
+    }
+    let witness_family_sha256 = validate_sha256_fingerprint(
+        &config.witness_family_sha256,
+        "frozen witness-family fingerprint",
+    )?;
+    if config.independent_unit.trim().is_empty() {
+        return Err(StatsError::InvalidEvidenceReference {
+            name: "declared independent unit",
+        });
+    }
+
+    let joint_means = column_means(joint_w, width);
+    let a_means = column_means(a_w_r_b, width);
+    let b_means = column_means(b_w_r_a, width);
+    let estimates = (0..width)
+        .map(|column| joint_means[column] - a_means[column].midpoint(b_means[column]))
+        .collect::<Vec<_>>();
+    let joint_centered = center_columns(joint_w, &joint_means);
+    let a_centered = center_columns(a_w_r_b, &a_means);
+    let b_centered = center_columns(b_w_r_a, &b_means);
+    let standard_errors = (0..width)
+        .map(|column| {
+            let joint = variance_of_mean(&joint_centered, column);
+            let a = variance_of_mean(&a_centered, column);
+            let b = variance_of_mean(&b_centered, column);
+            (joint + 0.25 * (a + b)).sqrt()
+        })
+        .collect::<Vec<_>>();
+    if let Some(column) = standard_errors
+        .iter()
+        .position(|value| !value.is_finite() || *value <= 0.0)
+    {
+        return Err(StatsError::DegenerateColumn { column });
+    }
+
+    let mut max_statistics = stratified_witness_max_statistics(
+        &joint_centered,
+        &a_centered,
+        &b_centered,
+        &standard_errors,
+        config.replicates,
+        config.seed,
+    );
+    max_statistics.sort_by(f64::total_cmp);
+    let critical_value = max_statistics[quantile_rank(config.confidence, config.replicates)];
+    let lower = estimates
+        .iter()
+        .zip(&standard_errors)
+        .map(|(estimate, error)| estimate - critical_value * error)
+        .collect();
+    let upper = estimates
+        .iter()
+        .zip(&standard_errors)
+        .map(|(estimate, error)| estimate + critical_value * error)
+        .collect();
+    Ok(FourLawWitnessBounds {
+        estimates,
+        standard_errors,
+        critical_value,
+        lower,
+        upper,
+        n_joint_clusters: joint_w.len(),
+        n_a_clusters: a_w_r_b.len(),
+        n_b_clusters: b_w_r_a.len(),
+        replicates: config.replicates,
+        confidence: config.confidence,
+        seed: config.seed,
+        witness_family_sha256,
+        independent_unit: config.independent_unit.clone(),
+        calibration: WitnessCalibrationStatus::ReferenceMultiplierNotCoverageValidated,
+        authority: FourLawWitnessAuthority::DiagnosticOnly,
+    })
+}
+
+fn validate_witness_groups(
+    joint: &[Vec<f64>],
+    a: &[Vec<f64>],
+    b: &[Vec<f64>],
+) -> Result<usize, StatsError> {
+    if joint.len() < 2 || a.len() < 2 || b.len() < 2 || joint[0].is_empty() {
+        return Err(StatsError::Shape);
+    }
+    let width = joint[0].len();
+    if joint
+        .iter()
+        .chain(a)
+        .chain(b)
+        .any(|row| row.len() != width || row.iter().any(|value| !value.is_finite()))
+    {
+        return Err(StatsError::MatrixShape);
+    }
+    Ok(width)
+}
+
+fn column_means(rows: &[Vec<f64>], width: usize) -> Vec<f64> {
+    let count = rows.len() as f64;
+    (0..width)
+        .map(|column| {
+            let values = rows.iter().map(|row| row[column]).collect::<Vec<_>>();
+            compensated_sum(&values) / count
+        })
+        .collect()
+}
+
+fn center_columns(rows: &[Vec<f64>], means: &[f64]) -> Vec<Vec<f64>> {
+    rows.iter()
+        .map(|row| {
+            row.iter()
+                .zip(means)
+                .map(|(value, mean)| value - mean)
+                .collect()
+        })
+        .collect()
+}
+
+fn variance_of_mean(centered: &[Vec<f64>], column: usize) -> f64 {
+    let count = centered.len() as f64;
+    let squares = centered
+        .iter()
+        .map(|row| row[column].powi(2))
+        .collect::<Vec<_>>();
+    compensated_sum(&squares) / (count - 1.0) / count
+}
+
+fn stratified_witness_max_statistics(
+    joint: &[Vec<f64>],
+    a: &[Vec<f64>],
+    b: &[Vec<f64>],
+    standard_errors: &[f64],
+    replicates: usize,
+    seed: u64,
+) -> Vec<f64> {
+    let mut generator = SplitMix64::new(seed);
+    let mut output = Vec::with_capacity(replicates);
+    for _ in 0..replicates {
+        let joint_signs = rademacher_signs(joint.len(), &mut generator);
+        let a_signs = rademacher_signs(a.len(), &mut generator);
+        let b_signs = rademacher_signs(b.len(), &mut generator);
+        let mut maximum = 0.0_f64;
+        for (column, standard_error) in standard_errors.iter().enumerate() {
+            let joint_delta = signed_column_mean(joint, &joint_signs, column);
+            let a_delta = signed_column_mean(a, &a_signs, column);
+            let b_delta = signed_column_mean(b, &b_signs, column);
+            let delta = joint_delta - a_delta.midpoint(b_delta);
+            maximum = maximum.max(delta.abs() / standard_error);
+        }
+        output.push(maximum);
+    }
+    output
+}
+
+fn rademacher_signs(count: usize, generator: &mut SplitMix64) -> Vec<f64> {
+    (0..count)
+        .map(|_| {
+            if generator.next_u64() & 1 == 1 {
+                1.0
+            } else {
+                -1.0
+            }
+        })
+        .collect()
+}
+
+fn signed_column_mean(rows: &[Vec<f64>], signs: &[f64], column: usize) -> f64 {
+    let terms = rows
+        .iter()
+        .zip(signs)
+        .map(|(row, sign)| row[column] * sign)
+        .collect::<Vec<_>>();
+    compensated_sum(&terms) / rows.len() as f64
+}
+
 /// Deterministic Rademacher multiplier bootstrap for reference simultaneous mean bounds.
 ///
 /// `contributions` has one row per cluster and one column per statistic; the
@@ -1481,5 +2126,124 @@ mod tests {
         let contributions = vec![vec![0.3, 1.0], vec![0.3, 2.0], vec![0.3, 3.0]];
         let error = simultaneous_mean_bounds(&contributions, 200, 0.9, 5).unwrap_err();
         assert_eq!(error, StatsError::DegenerateColumn { column: 0 });
+    }
+
+    #[test]
+    fn four_law_witness_multiplier_is_seeded_cluster_honest_and_signed() {
+        let a = vec![
+            vec![1.0, 2.0],
+            vec![2.0, 1.0],
+            vec![3.0, 4.0],
+            vec![4.0, 3.0],
+        ];
+        let b = a.clone();
+        let joint = a
+            .iter()
+            .map(|row| vec![row[0] + 0.5, row[1] - 0.25])
+            .collect::<Vec<_>>();
+        let config = FourLawWitnessConfig {
+            replicates: 999,
+            confidence: 0.95,
+            seed: 4_241,
+            witness_family_sha256: SOURCE_FINGERPRINT.into(),
+            independent_unit: "biological_replicate".into(),
+        };
+        let first = four_law_cluster_multiplier_bounds(&joint, &a, &b, &config).unwrap();
+        let repeated = four_law_cluster_multiplier_bounds(&joint, &a, &b, &config).unwrap();
+        assert_eq!(first, repeated);
+        assert_eq!(first.seed(), 4_241);
+        assert!((first.estimates()[0] - 0.5).abs() < 1e-14);
+        assert!((first.estimates()[1] + 0.25).abs() < 1e-14);
+        assert_eq!(first.lower().len(), 2);
+        assert_eq!(first.upper().len(), 2);
+        assert_eq!(first.authority, FourLawWitnessAuthority::DiagnosticOnly);
+        assert_eq!(
+            first.calibration,
+            WitnessCalibrationStatus::ReferenceMultiplierNotCoverageValidated
+        );
+    }
+
+    #[test]
+    fn discrete_witness_is_discovery_only_bounded_and_unit_duplication_invariant() {
+        let discovery = vec![
+            DiscreteWitnessDiscoveryContribution {
+                dependence_unit_id: "u1".into(),
+                state_id: "x0".into(),
+                estimated_residual: 2.0,
+            },
+            DiscreteWitnessDiscoveryContribution {
+                dependence_unit_id: "u2".into(),
+                state_id: "x0".into(),
+                estimated_residual: 0.0,
+            },
+            DiscreteWitnessDiscoveryContribution {
+                dependence_unit_id: "u1".into(),
+                state_id: "x1".into(),
+                estimated_residual: -1.0,
+            },
+        ];
+        let config = DiscreteWitnessLearningConfig {
+            shrinkage_scale: 1.0,
+            discovery_partition_sha256: SOURCE_FINGERPRINT.into(),
+        };
+        let original = learn_discrete_closure_witness(&discovery, &config).unwrap();
+        let mut duplicated = discovery.clone();
+        duplicated.extend(discovery.clone());
+        let repeated = learn_discrete_closure_witness(&duplicated, &config).unwrap();
+        assert_eq!(original, repeated);
+        let applied = original.apply(&["x0".into(), "x1".into(), "unseen".into()]);
+        assert!(applied[0] > 0.0 && applied[0] < 1.0);
+        assert!(applied[1] < 0.0 && applied[1] > -1.0);
+        assert_eq!(applied[2], 0.0);
+        assert!(original.witness_family_sha256().starts_with("sha256:"));
+    }
+
+    #[test]
+    fn state_expansion_ranking_separates_resolution_support_loss_and_worsening() {
+        let candidate =
+            |block: &str, coarse: f64, expanded: f64, expanded_upper: f64, overlap: f64| {
+                StateExpansionCandidateDiagnostic {
+                    block_id: block.into(),
+                    cost: 10,
+                    discovery_priority: 1.0,
+                    coarse_discrepancy: coarse,
+                    coarse_lower: 0.3,
+                    coarse_upper: 0.7,
+                    expanded_discrepancy: expanded,
+                    expanded_lower: 0.0,
+                    expanded_upper,
+                    coarse_overlap_fraction: 1.0,
+                    expanded_overlap_fraction: overlap,
+                    nested_conservation_residual: 0.0,
+                    common_cohort_sha256: SOURCE_FINGERPRINT.into(),
+                }
+            };
+        let candidates = vec![
+            candidate("sensor_a", 0.5, 0.01, 0.02, 0.99),
+            candidate("sensor_b", 0.5, 0.05, 0.2, 0.4),
+            candidate("sensor_c", 0.5, 0.7, 0.8, 1.0),
+        ];
+        let ranked = rank_state_expansion_candidates(
+            &candidates,
+            &StateExpansionPolicy {
+                equivalence_tolerance: 0.05,
+                max_overlap_fraction_loss: 0.1,
+                conservation_tolerance: 1e-8,
+                common_cohort_sha256: SOURCE_FINGERPRINT.into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            ranked[0].status,
+            StateExpansionStatus::ResolvesCurvatureUnderSuppliedBounds
+        );
+        assert_eq!(ranked[1].status, StateExpansionStatus::WorsensCurvature);
+        assert_eq!(
+            ranked[2].status,
+            StateExpansionStatus::ApparentImprovementFromSupportLoss
+        );
+        assert!(ranked.iter().all(|item| {
+            !item.calibrated_test && item.authority == FourLawWitnessAuthority::DiagnosticOnly
+        }));
     }
 }

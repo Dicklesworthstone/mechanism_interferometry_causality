@@ -15,6 +15,7 @@ franken = ["dep:fnp-ndarray", "dep:fnp-random", "dep:fsci-stats", "dep:fsci-lina
 [dependencies]
 mic-core = { path = "../mic-core" }
 serde.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 fnp-ndarray = { workspace = true, optional = true }
 fnp-random = { workspace = true, optional = true }
