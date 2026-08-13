@@ -2,7 +2,9 @@
 
 **Auditing the compositionality of soft interventions.**
 
-This repository contains the formal paper, an explanatory static website, exact simulation fixtures, and the architecture of a memory-safe Rust audit system for deciding whether empirical perturbations compose as autonomous causal mechanisms.
+This repository contains the formal paper, an explanatory website, exact simulation fixtures, and the architecture of a memory-safe Rust audit system for deciding whether empirical perturbations compose as autonomous causal mechanisms.
+
+**Live site: <https://mechanism-interferometry.pages.dev>** — the interactive figures there are not illustrations. The design auditor, preflight gate, square-face geometry, interaction-aliasing check and estimator lens battery call the actual `mic` Rust engine compiled to WebAssembly, so a refusal you see in the browser is the same refusal the CLI produces, from the same code.
 
 On a complete common-support factorial cube, relative to a proposed DAG and
 distinct target assignment, the core certificate is
@@ -30,9 +32,9 @@ the discriminative follow-up evidence.
 | Path | Contents |
 |---|---|
 | `paper/` | Complete LaTeX paper, bibliography, verified PDF, and figures |
-| `site/` | Zero-build static explanatory website with an interactive running example |
+| `site/` | Static explanatory website; interactive widgets call `mic-wasm`, the engine compiled to WebAssembly |
 | `docs/` | Formal specification, inference protocol, experiment designs, Franken* integration, and implementation roadmap |
-| `crates/` | Safe-Rust workspace for exact algebra, design audits, inference primitives, proposal adapters, models, simulations, and CLI |
+| `crates/` | Safe-Rust workspace for exact algebra, design audits, inference primitives, proposal adapters, models, simulations, CLI, and the `mic-wasm` browser boundary |
 | `schemas/` | Machine-readable experiment and audit-report contracts |
 | `examples/` | Feature-flag, Perturb-seq, simulation, orientation, and proposal artifacts |
 | `scripts/` | Reproducible simulation, paper, site, and repository checks |

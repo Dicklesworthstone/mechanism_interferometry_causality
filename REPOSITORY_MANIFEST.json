@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-13T02:00:50Z",
+  "generated_at_utc": "2026-08-13T02:02:24Z",
   "hash_algorithm": "sha256",
   "file_count": 174,
-  "aggregate_sha256": "2bac52d312ffc4c9e5ca5f292e1091331725dac98f3120dbaed23baab10a5ba1",
+  "aggregate_sha256": "4f6444fceedfad71b8e94b73419700933063346bcc895fca2babccf611f164a5",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -63,8 +63,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 10027,
-      "sha256": "86430d2a754132f9f3d0ba94622ec5345fc1258457cb7103b28010792efe8dda"
+      "bytes": 10462,
+      "sha256": "a93daba7d2f80cd9e2d604726fb66fd0faa355fe5a61130bfa5dee455d01ec9f"
     },
     {
       "path": "artifacts/simulations/exact_results.json",
@@ -153,8 +153,8 @@
     },
     {
       "path": "crates/mic-design/src/multilevel.rs",
-      "bytes": 36101,
-      "sha256": "08a0d7ba539c88ab9d6564482c5c3d6753c4702be6d5fa3004ae64d096176562"
+      "bytes": 36818,
+      "sha256": "a4597bc0c18faa1f8e13840966af3cc6b25956f062f52fc67f040b3623fac899"
     },
     {
       "path": "crates/mic-engine/Cargo.toml",
@@ -173,8 +173,8 @@
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 43397,
-      "sha256": "99566b66be1f666246c9e7317939692abbebe9005ed93e7bad1097f439a34e10"
+      "bytes": 43779,
+      "sha256": "8ea6b43b26d6466f55f98a80d2adb7bee34142d0c560e72e8e7136cceaf7265e"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
@@ -188,8 +188,8 @@
     },
     {
       "path": "crates/mic-model/src/lib.rs",
-      "bytes": 5537,
-      "sha256": "dee840b052e6ddf3dd8a1238ff8bc838288011856ca9f2690352cc5503dd0221"
+      "bytes": 5711,
+      "sha256": "1d4be3472c28a55ead61eeff5a4bab99f84b9d047bb37b82d5b01d066439d15b"
     },
     {
       "path": "crates/mic-proposal/Cargo.toml",
@@ -273,8 +273,8 @@
     },
     {
       "path": "docs/HYPOTHESIS_SLATE.md",
-      "bytes": 22915,
-      "sha256": "7fb7e4f2c759c4e005331a0ccb6f2dabcacc84a7f4c8425fe8e7a58e9c70c528"
+      "bytes": 23038,
+      "sha256": "634d91b922c2e57ee7b054512f406a112d57bce62d46f9c681f7b9bb8df43131"
     },
     {
       "path": "docs/IMPLEMENTATION_BLUEPRINT.md",
