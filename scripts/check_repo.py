@@ -950,6 +950,22 @@ def validate_schemas_and_manifests() -> None:
                 bool(list(refit_validator.iter_errors(unknown))),
                 "transport-refit schema accepts an authority-bearing unknown field",
             )
+            oversized_seed = copy.deepcopy(refit_request)
+            oversized_seed["seed"] = 18446744073709551616
+            check(
+                bool(list(refit_validator.iter_errors(oversized_seed))),
+                "transport-refit schema accepts a seed outside Rust u64",
+            )
+    for request_schema, label in [
+        (primitive_transport_schema, "primitive transport"),
+        (combination_confirmation_schema, "combination confirmation"),
+    ]:
+        if request_schema is not None:
+            sample_schema = request_schema["properties"]["samples"]["items"]
+            check(
+                sample_schema["properties"]["cluster_id"].get("maxLength") == 1024,
+                f"{label} schema does not cap cluster identifier length",
+            )
 
     check(finite_completion_schema is not None, "finite-completion schema was not loaded")
     if finite_completion_schema is not None:

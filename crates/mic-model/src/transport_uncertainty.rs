@@ -24,6 +24,7 @@ const MAX_REFITS: usize = 1_000;
 const MIN_COMPLETION_FRACTION: f64 = 0.8;
 const MAX_REFIT_WORK_UNITS: usize = 1_000_000_000;
 const MAX_REFIT_ENERGY_WORK_UNITS: usize = 1_000_000_000;
+const MAX_REFIT_IDENTIFIER_BYTE_WORK: usize = 1_000_000_000;
 const MAX_EXACT_DISTANCE_ROWS: usize = 4_096;
 
 /// Closed configuration for deterministic cluster subsampling.
@@ -726,13 +727,25 @@ fn validate_work_budget(
     if work > MAX_REFIT_WORK_UNITS {
         return Err(TransportRefitError::WorkBudgetExceeded);
     }
+    let identifier_bytes = primitive
+        .iter()
+        .map(|row| row.cluster_id.len())
+        .chain(confirmation.iter().map(|row| row.cluster_id.len()))
+        .try_fold(0usize, usize::checked_add)
+        .ok_or(TransportRefitError::WorkBudgetExceeded)?;
+    let identifier_byte_work = identifier_bytes
+        .checked_mul(repeated_fits)
+        .ok_or(TransportRefitError::WorkBudgetExceeded)?;
+    if identifier_byte_work > MAX_REFIT_IDENTIFIER_BYTE_WORK {
+        return Err(TransportRefitError::WorkBudgetExceeded);
+    }
     let point_energy_rows = primitive
         .iter()
         .filter(|row| row.arm == PrimitiveArm::Baseline)
         .count()
         .checked_add(confirmation.len())
         .ok_or(TransportRefitError::WorkBudgetExceeded)?;
-    let retained_energy_rows = retained_energy_row_ceiling(
+    let (minimum_retained_energy_rows, maximum_retained_energy_rows) = retained_energy_row_bounds(
         primitive,
         confirmation,
         transport.n_folds,
@@ -740,10 +753,12 @@ fn validate_work_budget(
     )?;
     let point_energy_calls =
         usize::from(!confirmation.is_empty() && point_energy_rows <= MAX_EXACT_DISTANCE_ROWS);
-    let refit_energy_calls = usize::from(!confirmation.is_empty())
-        .checked_mul(refits.n_refits)
-        .ok_or(TransportRefitError::WorkBudgetExceeded)?;
-    let charged_retained_energy_rows = retained_energy_rows.min(MAX_EXACT_DISTANCE_ROWS);
+    let refit_energy_calls = usize::from(
+        !confirmation.is_empty() && minimum_retained_energy_rows <= MAX_EXACT_DISTANCE_ROWS,
+    )
+    .checked_mul(refits.n_refits)
+    .ok_or(TransportRefitError::WorkBudgetExceeded)?;
+    let charged_retained_energy_rows = maximum_retained_energy_rows.min(MAX_EXACT_DISTANCE_ROWS);
     let energy_work = point_energy_calls
         .checked_mul(point_energy_rows)
         .and_then(|value| value.checked_mul(point_energy_rows))
@@ -762,12 +777,12 @@ fn validate_work_budget(
     Ok(())
 }
 
-fn retained_energy_row_ceiling(
+fn retained_energy_row_bounds(
     primitive: &[PrimitiveTransportSample],
     confirmation: &[CombinationConfirmationSample],
     n_folds: usize,
     retain_fraction: f64,
-) -> Result<usize, TransportRefitError> {
+) -> Result<(usize, usize), TransportRefitError> {
     let mut baseline = BTreeMap::<&str, usize>::new();
     for row in primitive
         .iter()
@@ -781,8 +796,28 @@ fn retained_energy_row_ceiling(
     }
     let retained_baseline = retained_count(baseline.len(), retain_fraction, n_folds);
     let retained_combination = retained_count(combination.len(), retain_fraction, 1);
-    largest_cluster_row_sum(&baseline, retained_baseline)?
+    let minimum = smallest_cluster_row_sum(&baseline, retained_baseline)?
+        .checked_add(smallest_cluster_row_sum(
+            &combination,
+            retained_combination,
+        )?)
+        .ok_or(TransportRefitError::WorkBudgetExceeded)?;
+    let maximum = largest_cluster_row_sum(&baseline, retained_baseline)?
         .checked_add(largest_cluster_row_sum(&combination, retained_combination)?)
+        .ok_or(TransportRefitError::WorkBudgetExceeded)?;
+    Ok((minimum, maximum))
+}
+
+fn smallest_cluster_row_sum(
+    counts: &BTreeMap<&str, usize>,
+    retained: usize,
+) -> Result<usize, TransportRefitError> {
+    let mut values = counts.values().copied().collect::<Vec<_>>();
+    values.sort_unstable();
+    values
+        .into_iter()
+        .take(retained)
+        .try_fold(0usize, usize::checked_add)
         .ok_or(TransportRefitError::WorkBudgetExceeded)
 }
 
@@ -1274,6 +1309,64 @@ mod tests {
             ),
             Err(TransportRefitError::WorkBudgetExceeded)
         ));
+
+        let identifier_heavy = [
+            PrimitiveArm::Baseline,
+            PrimitiveArm::First,
+            PrimitiveArm::Second,
+        ]
+        .into_iter()
+        .flat_map(|arm| {
+            (0..333).map(move |row| PrimitiveTransportSample {
+                features: vec![0.0],
+                arm,
+                cluster_id: format!("{arm:?}-{row}-{:x<1000}", ""),
+            })
+        })
+        .collect::<Vec<_>>();
+        assert!(matches!(
+            validate_primitive_refit_request(
+                &identifier_heavy,
+                cheap_fit,
+                TransportRefitConfig {
+                    seed: 1,
+                    n_refits: 1_000,
+                    retain_fraction: 0.5,
+                },
+            ),
+            Err(TransportRefitError::WorkBudgetExceeded)
+        ));
+
+        let guaranteed_energy_skip = [
+            (PrimitiveArm::Baseline, 6_000),
+            (PrimitiveArm::First, 2),
+            (PrimitiveArm::Second, 2),
+        ]
+        .into_iter()
+        .flat_map(|(arm, clusters)| {
+            (0..clusters).map(move |cluster| PrimitiveTransportSample {
+                features: vec![0.0],
+                arm,
+                cluster_id: format!("skip-{arm:?}-{cluster}"),
+            })
+        })
+        .collect::<Vec<_>>();
+        assert!(
+            validate_work_budget(
+                &guaranteed_energy_skip,
+                &[CombinationConfirmationSample {
+                    features: vec![0.0],
+                    cluster_id: "skip-combination".into(),
+                }],
+                cheap_fit,
+                TransportRefitConfig {
+                    seed: 1,
+                    n_refits: 20,
+                    retain_fraction: 0.9,
+                },
+            )
+            .is_ok()
+        );
     }
 
     #[test]

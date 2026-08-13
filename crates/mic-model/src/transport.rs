@@ -17,6 +17,7 @@ use crate::{FitConfig, MultinomialFitError, MultinomialLinearModel, MultinomialS
 
 const N_PRIMITIVE_ARMS: usize = 3;
 const MAX_EXACT_DISTANCE_ROWS: usize = 4_096;
+const MAX_CLUSTER_ID_CHARACTERS: usize = 1_024;
 
 /// One of the three laws available to the nuisance-fitting stage.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -358,6 +359,9 @@ pub enum FittedTransportError {
     /// Unit identifier was empty.
     #[error("cluster identifiers must be nonempty")]
     EmptyClusterId,
+    /// Unit identifier exceeded the closed request boundary.
+    #[error("cluster identifiers must contain at most {MAX_CLUSTER_ID_CHARACTERS} characters")]
+    ClusterIdTooLong,
     /// One primitive cluster appeared under multiple arms.
     #[error("cluster {cluster_id} spans primitive arms")]
     ClusterSpansArms {
@@ -730,6 +734,9 @@ fn primitive_cluster_metadata(
         if sample.cluster_id.trim().is_empty() {
             return Err(FittedTransportError::EmptyClusterId);
         }
+        if sample.cluster_id.chars().count() > MAX_CLUSTER_ID_CHARACTERS {
+            return Err(FittedTransportError::ClusterIdTooLong);
+        }
         match clusters.get_mut(&sample.cluster_id) {
             Some(meta) if meta.arm != sample.arm => {
                 return Err(FittedTransportError::ClusterSpansArms {
@@ -945,6 +952,9 @@ fn validate_confirmation(
     for row in rows {
         if row.cluster_id.trim().is_empty() {
             return Err(FittedTransportError::EmptyClusterId);
+        }
+        if row.cluster_id.chars().count() > MAX_CLUSTER_ID_CHARACTERS {
+            return Err(FittedTransportError::ClusterIdTooLong);
         }
         if frozen
             .primitive_cluster_ids
@@ -1518,6 +1528,26 @@ mod tests {
             )
             .unwrap_err(),
             FittedTransportError::ConfirmationContractMismatch
+        );
+
+        let mut oversized_primitive = identical_primitives();
+        oversized_primitive[0].cluster_id = "x".repeat(MAX_CLUSTER_ID_CHARACTERS + 1);
+        assert_eq!(
+            freeze(&oversized_primitive, [0.2, 0.3, 0.5], contract(), config(),).unwrap_err(),
+            FittedTransportError::ClusterIdTooLong
+        );
+        assert_eq!(
+            score_combination_confirmation(
+                &frozen,
+                "experimental_run",
+                &contract(),
+                &[CombinationConfirmationSample {
+                    features: vec![0.0],
+                    cluster_id: "x".repeat(MAX_CLUSTER_ID_CHARACTERS + 1),
+                }],
+            )
+            .unwrap_err(),
+            FittedTransportError::ClusterIdTooLong
         );
     }
 

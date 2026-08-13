@@ -63,7 +63,7 @@
             "items": {"type": "number"}
           },
           "arm": {"enum": ["baseline", "first", "second"]},
-          "cluster_id": {"type": "string", "minLength": 1}
+          "cluster_id": {"type": "string", "minLength": 1, "maxLength": 1024}
         }
       }
     }

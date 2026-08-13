@@ -7,7 +7,11 @@
   "required": ["schema_version", "seed", "n_refits", "retain_fraction"],
   "properties": {
     "schema_version": {"const": "1.0.0"},
-    "seed": {"type": "integer", "minimum": 0},
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
     "n_refits": {"type": "integer", "minimum": 20, "maximum": 1000},
     "retain_fraction": {
       "type": "number",

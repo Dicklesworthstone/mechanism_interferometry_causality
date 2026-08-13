@@ -41,7 +41,7 @@
             "minItems": 1,
             "items": {"type": "number"}
           },
-          "cluster_id": {"type": "string", "minLength": 1}
+          "cluster_id": {"type": "string", "minLength": 1, "maxLength": 1024}
         }
       }
     }
