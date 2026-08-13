@@ -52,6 +52,17 @@ pub enum CoreError {
     /// A normalization constant was nonfinite or not strictly positive.
     #[error("invalid normalization constant {0}")]
     InvalidNormalizer(f64),
+    /// A probability-scaled quantity fell outside `(0, 1]`.
+    #[error("{name} must lie in (0, 1], got {value}")]
+    OutsideUnitInterval {
+        /// Offending field.
+        name: &'static str,
+        /// Rejected value.
+        value: f64,
+    },
+    /// A content-bound evidence reference was malformed.
+    #[error("evidence reference must be sha256:<64 lowercase hex>")]
+    InvalidEvidenceReference,
 }
 
 /// Pairwise log-density inputs ordered as baseline, A, B, and AB.
@@ -113,6 +124,62 @@ impl DensitySquare {
     }
 }
 
+/// Four regime-specific inclusion probabilities with `0 < π_s ≤ 1`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(try_from = "DensitySquare", into = "DensitySquare")]
+pub struct InclusionProbabilitySquare(DensitySquare);
+
+impl TryFrom<DensitySquare> for InclusionProbabilitySquare {
+    type Error = CoreError;
+
+    fn try_from(value: DensitySquare) -> Result<Self, Self::Error> {
+        validate_probability_square(value)?;
+        Ok(Self(value))
+    }
+}
+
+impl From<InclusionProbabilitySquare> for DensitySquare {
+    fn from(value: InclusionProbabilitySquare) -> Self {
+        value.0
+    }
+}
+
+impl InclusionProbabilitySquare {
+    /// Returns the validated probability values.
+    #[must_use]
+    pub fn values(self) -> DensitySquare {
+        self.0
+    }
+}
+
+/// Four regime-specific inclusion rates with `0 < Z_s ≤ 1`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(try_from = "DensitySquare", into = "DensitySquare")]
+pub struct InclusionRateSquare(DensitySquare);
+
+impl TryFrom<DensitySquare> for InclusionRateSquare {
+    type Error = CoreError;
+
+    fn try_from(value: DensitySquare) -> Result<Self, Self::Error> {
+        validate_probability_square(value)?;
+        Ok(Self(value))
+    }
+}
+
+impl From<InclusionRateSquare> for DensitySquare {
+    fn from(value: InclusionRateSquare) -> Self {
+        value.0
+    }
+}
+
+impl InclusionRateSquare {
+    /// Returns the validated inclusion-rate values.
+    #[must_use]
+    pub fn values(self) -> DensitySquare {
+        self.0
+    }
+}
+
 /// Authority of an algebraic selection-sensitivity interval.
 ///
 /// Γ-bounds are intervals under a declared inclusion-interaction budget.
@@ -133,9 +200,9 @@ pub struct SelectionTransport {
     /// Unselected source densities.
     pub source: DensitySquare,
     /// Inclusion probabilities `π`.
-    pub inclusion: DensitySquare,
+    pub inclusion: InclusionProbabilitySquare,
     /// Regime normalizers `Z_s = ∫ p_s π_s`.
-    pub normalizers: DensitySquare,
+    pub normalizers: InclusionRateSquare,
 }
 
 impl SelectionTransport {
@@ -152,21 +219,15 @@ impl SelectionTransport {
         positive("source pab", self.source.pab)?;
         // Inclusion is a probability: positive, and never above one. A value above one
         // would silently manufacture selected mass that no sampling process can produce.
-        inclusion_probability("inclusion p0", self.inclusion.p0)?;
-        inclusion_probability("inclusion pa", self.inclusion.pa)?;
-        inclusion_probability("inclusion pb", self.inclusion.pb)?;
-        inclusion_probability("inclusion pab", self.inclusion.pab)?;
+        let inclusion = self.inclusion.values();
         // Z_s = integral of p_s pi_s is an inclusion rate under a probability pi, so it
         // obeys the same bound.
-        inclusion_probability("Z0", self.normalizers.p0)?;
-        inclusion_probability("Za", self.normalizers.pa)?;
-        inclusion_probability("Zb", self.normalizers.pb)?;
-        inclusion_probability("Zab", self.normalizers.pab)?;
+        let normalizers = self.normalizers.values();
         let selected = DensitySquare {
-            p0: self.source.p0 * self.inclusion.p0 / self.normalizers.p0,
-            pa: self.source.pa * self.inclusion.pa / self.normalizers.pa,
-            pb: self.source.pb * self.inclusion.pb / self.normalizers.pb,
-            pab: self.source.pab * self.inclusion.pab / self.normalizers.pab,
+            p0: self.source.p0 * inclusion.p0 / normalizers.p0,
+            pa: self.source.pa * inclusion.pa / normalizers.pa,
+            pb: self.source.pb * inclusion.pb / normalizers.pb,
+            pab: self.source.pab * inclusion.pab / normalizers.pab,
         };
         positive("selected p0", selected.p0)?;
         positive("selected pa", selected.pa)?;
@@ -179,29 +240,102 @@ impl SelectionTransport {
     pub fn identity_residual(self) -> Result<f64, CoreError> {
         let observed = self.selected()?.curvature()?;
         let source = self.source.curvature()?;
-        let delta_pi = self.inclusion.curvature()?;
-        let delta_z = self.normalizers.curvature()?;
+        let delta_pi = self.inclusion.values().curvature()?;
+        let delta_z = self.normalizers.values().curvature()?;
         Ok(observed - (source + delta_pi - delta_z))
     }
 }
 
+/// Provenance semantics of the normalizer interaction used by sensitivity algebra.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "source", rename_all = "snake_case")]
+pub enum NormalizerContrastEvidence {
+    /// Caller-declared value with no independently resolved evidence receipt.
+    DeclaredUnverified {
+        /// Declared `Δ_AB log Z`.
+        delta_log_z: f64,
+    },
+    /// Inclusion rates plus an unresolved content-bound enrollment receipt.
+    EnrollmentRatesReceiptUnresolved {
+        /// Validated regime-specific enrollment or inclusion rates.
+        rates: InclusionRateSquare,
+        /// `sha256:<64 lowercase hex>` receipt commitment.
+        receipt_sha256: String,
+    },
+    /// Selection-model contrast plus an unresolved content-bound model receipt.
+    SelectionModelReceiptUnresolved {
+        /// Model-derived `Δ_AB log Z`.
+        delta_log_z: f64,
+        /// `sha256:<64 lowercase hex>` model receipt commitment.
+        receipt_sha256: String,
+    },
+}
+
+impl NormalizerContrastEvidence {
+    fn value(&self) -> Result<f64, CoreError> {
+        match self {
+            Self::DeclaredUnverified { delta_log_z } => Ok(*delta_log_z),
+            Self::EnrollmentRatesReceiptUnresolved {
+                rates,
+                receipt_sha256,
+            } => {
+                validate_sha256_reference(receipt_sha256)?;
+                rates.values().curvature()
+            }
+            Self::SelectionModelReceiptUnresolved {
+                delta_log_z,
+                receipt_sha256,
+            } => {
+                validate_sha256_reference(receipt_sha256)?;
+                Ok(*delta_log_z)
+            }
+        }
+    }
+}
+
 /// Interval for source curvature under a declared `|Δ_AB log π| ≤ Γ`.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct GammaSensitivity {
     /// Observed selected-law curvature `κ̃`.
-    pub observed_kappa: f64,
+    observed_kappa: f64,
     /// Declared inclusion-interaction budget.
-    pub gamma: f64,
-    /// `Δ_AB log Z`, treated as known (cancels in x-contrasts).
-    pub delta_log_z: f64,
+    gamma: f64,
+    /// Provenance semantics for the normalizer contrast.
+    normalizer_contrast: NormalizerContrastEvidence,
     /// Lower endpoint of the source-κ interval.
-    pub source_kappa_low: f64,
+    source_kappa_low: f64,
     /// Upper endpoint of the source-κ interval.
-    pub source_kappa_high: f64,
+    source_kappa_high: f64,
     /// Smallest `|Δ_AB log π|` that would make source κ zero.
-    pub min_abs_selection_interaction_to_null: f64,
+    min_abs_selection_interaction_to_null: f64,
     /// Always diagnostic. Never Ready.
-    pub authority: SensitivityAuthority,
+    authority: SensitivityAuthority,
+}
+
+impl GammaSensitivity {
+    /// Lower endpoint under the declared unverified normalizer contrast.
+    #[must_use]
+    pub fn source_kappa_low(&self) -> f64 {
+        self.source_kappa_low
+    }
+
+    /// Upper endpoint under the declared unverified normalizer contrast.
+    #[must_use]
+    pub fn source_kappa_high(&self) -> f64 {
+        self.source_kappa_high
+    }
+
+    /// Minimum declared inclusion interaction needed to make source curvature zero.
+    #[must_use]
+    pub fn min_abs_selection_interaction_to_null(&self) -> f64 {
+        self.min_abs_selection_interaction_to_null
+    }
+
+    /// Authority ceiling. Always diagnostic only.
+    #[must_use]
+    pub fn authority(&self) -> SensitivityAuthority {
+        self.authority
+    }
 }
 
 /// Maps an observed selected curvature through a declared Γ budget.
@@ -210,8 +344,9 @@ pub struct GammaSensitivity {
 pub fn gamma_sensitivity(
     observed_kappa: f64,
     gamma: f64,
-    delta_log_z: f64,
+    normalizer_contrast: NormalizerContrastEvidence,
 ) -> Result<GammaSensitivity, CoreError> {
+    let delta_log_z = normalizer_contrast.value()?;
     finite("observed_kappa", observed_kappa)?;
     finite("gamma", gamma)?;
     finite("delta_log_z", delta_log_z)?;
@@ -224,7 +359,7 @@ pub fn gamma_sensitivity(
     Ok(GammaSensitivity {
         observed_kappa,
         gamma,
-        delta_log_z,
+        normalizer_contrast,
         source_kappa_low: observed_kappa - gamma + delta_log_z,
         source_kappa_high: observed_kappa + gamma + delta_log_z,
         min_abs_selection_interaction_to_null: (observed_kappa + delta_log_z).abs(),
@@ -421,9 +556,31 @@ pub fn compensated_sum(values: &[f64]) -> f64 {
 fn inclusion_probability(name: &'static str, value: f64) -> Result<(), CoreError> {
     positive(name, value)?;
     if value > 1.0 {
-        return Err(CoreError::InvalidNormalizer(value));
+        return Err(CoreError::OutsideUnitInterval { name, value });
     }
     Ok(())
+}
+
+fn validate_probability_square(value: DensitySquare) -> Result<(), CoreError> {
+    inclusion_probability("square p0", value.p0)?;
+    inclusion_probability("square pa", value.pa)?;
+    inclusion_probability("square pb", value.pb)?;
+    inclusion_probability("square pab", value.pab)
+}
+
+fn validate_sha256_reference(value: &str) -> Result<(), CoreError> {
+    let Some(hex) = value.strip_prefix("sha256:") else {
+        return Err(CoreError::InvalidEvidenceReference);
+    };
+    if hex.len() == 64
+        && hex
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        Ok(())
+    } else {
+        Err(CoreError::InvalidEvidenceReference)
+    }
 }
 
 fn finite(name: &'static str, value: f64) -> Result<(), CoreError> {
@@ -465,31 +622,37 @@ fn equal_len(
 mod tests {
     use super::*;
 
+    fn constant_square(value: f64) -> DensitySquare {
+        DensitySquare {
+            p0: value,
+            pa: value,
+            pb: value,
+            pab: value,
+        }
+    }
+
+    fn inclusion(value: f64) -> InclusionProbabilitySquare {
+        InclusionProbabilitySquare::try_from(constant_square(value)).unwrap()
+    }
+
+    fn rates(value: f64) -> InclusionRateSquare {
+        InclusionRateSquare::try_from(constant_square(value)).unwrap()
+    }
+
+    fn declared_normalizer(delta_log_z: f64) -> NormalizerContrastEvidence {
+        NormalizerContrastEvidence::DeclaredUnverified { delta_log_z }
+    }
+
     #[test]
     fn two_invalid_factors_cannot_produce_a_valid_selected_law() {
         // `DensitySquare` has public fields, so nothing stops a caller supplying a
-        // negative source and a negative inclusion. Their product is positive, so before
-        // the factors were validated the resulting square passed every downstream
-        // positivity check while describing nothing at all.
+        // negative source. Before source validation, pairing it with an equally invalid
+        // negative inclusion could produce a positive selected-law value. Inclusion is
+        // now unrepresentable without probability validation, and source still fails.
         let transport = SelectionTransport {
-            source: DensitySquare {
-                p0: -0.5,
-                pa: -0.5,
-                pb: -0.5,
-                pab: -0.5,
-            },
-            inclusion: DensitySquare {
-                p0: -0.4,
-                pa: -0.4,
-                pb: -0.4,
-                pab: -0.4,
-            },
-            normalizers: DensitySquare {
-                p0: 0.25,
-                pa: 0.25,
-                pb: 0.25,
-                pab: 0.25,
-            },
+            source: constant_square(-0.5),
+            inclusion: inclusion(0.4),
+            normalizers: rates(0.25),
         };
         let error = transport.selected().unwrap_err();
         assert!(matches!(error, CoreError::NonPositive { .. }));
@@ -499,50 +662,21 @@ mod tests {
     fn an_inclusion_probability_above_one_is_refused() {
         // pi > 1 is not a large probability; a selected law built from one reports mass
         // no sampling process could have produced.
-        let transport = SelectionTransport {
-            source: DensitySquare {
-                p0: 0.25,
-                pa: 0.25,
-                pb: 0.25,
-                pab: 0.25,
-            },
-            inclusion: DensitySquare {
-                p0: 1.5,
-                pa: 0.5,
-                pb: 0.5,
-                pab: 0.5,
-            },
-            normalizers: DensitySquare {
-                p0: 0.25,
-                pa: 0.25,
-                pb: 0.25,
-                pab: 0.25,
-            },
-        };
-        assert!(transport.selected().is_err());
+        let invalid = InclusionProbabilitySquare::try_from(DensitySquare {
+            p0: 1.5,
+            pa: 0.5,
+            pb: 0.5,
+            pab: 0.5,
+        });
+        assert!(invalid.is_err());
     }
 
     #[test]
     fn a_valid_selection_transport_still_succeeds() {
         let transport = SelectionTransport {
-            source: DensitySquare {
-                p0: 0.25,
-                pa: 0.25,
-                pb: 0.25,
-                pab: 0.25,
-            },
-            inclusion: DensitySquare {
-                p0: 0.5,
-                pa: 0.5,
-                pb: 0.5,
-                pab: 0.5,
-            },
-            normalizers: DensitySquare {
-                p0: 0.5,
-                pa: 0.5,
-                pb: 0.5,
-                pab: 0.5,
-            },
+            source: constant_square(0.25),
+            inclusion: inclusion(0.5),
+            normalizers: rates(0.5),
         };
         let selected = transport.selected().expect("valid inputs must still pass");
         assert!((selected.p0 - 0.25).abs() < 1e-12);
@@ -572,84 +706,46 @@ mod tests {
     #[test]
     fn selection_identity_holds_to_machine_precision() {
         let transport = SelectionTransport {
-            source: DensitySquare {
-                p0: 0.25,
-                pa: 0.25,
-                pb: 0.25,
-                pab: 0.25,
-            },
-            inclusion: DensitySquare {
+            source: constant_square(0.25),
+            inclusion: InclusionProbabilitySquare::try_from(DensitySquare {
                 p0: 0.8,
                 pa: 0.2,
                 pb: 0.2,
                 pab: 0.8,
-            },
-            normalizers: DensitySquare {
-                p0: 1.0,
-                pa: 1.0,
-                pb: 1.0,
-                pab: 1.0,
-            },
+            })
+            .unwrap(),
+            normalizers: rates(1.0),
         };
         assert!(transport.identity_residual().unwrap().abs() < 1e-14);
         let selected = transport.selected().unwrap();
         assert!(selected.curvature().unwrap().abs() > 1.0);
         let observed = selected.curvature().unwrap();
-        let needed = gamma_sensitivity(observed, 0.0, 0.0)
+        let needed = gamma_sensitivity(observed, 0.0, declared_normalizer(0.0))
             .unwrap()
-            .min_abs_selection_interaction_to_null;
-        let interval = gamma_sensitivity(observed, needed, 0.0).unwrap();
-        assert_eq!(interval.authority, SensitivityAuthority::DiagnosticOnly);
-        assert!(interval.source_kappa_low <= 0.0);
-        assert!(interval.source_kappa_high >= 0.0);
+            .min_abs_selection_interaction_to_null();
+        let interval = gamma_sensitivity(observed, needed, declared_normalizer(0.0)).unwrap();
+        assert_eq!(interval.authority(), SensitivityAuthority::DiagnosticOnly);
+        assert!(interval.source_kappa_low() <= 0.0);
+        assert!(interval.source_kappa_high() >= 0.0);
         assert!(needed > 0.0);
     }
 
     #[test]
     fn selection_transport_rejects_invalid_factors_and_overflow() {
         let negative_pair = SelectionTransport {
-            source: DensitySquare {
-                p0: -1.0,
-                pa: -1.0,
-                pb: -1.0,
-                pab: -1.0,
-            },
-            inclusion: DensitySquare {
-                p0: -1.0,
-                pa: -1.0,
-                pb: -1.0,
-                pab: -1.0,
-            },
-            normalizers: DensitySquare {
-                p0: 1.0,
-                pa: 1.0,
-                pb: 1.0,
-                pab: 1.0,
-            },
+            source: constant_square(-1.0),
+            inclusion: inclusion(1.0),
+            normalizers: rates(1.0),
         };
         assert!(negative_pair.selected().is_err());
 
-        let invalid_probability = SelectionTransport {
-            source: DensitySquare {
-                p0: 1.0,
-                pa: 1.0,
-                pb: 1.0,
-                pab: 1.0,
-            },
-            inclusion: DensitySquare {
-                p0: 2.0,
-                pa: 1.0,
-                pb: 1.0,
-                pab: 1.0,
-            },
-            normalizers: DensitySquare {
-                p0: 1.0,
-                pa: 1.0,
-                pb: 1.0,
-                pab: 1.0,
-            },
-        };
-        assert!(invalid_probability.selected().is_err());
+        let invalid_probability = InclusionProbabilitySquare::try_from(DensitySquare {
+            p0: 2.0,
+            pa: 1.0,
+            pb: 1.0,
+            pab: 1.0,
+        });
+        assert!(invalid_probability.is_err());
 
         let overflow = SelectionTransport {
             source: DensitySquare {
@@ -658,32 +754,57 @@ mod tests {
                 pb: 1.0,
                 pab: 1.0,
             },
-            inclusion: DensitySquare {
-                p0: 1.0,
-                pa: 1.0,
-                pb: 1.0,
-                pab: 1.0,
-            },
-            normalizers: DensitySquare {
+            inclusion: inclusion(1.0),
+            normalizers: InclusionRateSquare::try_from(DensitySquare {
                 p0: f64::MIN_POSITIVE,
                 pa: 1.0,
                 pb: 1.0,
                 pab: 1.0,
-            },
+            })
+            .unwrap(),
         };
         assert!(overflow.selected().is_err());
     }
 
     #[test]
     fn gamma_sensitivity_never_claims_ready_and_rejects_negative_budget() {
-        let interval = gamma_sensitivity(0.4, 0.1, 0.0).unwrap();
-        assert_eq!(interval.authority, SensitivityAuthority::DiagnosticOnly);
-        assert!((interval.source_kappa_low - 0.3).abs() < 1e-15);
-        assert!((interval.source_kappa_high - 0.5).abs() < 1e-15);
+        let interval = gamma_sensitivity(0.4, 0.1, declared_normalizer(0.0)).unwrap();
+        assert_eq!(interval.authority(), SensitivityAuthority::DiagnosticOnly);
+        assert!((interval.source_kappa_low() - 0.3).abs() < 1e-15);
+        assert!((interval.source_kappa_high() - 0.5).abs() < 1e-15);
         assert!(matches!(
-            gamma_sensitivity(0.1, -0.2, 0.0),
+            gamma_sensitivity(0.1, -0.2, declared_normalizer(0.0)),
             Err(CoreError::Negative { name: "gamma", .. })
         ));
+    }
+
+    #[test]
+    fn enrollment_rates_derive_the_normalizer_contrast_but_remain_unresolved() {
+        let rates = InclusionRateSquare::try_from(DensitySquare {
+            p0: 0.8,
+            pa: 0.4,
+            pb: 0.2,
+            pab: 0.4,
+        })
+        .unwrap();
+        let evidence = NormalizerContrastEvidence::EnrollmentRatesReceiptUnresolved {
+            rates,
+            receipt_sha256:
+                "sha256:0000000000000000000000000000000000000000000000000000000000000000".into(),
+        };
+        let delta = rates.values().curvature().unwrap();
+        let interval = gamma_sensitivity(0.5, 0.0, evidence).unwrap();
+        assert!((interval.source_kappa_low() - (0.5 + delta)).abs() < 1e-14);
+        assert_eq!(interval.authority(), SensitivityAuthority::DiagnosticOnly);
+
+        let malformed = NormalizerContrastEvidence::SelectionModelReceiptUnresolved {
+            delta_log_z: 0.0,
+            receipt_sha256: "not-a-digest".into(),
+        };
+        assert_eq!(
+            gamma_sensitivity(0.5, 0.1, malformed).unwrap_err(),
+            CoreError::InvalidEvidenceReference
+        );
     }
 
     #[test]

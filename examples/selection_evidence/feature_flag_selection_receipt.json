@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "feature-flag-selection-001",
+  "experiment_id": "feature-flag-pilot-a-b",
+  "manifest_canonical_sha256": "019091573414f8665bd15998afe69be725a39eca26f6fbea5765a33ae18bf0b6",
+  "data_content_sha256": "92fd5fe42ecaf5f7649e920c6bbabae6bca4462643822508ddc5dfd189fe05b5",
+  "declaration": "state_independent_within_regime",
+  "evidence_class": "external_sampling_record",
+  "authority_source_sha256": "dfef519f30b26cbf7439b43b0b52bf514c4c8d681f56486d7ffb0cc0a28fc586"
+}

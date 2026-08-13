@@ -1,0 +1,3 @@
+Authority source for the deterministic feature-flag fixture.
+
+scripts/generate_example_data.py constructs every one of the 192 deployment rows and writes included=1 for every regime. No generated row is filtered as a function of its state. This source assertion applies only to the exact feature_flag_pilot.csv and manifest hashes named by its sibling receipt; it is synthetic construction authority, not evidence for any external deployment.

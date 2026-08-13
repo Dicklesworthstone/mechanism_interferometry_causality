@@ -6,9 +6,10 @@
 //! lack-of-fit remain separate testability facts.
 
 use crate::{
-    CausalCompletionEvaluation, DesignError, DesignPoint, ObservedDesign, audit_design,
-    classify_two_root_diagonal, matrix_rank,
+    CausalCompletionEvaluation, DesignError, DesignPoint, ObservedDesign, RankArithmetic,
+    audit_design, classify_two_root_diagonal, exact_bigint_rank,
 };
+use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -74,7 +75,7 @@ pub fn multilevel_main_effects_matrix(
                     .iter()
                     .map(u32::to_string)
                     .collect::<Vec<_>>()
-                    .join("-"),
+                    .join(","),
             ));
         }
     }
@@ -231,17 +232,37 @@ pub enum NextCornerKind {
     UnderSupported,
 }
 
-/// One unobserved cell scored by how much it shrinks the additive identified set.
+/// Primary scientific purpose served by collecting a ranked design cell.
+///
+/// This is a design-planning label, not a claim that a causal kernel has been
+/// recovered.  A later fixed-model planner can refine the label using kernel
+/// coverage and precision information.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NextQueryPurpose {
+    /// Expose a factor-level that the retained design has never activated.
+    IdentifyUnseenLevel,
+    /// Repeat already observed levels in a new background to audit reuse.
+    TestKernelReuse,
+    /// Add an independent additive lack-of-fit/closure contrast.
+    CloseDesignContrast,
+    /// Add independent units to a cell dropped for inadequate support.
+    ReplicateUnderSupportedCell,
+}
+
+/// One unobserved cell scored by how much it shrinks pointwise main-effect aliasing.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NextCornerCandidate {
     /// Bit-string or `level,level,…` label.
     pub corner: String,
     /// Never-seen arm versus under-supported already-attempted cell.
     pub kind: NextCornerKind,
-    /// Drop in `n_coded − rank` after adding this cell.
-    pub identified_set_reduction: usize,
-    /// Identified-set dimension if this cell is collected.
-    pub new_identified_set_dimension: usize,
+    /// Primary reason this cell is requested.
+    pub purpose: NextQueryPurpose,
+    /// Drop in the pointwise main-effect alias dimension after adding this cell.
+    pub main_effect_alias_reduction: usize,
+    /// Pointwise main-effect alias dimension if this cell is collected.
+    pub new_main_effect_alias_dimension: usize,
     /// Increase in lack-of-fit dimension after adding this cell.
     pub lack_of_fit_gain: usize,
     /// Lack-of-fit dimension if this cell is collected.
@@ -257,20 +278,22 @@ pub struct ObservedFamilyClassification {
     pub completion_evaluation: CausalCompletionEvaluation,
     /// Orientation testability. Catalog squares with no tilt family are untestable.
     pub orientation: OrientationTestability,
-    /// `n_coded_columns - main_effects_rank` on the observed corners.
-    pub identified_set_dimension: usize,
+    /// Pointwise functional nullity `n_coded_columns - main_effects_rank`.
+    pub main_effect_alias_dimension: usize,
     /// Lack-of-fit dimension of the Boolean main-effects model.
     pub lack_of_fit_dimension: usize,
     /// Rank of intercept-plus-main-effects.
     pub main_effects_rank: usize,
+    /// Arithmetic used for the main-effect rank decision.
+    pub rank_arithmetic: RankArithmetic,
     /// Number of coded columns (`1 + dimension` for Boolean designs).
     pub n_coded_columns: usize,
     /// Missing one-bit primitive corners, if the design is two-factor.
     pub missing_primitive_corners: Vec<String>,
     /// Highest-ranked unobserved cell, if any remain.
     pub recommended_next_corner: Option<String>,
-    /// Identified-set reduction delivered by that cell.
-    pub next_corner_identified_set_reduction: Option<usize>,
+    /// Pointwise main-effect alias reduction delivered by that cell.
+    pub next_corner_main_effect_alias_reduction: Option<usize>,
     /// Integer cost of that cell (default 1000).
     pub next_corner_cost: Option<u32>,
     /// Human-readable refusal or witness note.
@@ -357,7 +380,7 @@ pub fn classify_observed_family(
     let audit = audit_design(input.points, tolerance)?;
     let dimension = input.points[0].dimension();
     let n_coded_columns = dimension + 1;
-    let identified_set_dimension = n_coded_columns.saturating_sub(audit.main_effects_rank);
+    let main_effect_alias_dimension = n_coded_columns.saturating_sub(audit.main_effects_rank);
     let missing_primitive_corners = missing_two_factor_primitives(input.points);
     let orientation = orientation_testability(input.same_target_tilt_count);
     let diagonal = is_two_root_diagonal(input.points);
@@ -402,21 +425,22 @@ pub fn classify_observed_family(
     Ok(ObservedFamilyClassification {
         completion_evaluation,
         orientation,
-        identified_set_dimension,
+        main_effect_alias_dimension,
         lack_of_fit_dimension: audit.lack_of_fit_dimension,
         main_effects_rank: audit.main_effects_rank,
+        rank_arithmetic: RankArithmetic::ExactInteger,
         n_coded_columns,
         missing_primitive_corners,
         recommended_next_corner: next.first().map(|item| item.corner.clone()),
-        next_corner_identified_set_reduction: next
+        next_corner_main_effect_alias_reduction: next
             .first()
-            .map(|item| item.identified_set_reduction),
+            .map(|item| item.main_effect_alias_reduction),
         next_corner_cost: next.first().map(|item| item.cost),
         note,
     })
 }
 
-/// Ranks unobserved Boolean corners by identified-set reduction per unit cost.
+/// Ranks unobserved Boolean corners by main-effect alias reduction per unit cost.
 ///
 /// Dimension is capped at 6 so the enumeration stays a design audit, not a search.
 /// Every missing cell has unit cost 1000.
@@ -483,8 +507,14 @@ fn rank_missing_boolean_corners_with_kinds(
                 cost,
             });
         }
+        let candidate = DesignPoint::parse(&label)?;
+        let introduces_unseen_level = candidate
+            .bits
+            .iter()
+            .enumerate()
+            .any(|(factor, active)| *active && points.iter().all(|point| !point.bits[factor]));
         let mut expanded = points.to_vec();
-        expanded.push(DesignPoint::parse(&label)?);
+        expanded.push(candidate);
         let next = audit_design(&expanded, tolerance)?;
         let new_idim = n_coded.saturating_sub(next.main_effects_rank);
         let kind = if under_supported.contains(&label) {
@@ -495,8 +525,14 @@ fn rank_missing_boolean_corners_with_kinds(
         ranked.push(NextCornerCandidate {
             corner: label,
             kind,
-            identified_set_reduction: current_idim.saturating_sub(new_idim),
-            new_identified_set_dimension: new_idim,
+            purpose: next_query_purpose(
+                kind,
+                introduces_unseen_level,
+                next.lack_of_fit_dimension
+                    .saturating_sub(current.lack_of_fit_dimension),
+            ),
+            main_effect_alias_reduction: current_idim.saturating_sub(new_idim),
+            new_main_effect_alias_dimension: new_idim,
             lack_of_fit_gain: next
                 .lack_of_fit_dimension
                 .saturating_sub(current.lack_of_fit_dimension),
@@ -510,9 +546,9 @@ fn rank_missing_boolean_corners_with_kinds(
 
 fn sort_next_corners(ranked: &mut [NextCornerCandidate]) {
     ranked.sort_by(|left, right| {
-        // reduction/cost then lof_gain/cost, via cross-multiply; then label.
-        let left_id = left.identified_set_reduction as u128 * u128::from(right.cost);
-        let right_id = right.identified_set_reduction as u128 * u128::from(left.cost);
+        // alias reduction/cost then lof_gain/cost, via cross-multiply; then label.
+        let left_id = left.main_effect_alias_reduction as u128 * u128::from(right.cost);
+        let right_id = right.main_effect_alias_reduction as u128 * u128::from(left.cost);
         let left_lof = left.lack_of_fit_gain as u128 * u128::from(right.cost);
         let right_lof = right.lack_of_fit_gain as u128 * u128::from(left.cost);
         right_id
@@ -585,8 +621,8 @@ pub fn classify_multilevel_family(
 ) -> Result<ObservedFamilyClassification, DesignError> {
     let matrix = multilevel_main_effects_matrix(points, cardinalities)?;
     let n_coded_columns = matrix.first().map_or(0, Vec::len);
-    let main_effects_rank = matrix_rank(matrix, tolerance)?;
-    let identified_set_dimension = n_coded_columns.saturating_sub(main_effects_rank);
+    let main_effects_rank = exact_zero_one_rank(&matrix);
+    let main_effect_alias_dimension = n_coded_columns.saturating_sub(main_effects_rank);
     let lack_of_fit_dimension = points.len().saturating_sub(main_effects_rank);
     let orientation = orientation_testability(same_target_tilt_count);
     let next = rank_missing_multilevel_cells_with_costs(
@@ -603,21 +639,22 @@ pub fn classify_multilevel_family(
     Ok(ObservedFamilyClassification {
         completion_evaluation: CausalCompletionEvaluation::NotEvaluated,
         orientation,
-        identified_set_dimension,
+        main_effect_alias_dimension,
         lack_of_fit_dimension,
         main_effects_rank,
+        rank_arithmetic: RankArithmetic::ExactInteger,
         n_coded_columns,
         missing_primitive_corners: Vec::new(),
         recommended_next_corner: next.first().map(|item| item.corner.clone()),
-        next_corner_identified_set_reduction: next
+        next_corner_main_effect_alias_reduction: next
             .first()
-            .map(|item| item.identified_set_reduction),
+            .map(|item| item.main_effect_alias_reduction),
         next_corner_cost: next.first().map(|item| item.cost),
         note: note.to_string(),
     })
 }
 
-/// Ranks unobserved multi-level cells by identified-set reduction per unit cost.
+/// Ranks unobserved multi-level cells by main-effect alias reduction per unit cost.
 pub fn rank_missing_multilevel_cells(
     points: &[MultiLevelPoint],
     cardinalities: &[u32],
@@ -631,8 +668,9 @@ pub fn rank_missing_multilevel_cells_with_costs(
     points: &[MultiLevelPoint],
     cardinalities: &[u32],
     costs: &BTreeMap<String, u32>,
-    tolerance: f64,
+    _tolerance: f64,
 ) -> Result<Vec<NextCornerCandidate>, DesignError> {
+    let current = multilevel_main_effects_matrix(points, cardinalities)?;
     let n_cells: usize = cardinalities
         .iter()
         .map(|&levels| levels as usize)
@@ -641,9 +679,8 @@ pub fn rank_missing_multilevel_cells_with_costs(
     if n_cells > 64 {
         return Ok(Vec::new());
     }
-    let current = multilevel_main_effects_matrix(points, cardinalities)?;
     let n_coded = current.first().map_or(0, Vec::len);
-    let current_rank = matrix_rank(current, tolerance)?;
+    let current_rank = exact_zero_one_rank(&current);
     let current_idim = n_coded.saturating_sub(current_rank);
     let current_lof = points.len().saturating_sub(current_rank);
     let seen: BTreeSet<Vec<u32>> = points.iter().map(|point| point.levels.clone()).collect();
@@ -652,6 +689,10 @@ pub fn rank_missing_multilevel_cells_with_costs(
         if seen.contains(&cell) {
             continue;
         }
+        let introduces_unseen_level = cell
+            .iter()
+            .enumerate()
+            .any(|(factor, level)| points.iter().all(|point| point.levels[factor] != *level));
         let label = cell
             .iter()
             .map(u32::to_string)
@@ -667,14 +708,19 @@ pub fn rank_missing_multilevel_cells_with_costs(
         let mut expanded = points.to_vec();
         expanded.push(MultiLevelPoint::new(cell)?);
         let matrix = multilevel_main_effects_matrix(&expanded, cardinalities)?;
-        let rank = matrix_rank(matrix, tolerance)?;
+        let rank = exact_zero_one_rank(&matrix);
         let new_idim = n_coded.saturating_sub(rank);
         let new_lof = expanded.len().saturating_sub(rank);
         ranked.push(NextCornerCandidate {
             corner: label,
             kind: NextCornerKind::NeverSeen,
-            identified_set_reduction: current_idim.saturating_sub(new_idim),
-            new_identified_set_dimension: new_idim,
+            purpose: next_query_purpose(
+                NextCornerKind::NeverSeen,
+                introduces_unseen_level,
+                new_lof.saturating_sub(current_lof),
+            ),
+            main_effect_alias_reduction: current_idim.saturating_sub(new_idim),
+            new_main_effect_alias_dimension: new_idim,
             lack_of_fit_gain: new_lof.saturating_sub(current_lof),
             new_lack_of_fit_dimension: new_lof,
             cost,
@@ -682,6 +728,35 @@ pub fn rank_missing_multilevel_cells_with_costs(
     }
     sort_next_corners(&mut ranked);
     Ok(ranked)
+}
+
+fn exact_zero_one_rank(matrix: &[Vec<f64>]) -> usize {
+    exact_bigint_rank(
+        matrix
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|value| BigInt::from(u8::from(*value != 0.0)))
+                    .collect()
+            })
+            .collect(),
+    )
+}
+
+fn next_query_purpose(
+    kind: NextCornerKind,
+    introduces_unseen_level: bool,
+    lack_of_fit_gain: usize,
+) -> NextQueryPurpose {
+    if kind == NextCornerKind::UnderSupported {
+        NextQueryPurpose::ReplicateUnderSupportedCell
+    } else if introduces_unseen_level {
+        NextQueryPurpose::IdentifyUnseenLevel
+    } else if lack_of_fit_gain > 0 {
+        NextQueryPurpose::CloseDesignContrast
+    } else {
+        NextQueryPurpose::TestKernelReuse
+    }
 }
 
 fn product_cells(cardinalities: &[u32]) -> Vec<Vec<u32>> {
@@ -735,6 +810,13 @@ mod tests {
             MultiLevelPoint { levels: vec![1, 0] },
         ];
         let error = multilevel_main_effects_matrix(&points, &[2, 2]).unwrap_err();
+        assert!(matches!(error, DesignError::DuplicateCorner(_)));
+    }
+
+    #[test]
+    fn oversized_search_space_still_validates_duplicate_cells() {
+        let points = vec![ml(&[0, 0]), ml(&[0, 0])];
+        let error = rank_missing_multilevel_cells(&points, &[9, 9], 1e-12).unwrap_err();
         assert!(matches!(error, DesignError::DuplicateCorner(_)));
     }
     use std::collections::BTreeMap;
@@ -810,7 +892,7 @@ mod tests {
             CausalCompletionEvaluation::NotEvaluated
         );
         assert!(report.missing_primitive_corners.is_empty());
-        assert_eq!(report.identified_set_dimension, 0);
+        assert_eq!(report.main_effect_alias_dimension, 0);
         assert!(report.note.contains("orientation is untestable"));
     }
 
@@ -886,12 +968,13 @@ mod tests {
     }
 
     #[test]
-    fn diagonal_recommends_a_primitive_that_kills_the_identified_set() {
+    fn diagonal_recommends_a_primitive_for_kernel_reuse_and_alias_reduction() {
         let points = [bool_point("00"), bool_point("11")];
         let ranked = rank_missing_boolean_corners(&points, 1e-12).unwrap();
         assert_eq!(ranked.len(), 2);
-        assert_eq!(ranked[0].identified_set_reduction, 1);
-        assert_eq!(ranked[0].new_identified_set_dimension, 0);
+        assert_eq!(ranked[0].main_effect_alias_reduction, 1);
+        assert_eq!(ranked[0].new_main_effect_alias_dimension, 0);
+        assert_eq!(ranked[0].purpose, NextQueryPurpose::TestKernelReuse);
         assert!(
             ranked
                 .iter()
@@ -907,12 +990,12 @@ mod tests {
             1e-12,
         )
         .unwrap();
-        assert_eq!(report.identified_set_dimension, 1);
+        assert_eq!(report.main_effect_alias_dimension, 1);
         assert!(matches!(
             report.recommended_next_corner.as_deref(),
             Some("01" | "10")
         ));
-        assert_eq!(report.next_corner_identified_set_reduction, Some(1));
+        assert_eq!(report.next_corner_main_effect_alias_reduction, Some(1));
     }
 
     #[test]
@@ -928,6 +1011,10 @@ mod tests {
         assert_eq!(ranked.len(), 1);
         assert_eq!(ranked[0].corner, "11");
         assert_eq!(ranked[0].kind, NextCornerKind::UnderSupported);
+        assert_eq!(
+            ranked[0].purpose,
+            NextQueryPurpose::ReplicateUnderSupportedCell
+        );
     }
 
     #[test]
@@ -936,8 +1023,9 @@ mod tests {
         let ranked = rank_missing_boolean_corners(&points, 1e-12).unwrap();
         assert_eq!(ranked.len(), 1);
         assert_eq!(ranked[0].corner, "11");
-        assert_eq!(ranked[0].identified_set_reduction, 0);
+        assert_eq!(ranked[0].main_effect_alias_reduction, 0);
         assert_eq!(ranked[0].lack_of_fit_gain, 1);
+        assert_eq!(ranked[0].purpose, NextQueryPurpose::CloseDesignContrast);
     }
 
     #[test]
@@ -963,7 +1051,7 @@ mod tests {
             1e-12,
         )
         .unwrap();
-        assert_eq!(report.identified_set_dimension, 0);
+        assert_eq!(report.main_effect_alias_dimension, 0);
         assert!(report.recommended_next_corner.is_none());
     }
 
@@ -977,7 +1065,7 @@ mod tests {
         );
         assert_eq!(report.orientation, OrientationTestability::Untestable);
         assert!(report.recommended_next_corner.is_some());
-        assert!(report.identified_set_dimension > 0 || report.recommended_next_corner.is_some());
+        assert!(report.main_effect_alias_dimension > 0 || report.recommended_next_corner.is_some());
     }
 
     #[test]
