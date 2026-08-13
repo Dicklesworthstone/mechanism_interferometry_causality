@@ -115,8 +115,9 @@ pub struct FourLawFaceAudit {
 pub struct TabularInformationContent {
     /// Raw table rows, including excluded ones.
     pub n_rows: usize,
-    /// Distinct included clusters. This is the independent-unit count.
-    pub n_independent_units: usize,
+    /// Distinct included values of the declared cluster column. This count does
+    /// not itself establish that the labels are independent assignment units.
+    pub n_unit_labels: usize,
     /// True when each included row is its own cluster.
     pub units_are_rows: bool,
     /// Declared regimes with at least one included cluster.
@@ -124,11 +125,12 @@ pub struct TabularInformationContent {
     /// Complete square faces that were actually projected.
     pub n_complete_testable_squares: usize,
     /// Smallest included-cluster count among the headline face corners.
-    pub confirmatory_units_per_corner_min: Option<usize>,
+    pub units_per_corner_min: Option<usize>,
     /// Largest included-cluster count among the headline face corners.
-    pub confirmatory_units_per_corner_max: Option<usize>,
-    /// True only when a complete square has at least two units on every corner.
-    pub confirmatory: bool,
+    pub units_per_corner_max: Option<usize>,
+    /// Whether the complete square meets the prespecified per-corner count floor.
+    /// This does not establish unit authority or an untouched confirmation split.
+    pub confirmation_count_ready: bool,
     /// Reminder that this header is not an arrow.
     pub note: String,
 }
@@ -442,7 +444,7 @@ fn finish(
     let gates = CertificateGates::unresolved();
     let status = ledger.status(&gates);
     TabularAuditReport {
-        schema_version: "2.0.0".into(),
+        schema_version: "2.1.0".into(),
         experiment_id: manifest.experiment_id.clone(),
         status,
         gates,
@@ -461,9 +463,9 @@ fn tabular_information_content(
     four_law: &[FourLawFaceAudit],
 ) -> TabularInformationContent {
     let n_rows = ingest.fingerprint.n_rows;
-    let n_independent_units = ingest.fingerprint.n_included_clusters;
+    let n_unit_labels = ingest.fingerprint.n_included_clusters;
     let units_are_rows = ingest.fingerprint.n_included_rows > 0
-        && n_independent_units == ingest.fingerprint.n_included_rows;
+        && n_unit_labels == ingest.fingerprint.n_included_rows;
     let n_distinct_supported_regimes = ingest
         .regime_counts
         .iter()
@@ -480,33 +482,33 @@ fn tabular_information_content(
             .map(|regime| regime.n_included_clusters)
             .collect()
     };
-    let confirmatory_units_per_corner_min = corner_counts.iter().copied().min();
-    let confirmatory_units_per_corner_max = corner_counts.iter().copied().max();
-    let confirmatory = n_complete_testable_squares > 0
-        && confirmatory_units_per_corner_min.is_some_and(|count| count >= 2);
-    let note = if n_complete_testable_squares > 0 && !confirmatory {
-        "Complete as a design, not confirmatory: at least one corner has fewer than two independent units. Collect more units before treating this projection as a confirmation split. Complete squares are design facts, not arrows.".into()
+    let units_per_corner_min = corner_counts.iter().copied().min();
+    let units_per_corner_max = corner_counts.iter().copied().max();
+    let confirmation_count_ready =
+        n_complete_testable_squares > 0 && units_per_corner_min.is_some_and(|count| count >= 2);
+    let note = if n_complete_testable_squares > 0 && !confirmation_count_ready {
+        "Complete as a design, but the per-corner unit-count floor is not met. Collect more units before a confirmation split. Complete squares are design facts, not arrows.".into()
     } else if units_are_rows {
-        "Declared cluster is one-to-one with included rows. Independent units equal row count. More rows are not more experimental units unless that column is the randomization unit. Complete squares are design facts, not arrows.".into()
+        "Declared cluster is one-to-one with included rows. The count floor may be met, but assignment-unit authority and an untouched confirmation split are not established by counts. Complete squares are design facts, not arrows.".into()
     } else {
-        "Independent units are included clusters, not rows. Complete squares are design facts, not arrows.".into()
+        "Rows are grouped by included cluster labels. Independence still requires an external assignment-unit contract. Complete squares are design facts, not arrows.".into()
     };
     TabularInformationContent {
         n_rows,
-        n_independent_units,
+        n_unit_labels,
         units_are_rows,
         n_distinct_supported_regimes,
         n_complete_testable_squares,
-        confirmatory_units_per_corner_min,
-        confirmatory_units_per_corner_max,
-        confirmatory,
+        units_per_corner_min,
+        units_per_corner_max,
+        confirmation_count_ready,
         note,
     }
 }
 
 fn record_information_content(info: &TabularInformationContent, ledger: &mut EvidenceLedger) {
     ledger.provenance("n_rows", info.n_rows.to_string());
-    ledger.provenance("n_independent_units", info.n_independent_units.to_string());
+    ledger.provenance("n_unit_labels", info.n_unit_labels.to_string());
     ledger.provenance("units_are_rows", info.units_are_rows.to_string());
     ledger.provenance(
         "n_distinct_supported_regimes",
@@ -524,45 +526,42 @@ fn record_information_content(info: &TabularInformationContent, ledger: &mut Evi
             "declared cluster is one-to-one with included rows; more rows are not more experimental units unless that column is the randomization unit",
         );
     }
-    if info.n_complete_testable_squares > 0 && !info.confirmatory {
+    if info.n_complete_testable_squares > 0 && !info.confirmation_count_ready {
         ledger.note(
             Severity::Warning,
             "four_law",
             code::NOT_CONFIRMATORY,
-            "complete as a design, not confirmatory: at least one corner has fewer than two independent units",
+            "complete as a design, but the prespecified per-corner unit-count floor is not met",
         );
     }
 }
 
 fn render_information_content(info: &TabularInformationContent) -> String {
-    let confirmatory = match (
-        info.confirmatory_units_per_corner_min,
-        info.confirmatory_units_per_corner_max,
-    ) {
+    let confirmatory = match (info.units_per_corner_min, info.units_per_corner_max) {
         (Some(min), Some(max)) if min == max => min.to_string(),
         (Some(min), Some(max)) => format!("{min}–{max}"),
         _ => "none".into(),
     };
     let unit_line = if info.units_are_rows {
         format!(
-            "Independent experimental units: {} (declared cluster is one-to-one with included rows; more rows are not more experimental units unless that column is the randomization unit).",
-            info.n_independent_units
+            "Declared unit labels: {} (one-to-one with included rows; independence is not established by this count).",
+            info.n_unit_labels
         )
     } else {
         format!(
-            "Independent experimental units: {} (included clusters, not rows).",
-            info.n_independent_units
+            "Declared unit labels: {} (included clusters, not rows; independence requires an external unit contract).",
+            info.n_unit_labels
         )
     };
-    let confirmatory_status = if info.confirmatory {
-        "yes"
+    let count_status = if info.confirmation_count_ready {
+        "yes — unit authority and an untouched confirmation split remain separate requirements"
     } else if info.n_complete_testable_squares > 0 {
-        "no — complete as a design, not confirmatory"
+        "no — complete as a design, but below the per-corner count floor"
     } else {
         "no complete square"
     };
     format!(
-        "Rows: {}.\n{unit_line}\nDistinct supported regimes: {}.\nComplete testable squares: {}.\nConfirmatory units per corner: {}.\nConfirmatory: {confirmatory_status}.\n{}",
+        "Rows: {}.\n{unit_line}\nDistinct supported regimes: {}.\nComplete testable squares: {}.\nUnits per corner: {}.\nConfirmation count floor met: {count_status}.\n{}",
         info.n_rows,
         info.n_distinct_supported_regimes,
         info.n_complete_testable_squares,
@@ -1155,25 +1154,19 @@ mod tests {
                     .unwrap()
         );
         assert_eq!(report.information_content().n_rows, 80);
-        assert_eq!(report.information_content().n_independent_units, 80);
+        assert_eq!(report.information_content().n_unit_labels, 80);
         assert!(report.information_content().units_are_rows);
         assert_eq!(report.information_content().n_distinct_supported_regimes, 4);
         assert_eq!(report.information_content().n_complete_testable_squares, 1);
-        assert_eq!(
-            report
-                .information_content()
-                .confirmatory_units_per_corner_min,
-            Some(20)
-        );
-        assert_eq!(
-            report
-                .information_content()
-                .confirmatory_units_per_corner_max,
-            Some(20)
-        );
+        assert_eq!(report.information_content().units_per_corner_min, Some(20));
+        assert_eq!(report.information_content().units_per_corner_max, Some(20));
         assert_eq!(report.four_law[0].clusters_per_corner, [20, 20, 20, 20]);
-        assert!(report.information_content().confirmatory);
-        assert!(narrative.markdown().contains("Confirmatory: yes."));
+        assert!(report.information_content().confirmation_count_ready);
+        assert!(
+            narrative
+                .markdown()
+                .contains("Confirmation count floor met: yes")
+        );
         assert!(
             narrative
                 .markdown()
@@ -1209,7 +1202,7 @@ mod tests {
         assert!((face.normalizer_a - 1.0).abs() < 1e-12);
         assert_eq!(report.status(), CertificateStatus::Abstained);
         assert_eq!(report.information_content().n_rows, 80);
-        assert_eq!(report.information_content().n_independent_units, 80);
+        assert_eq!(report.information_content().n_unit_labels, 80);
         assert!(report.information_content().units_are_rows);
         assert_eq!(report.information_content().n_complete_testable_squares, 1);
         assert_eq!(face.clusters_per_corner, [20, 20, 20, 20]);
@@ -1263,13 +1256,13 @@ mod tests {
         .unwrap();
         let info = report.information_content();
         assert_eq!(info.n_rows, 16);
-        assert_eq!(info.n_independent_units, 4);
+        assert_eq!(info.n_unit_labels, 4);
         assert!(!info.units_are_rows);
         assert_eq!(info.n_distinct_supported_regimes, 4);
         assert_eq!(info.n_complete_testable_squares, 1);
-        assert_eq!(info.confirmatory_units_per_corner_min, Some(1));
-        assert_eq!(info.confirmatory_units_per_corner_max, Some(1));
-        assert!(!info.confirmatory);
+        assert_eq!(info.units_per_corner_min, Some(1));
+        assert_eq!(info.units_per_corner_max, Some(1));
+        assert!(!info.confirmation_count_ready);
         assert_eq!(report.four_law[0].clusters_per_corner, [1, 1, 1, 1]);
         assert!(
             report
@@ -1280,12 +1273,10 @@ mod tests {
         );
         let narrative = report.narrative();
         let markdown = narrative.markdown();
-        assert!(markdown.contains("not confirmatory"));
+        assert!(markdown.contains("below the per-corner count floor"));
         assert!(markdown.contains("## Causal information content"));
         assert!(markdown.contains("Rows: 16."));
-        assert!(
-            markdown.contains("Independent experimental units: 4 (included clusters, not rows).")
-        );
+        assert!(markdown.contains("Declared unit labels: 4 (included clusters, not rows"));
         assert!(markdown.contains("Complete testable squares: 1."));
         assert!(
             !report
@@ -1325,7 +1316,7 @@ mod tests {
         assert!(report.four_law.is_empty());
         assert_eq!(report.status(), CertificateStatus::Abstained);
         assert_eq!(report.information_content().n_complete_testable_squares, 0);
-        assert!(!report.information_content().confirmatory);
+        assert!(!report.information_content().confirmation_count_ready);
         assert!(
             !report
                 .ledger()

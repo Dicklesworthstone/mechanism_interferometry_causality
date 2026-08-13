@@ -14,7 +14,7 @@ use thiserror::Error;
 
 mod survey;
 mod tabular;
-pub use mic_design::{ModularCompletionClass, OrientationTestability};
+pub use mic_design::{CausalCompletionEvaluation, OrientationTestability};
 pub use survey::{
     CausalInformationContent, ClusterUnitBasis, ColumnRole, ColumnTriage, InterferometerProposal,
     SurveyAuthority, SurveyPolicy, SurveyReport, run_unsupervised_survey,
@@ -87,6 +87,8 @@ pub struct PreflightReport {
     experiment_id: String,
     /// SHA-256 of the validated manifest's canonical serialized value.
     manifest_canonical_sha256: String,
+    /// Policy the status was computed under. Verdicts are not reproducible without it.
+    policy: PreflightPolicy,
     /// Requested inference track.
     requested_track: InferenceTrack,
     /// Main-effects and lack-of-fit geometry.
@@ -123,6 +125,12 @@ impl PreflightReport {
     #[must_use]
     pub fn manifest_canonical_sha256(&self) -> &str {
         &self.manifest_canonical_sha256
+    }
+
+    /// Returns the numerical policy bound into this report.
+    #[must_use]
+    pub const fn policy(&self) -> PreflightPolicy {
+        self.policy
     }
 
     /// Returns the requested inference track.
@@ -556,6 +564,13 @@ pub fn run_preflight(
         "product_odds_tolerance_ceiling",
         mic_stats::ProductDesignEvidence::MAX_PRODUCT_ODDS_TOLERANCE.to_string(),
     );
+    ledger.provenance("rank_tolerance", policy.rank_tolerance.to_string());
+    ledger.provenance("lens_gap_tolerance", policy.lens_gap_tolerance.to_string());
+    ledger.provenance("min_ess_ratio", policy.min_ess_ratio.to_string());
+    ledger.provenance(
+        "accept_unvalidated_selection_model",
+        policy.accept_unvalidated_selection_model.to_string(),
+    );
 
     let points: Vec<DesignPoint> = manifest
         .regimes
@@ -611,9 +626,10 @@ pub fn run_preflight(
     };
 
     Ok(PreflightReport {
-        schema_version: "1.0.0".into(),
+        schema_version: "1.1.0".into(),
         experiment_id: manifest.experiment_id.clone(),
         manifest_canonical_sha256,
+        policy,
         requested_track: manifest.inference_track,
         design,
         face_sampling,
@@ -868,6 +884,8 @@ mod tests {
         };
         let report = run_preflight(&modeled, policy).unwrap();
         assert_eq!(report.status, PreflightStatus::DiagnosticOnly);
+        assert!(report.policy().accept_unvalidated_selection_model);
+        assert_eq!(report.schema_version(), "1.1.0");
         assert!(
             report
                 .ledger
@@ -875,6 +893,11 @@ mod tests {
                 .iter()
                 .any(|finding| finding.code == code::SELECTION_MODEL_UNVALIDATED)
         );
+        let blocked = run_preflight(&modeled, PreflightPolicy::default()).unwrap();
+        assert!(!blocked.policy().accept_unvalidated_selection_model);
+        assert_ne!(report.policy(), blocked.policy());
+        assert_eq!(report.status, PreflightStatus::DiagnosticOnly);
+        assert_eq!(blocked.status, PreflightStatus::Blocked);
     }
 
     #[test]

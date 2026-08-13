@@ -7,7 +7,7 @@
 use crate::EngineError;
 use mic_data::{RawTable, load_raw_csv};
 use mic_design::{
-    DesignPoint, FamilyClassificationInput, ModularCompletionClass, NextCornerCandidate,
+    CausalCompletionEvaluation, DesignPoint, FamilyClassificationInput, NextCornerCandidate,
     NextCornerKind, ObservedDesign, OrientationTestability, SamplingOddsAudit, audit_design,
     audit_sampling_odds, classify_observed_family, observed_design_from_rows,
     orientation_testability, rank_missing_boolean_corners_from_observed,
@@ -98,8 +98,8 @@ pub struct InterferometerProposal {
     pub recommended_next_corner_kind: Option<NextCornerKind>,
     /// Top ranked cells, never more than three.
     pub ranked_next_corners: Vec<NextCornerCandidate>,
-    /// Modular-completion class. Survey never supplies laws, so this is untestable.
-    pub modular_completion: ModularCompletionClass,
+    /// Causal-completion evaluation. Survey supplies no laws, so this is not evaluated.
+    pub completion_evaluation: CausalCompletionEvaluation,
     /// Orientation testability. Catalog squares with no tilt family are untestable.
     pub orientation: OrientationTestability,
     /// Ranking score: complete square first, then min corner count.
@@ -113,8 +113,9 @@ pub struct InterferometerProposal {
 pub struct CausalInformationContent {
     /// Raw table rows.
     pub n_rows: usize,
-    /// Distinct values of the cluster column, or `n_rows` when the unit is a row.
-    pub n_independent_units: usize,
+    /// Distinct declared/inferred unit labels, or `n_rows` for row fallback.
+    /// This count does not establish that the labels are independent units.
+    pub n_unit_labels: usize,
     /// How the independent unit was chosen.
     pub unit_basis: ClusterUnitBasis,
     /// Retained corners on the highest-priority interferometer.
@@ -122,11 +123,12 @@ pub struct CausalInformationContent {
     /// Number of complete two-factor squares in the atlas.
     pub n_complete_testable_squares: usize,
     /// Smallest retained corner count on the headline interferometer.
-    pub confirmatory_units_per_corner_min: Option<usize>,
+    pub units_per_corner_min: Option<usize>,
     /// Largest retained corner count on the headline interferometer.
-    pub confirmatory_units_per_corner_max: Option<usize>,
-    /// True only when a complete square has at least two units on every corner.
-    pub confirmatory: bool,
+    pub units_per_corner_max: Option<usize>,
+    /// Whether a complete square meets the prespecified per-corner count floor.
+    /// This does not establish unit authority or an untouched confirmation split.
+    pub confirmation_count_ready: bool,
     /// Ranked next cell on the highest-priority incomplete design, if any.
     pub recommended_next_corner: Option<String>,
     /// Identified-set dimension of that incomplete design.
@@ -234,7 +236,7 @@ pub fn run_unsupervised_survey(
     )?;
     let next_step = survey_next_step(&interferometers, &information_content);
     Ok(SurveyReport {
-        schema_version: "1.1.0".into(),
+        schema_version: "1.2.0".into(),
         authority: SurveyAuthority::ProposalOnly,
         wall: "State-independent within-regime selection cannot be established from observed rows. This survey cannot issue a certificate.".into(),
         table_sha256: table.content_sha256,
@@ -482,15 +484,18 @@ fn propose(
         1e-10,
     )
     .ok();
-    let modular_completion = family
+    let completion_evaluation = family
         .as_ref()
-        .map_or(ModularCompletionClass::Untestable, |item| {
-            item.modular_completion
+        .map_or(CausalCompletionEvaluation::NotEvaluated, |item| {
+            item.completion_evaluation
         });
     let orientation = family
         .as_ref()
         .map_or_else(|| orientation_testability(0), |item| item.orientation);
-    debug_assert_ne!(modular_completion, ModularCompletionClass::Unique);
+    debug_assert_eq!(
+        completion_evaluation,
+        CausalCompletionEvaluation::NotEvaluated
+    );
     debug_assert_eq!(orientation, OrientationTestability::Untestable);
     let identified_set_dimension = family.as_ref().map(|item| item.identified_set_dimension);
     let ranked_next_corners = rank_missing_boolean_corners_from_observed(
@@ -533,7 +538,7 @@ fn propose(
         recommended_next_corner_cost,
         recommended_next_corner_kind,
         ranked_next_corners,
-        modular_completion,
+        completion_evaluation,
         orientation,
         priority,
         note,
@@ -547,7 +552,7 @@ fn information_content(
     interferometers: &[InterferometerProposal],
 ) -> Result<CausalInformationContent, EngineError> {
     let n_rows = table.rows.len();
-    let n_independent_units = match cluster_column {
+    let n_unit_labels = match cluster_column {
         Some(name) => unique_values(table, header_index(table, name)?).len(),
         None => n_rows,
     };
@@ -560,30 +565,27 @@ fn information_content(
         .iter()
         .filter(|item| item.complete_square)
         .count();
-    let (confirmatory_units_per_corner_min, confirmatory_units_per_corner_max) =
-        headline.map_or((None, None), |item| {
-            (
-                item.design.counts.iter().copied().min(),
-                item.design.counts.iter().copied().max(),
-            )
-        });
+    let (units_per_corner_min, units_per_corner_max) = headline.map_or((None, None), |item| {
+        (
+            item.design.counts.iter().copied().min(),
+            item.design.counts.iter().copied().max(),
+        )
+    });
     let incomplete = interferometers
         .iter()
         .find(|item| item.recommended_next_corner.is_some());
-    let units_are_rows = unit_basis == ClusterUnitBasis::Row || n_independent_units == n_rows;
-    let confirmatory = is_confirmatory(
-        n_complete_testable_squares,
-        confirmatory_units_per_corner_min,
-    );
+    let units_are_rows = unit_basis == ClusterUnitBasis::Row || n_unit_labels == n_rows;
+    let confirmation_count_ready =
+        is_confirmation_count_ready(n_complete_testable_squares, units_per_corner_min);
     Ok(CausalInformationContent {
         n_rows,
-        n_independent_units,
+        n_unit_labels,
         unit_basis,
         n_distinct_supported_regimes,
         n_complete_testable_squares,
-        confirmatory_units_per_corner_min,
-        confirmatory_units_per_corner_max,
-        confirmatory,
+        units_per_corner_min,
+        units_per_corner_max,
+        confirmation_count_ready,
         recommended_next_corner: incomplete.and_then(|item| item.recommended_next_corner.clone()),
         identified_set_dimension: incomplete.and_then(|item| item.identified_set_dimension),
         recommended_next_corner_cost: incomplete.and_then(|item| item.recommended_next_corner_cost),
@@ -598,12 +600,12 @@ fn information_content(
 
 fn information_content_note(unit_basis: ClusterUnitBasis, units_are_rows: bool) -> String {
     if !units_are_rows {
-        return "Independent units are clusters when a unit column is declared or inferred, otherwise rows. Complete squares are design facts, not arrows.".into();
+        return "Rows are grouped by the declared or inferred unit-label column. Independence still requires an external unit contract. Complete squares are design facts, not arrows.".into();
     }
     if unit_basis == ClusterUnitBasis::Row {
         "No unit column; independent units fell back to rows. More rows are not more experimental units. Complete squares are design facts, not arrows.".into()
     } else {
-        "Cluster column is one-to-one with rows. Independent units equal row count. More rows are not more experimental units unless that column is the randomization unit. Complete squares are design facts, not arrows.".into()
+        "Cluster column is one-to-one with rows. Unit-label count equals row count; that does not establish independent experimental units. Complete squares are design facts, not arrows.".into()
     }
 }
 
@@ -659,22 +661,23 @@ fn survey_next_step(
 }
 
 fn format_information_header(info: &CausalInformationContent) -> String {
-    let confirmatory = match (
-        info.confirmatory_units_per_corner_min,
-        info.confirmatory_units_per_corner_max,
-    ) {
+    let units_per_corner = match (info.units_per_corner_min, info.units_per_corner_max) {
         (Some(min), Some(max)) if min == max => min.to_string(),
         (Some(min), Some(max)) => format!("{min}–{max}"),
         _ => "none".into(),
     };
     format!(
-        "Rows: {}. Independent experimental units: {}. Distinct supported regimes: {}. Complete testable squares: {}. Confirmatory units per corner: {}. Confirmatory: {}. ",
+        "Rows: {}. Declared/inferred unit labels: {}. Distinct supported regimes: {}. Complete testable squares: {}. Units per corner: {}. Confirmation count floor met: {} (unit authority and an untouched confirmation split are separate requirements). ",
         info.n_rows,
-        info.n_independent_units,
+        info.n_unit_labels,
         info.n_distinct_supported_regimes,
         info.n_complete_testable_squares,
-        confirmatory,
-        if info.confirmatory { "yes" } else { "no" }
+        units_per_corner,
+        if info.confirmation_count_ready {
+            "yes"
+        } else {
+            "no"
+        }
     )
 }
 
@@ -704,19 +707,18 @@ fn row_unit_clause(info: &CausalInformationContent) -> String {
 }
 
 fn confirmatory_clause(info: &CausalInformationContent) -> String {
-    if info.n_complete_testable_squares > 0 && !info.confirmatory {
-        " This square is complete as a design, not confirmatory: at least one corner has fewer than two independent units. Collect more units before four-law.".into()
+    if info.n_complete_testable_squares > 0 && !info.confirmation_count_ready {
+        " This square is complete as a design but has fewer than two declared/inferred unit labels in at least one corner. Collect more units before four-law.".into()
     } else {
         String::new()
     }
 }
 
-fn is_confirmatory(
+fn is_confirmation_count_ready(
     n_complete_testable_squares: usize,
-    confirmatory_units_per_corner_min: Option<usize>,
+    units_per_corner_min: Option<usize>,
 ) -> bool {
-    n_complete_testable_squares > 0
-        && confirmatory_units_per_corner_min.is_some_and(|count| count >= 2)
+    n_complete_testable_squares > 0 && units_per_corner_min.is_some_and(|count| count >= 2)
 }
 
 fn extension_note(base: &str, missing: &[String], dropped: &[String]) -> String {
@@ -933,7 +935,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.authority, SurveyAuthority::ProposalOnly);
-        assert_eq!(report.schema_version, "1.1.0");
+        assert_eq!(report.schema_version, "1.2.0");
         assert!(
             report
                 .interferometers
@@ -943,13 +945,22 @@ mod tests {
         assert!(report.wall.contains("cannot issue a certificate"));
         assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Declared);
         assert_eq!(report.information_content.n_rows, report.n_rows);
-        assert!(report.information_content.n_independent_units > 0);
-        assert!(report.information_content.n_independent_units <= report.n_rows);
+        assert!(report.information_content.n_unit_labels > 0);
+        assert!(report.information_content.n_unit_labels <= report.n_rows);
         assert!(report.information_content.n_complete_testable_squares >= 1);
         assert_eq!(report.information_content.n_distinct_supported_regimes, 4);
         assert!(report.information_content.units_are_rows);
-        assert!(report.information_content.confirmatory);
-        assert!(report.next_step.contains("Confirmatory: yes."));
+        assert!(report.information_content.confirmation_count_ready);
+        assert!(
+            report
+                .next_step
+                .contains("Confirmation count floor met: yes")
+        );
+        assert!(
+            report
+                .next_step
+                .contains("unit authority and an untouched confirmation split")
+        );
         assert!(
             report
                 .information_content
@@ -961,7 +972,7 @@ mod tests {
         assert!(
             report
                 .next_step
-                .contains("Independent experimental units: 80.")
+                .contains("Declared/inferred unit labels: 80.")
         );
         assert!(report.next_step.contains("Complete testable squares:"));
         assert!(
@@ -1126,7 +1137,7 @@ mod tests {
         assert!(
             report
                 .next_step
-                .contains("Independent experimental units: 6.")
+                .contains("Declared/inferred unit labels: 6.")
         );
     }
 
@@ -1147,7 +1158,7 @@ mod tests {
         assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Row);
         assert!(report.information_content.units_are_rows);
         assert_eq!(
-            report.information_content.n_independent_units,
+            report.information_content.n_unit_labels,
             report.information_content.n_rows
         );
         assert!(
@@ -1176,31 +1187,31 @@ mod tests {
                 .unwrap();
         assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Declared);
         assert_eq!(report.information_content.n_rows, 8);
-        assert_eq!(report.information_content.n_independent_units, 4);
+        assert_eq!(report.information_content.n_unit_labels, 4);
         assert!(!report.information_content.units_are_rows);
         assert!(
             report
                 .information_content
                 .note
-                .contains("Independent units are clusters")
+                .contains("grouped by the declared or inferred unit-label column")
         );
         assert!(report.next_step.contains("Rows: 8."));
         assert!(
             report
                 .next_step
-                .contains("Independent experimental units: 4.")
+                .contains("Declared/inferred unit labels: 4.")
         );
         assert!(
             !report
                 .next_step
                 .contains("Independent unit is a row: more rows are not more experimental units")
         );
-        assert!(!report.information_content.confirmatory);
+        assert!(!report.information_content.confirmation_count_ready);
         assert_eq!(report.information_content.n_complete_testable_squares, 0);
     }
 
     #[test]
-    fn one_unit_per_corner_is_complete_not_confirmatory() {
+    fn one_unit_label_per_corner_is_below_the_confirmation_count_floor() {
         let dir = std::env::temp_dir().join("mic-survey-not-confirmatory");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("thin.csv");
@@ -1224,18 +1235,19 @@ mod tests {
                 .iter()
                 .any(|item| item.complete_square)
         );
-        assert_eq!(report.information_content.n_independent_units, 4);
-        assert_eq!(
-            report.information_content.confirmatory_units_per_corner_min,
-            Some(1)
-        );
-        assert!(!report.information_content.confirmatory);
+        assert_eq!(report.information_content.n_unit_labels, 4);
+        assert_eq!(report.information_content.units_per_corner_min, Some(1));
+        assert!(!report.information_content.confirmation_count_ready);
         assert!(
             report
                 .next_step
-                .contains("complete as a design, not confirmatory")
+                .contains("fewer than two declared/inferred unit labels")
         );
-        assert!(report.next_step.contains("Confirmatory: no."));
+        assert!(
+            report
+                .next_step
+                .contains("Confirmation count floor met: no")
+        );
     }
 
     #[test]
@@ -1293,7 +1305,7 @@ mod tests {
             run_unsupervised_survey(&path, None, Some("cluster_id"), SurveyPolicy::default())
                 .unwrap();
         assert_eq!(report.authority, SurveyAuthority::ProposalOnly);
-        assert_eq!(report.information_content.n_independent_units, 4);
+        assert_eq!(report.information_content.n_unit_labels, 4);
         assert_eq!(report.information_content.n_complete_testable_squares, 0);
         let square = report
             .interferometers
@@ -1406,8 +1418,8 @@ mod tests {
         assert!(report.next_step.contains("Orientation is untestable"));
         assert_eq!(square.orientation, OrientationTestability::Untestable);
         assert_eq!(
-            square.modular_completion,
-            ModularCompletionClass::Untestable
+            square.completion_evaluation,
+            CausalCompletionEvaluation::NotEvaluated
         );
         let wire = serde_json::to_value(report).expect("survey report must serialize");
         let actual: BTreeSet<&str> = wire

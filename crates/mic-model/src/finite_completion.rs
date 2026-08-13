@@ -4,9 +4,10 @@
 //! This reference solver is exact in design structure and numerical in the
 //! supplied probability tables. It fully evaluates causal feasibility only
 //! when the observed treatment-coded design identifies every factor-level log
-//! potential. Rank-deficient feasible designs remain conservatively set
-//! identified; nonlinear constraints can sometimes restore uniqueness, but
-//! this solver does not claim that general result.
+//! potential. Rank-deficient designs leave the causal-completion fiber
+//! unresolved unless a tested necessary condition already refutes it;
+//! nonlinear constraints can sometimes restore uniqueness, but this solver
+//! does not claim that general result.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt::Write as _;

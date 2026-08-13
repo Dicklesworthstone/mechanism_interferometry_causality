@@ -11,12 +11,13 @@
     "gates",
     "preflight",
     "ingest",
+    "information_content",
     "four_law",
     "projection",
     "ledger"
   ],
   "properties": {
-    "schema_version": {"const": "2.0.0"},
+    "schema_version": {"const": "2.1.0"},
     "experiment_id": {"type": "string", "minLength": 1},
     "status": {
       "enum": ["abstained", "diagnostic_only"],
@@ -71,6 +72,35 @@
         "n_folds": {"type": "integer", "minimum": 1}
       }
     },
+    "information_content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "n_rows",
+        "n_unit_labels",
+        "units_are_rows",
+        "n_distinct_supported_regimes",
+        "n_complete_testable_squares",
+        "units_per_corner_min",
+        "units_per_corner_max",
+        "confirmation_count_ready",
+        "note"
+      ],
+      "properties": {
+        "n_rows": {"type": "integer", "minimum": 0},
+        "n_unit_labels": {"type": "integer", "minimum": 0},
+        "units_are_rows": {"type": "boolean"},
+        "n_distinct_supported_regimes": {"type": "integer", "minimum": 0},
+        "n_complete_testable_squares": {"type": "integer", "minimum": 0},
+        "units_per_corner_min": {"type": ["integer", "null"], "minimum": 0},
+        "units_per_corner_max": {"type": ["integer", "null"], "minimum": 0},
+        "confirmation_count_ready": {
+          "type": "boolean",
+          "description": "Count-only readiness; does not establish assignment-unit authority or an untouched confirmation split."
+        },
+        "note": {"type": "string", "minLength": 1}
+      }
+    },
     "four_law": {"type": "array"},
     "overlap": {"type": ["object", "null"]},
     "projection": {"type": "object"},
@@ -86,6 +116,45 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "information_content": {
+            "properties": {"confirmation_count_ready": {"const": true}}
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "information_content": {
+            "properties": {
+              "n_complete_testable_squares": {"minimum": 1},
+              "units_per_corner_min": {"type": "integer", "minimum": 2},
+              "units_per_corner_max": {"type": "integer", "minimum": 2}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "information_content": {
+            "properties": {
+              "n_complete_testable_squares": {"minimum": 1},
+              "units_per_corner_min": {"type": "integer", "minimum": 2}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "information_content": {
+            "properties": {"confirmation_count_ready": {"const": true}}
+          }
+        }
+      }
+    },
     {
       "if": {"properties": {"status": {"const": "diagnostic_only"}}},
       "then": {"properties": {"ledger": {"properties": {"mode": {"const": "exploratory"}}}}}

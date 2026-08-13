@@ -936,46 +936,44 @@ fn validate_tolerance(tolerance: f64) -> Result<(), DesignError> {
     }
 }
 
-/// Four-way modular-completion class for an observed design and proposed local spaces.
+/// Result of evaluating a causal-completion fiber for a fixed proposed model.
 ///
-/// Geometry alone never yields [`Self::Unique`]. That class requires identified
-/// local, conditionally normalized primitive potentials. This crate currently
-/// decides only the two-root diagonal witness from the paper.
+/// This is deliberately separate from design testability. A design may have no
+/// additive lack-of-fit contrast while its fixed-model causal completion is
+/// infeasible, point identified, set identified, or not evaluated.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum ModularCompletionClass {
-    /// Every proposed local potential is identified.
-    Unique,
-    /// More than one local normalized system reproduces the observed regimes.
-    SetIdentified,
+pub enum CausalCompletionEvaluation {
+    /// The supplied evidence did not evaluate the nonlinear completion fiber.
+    NotEvaluated,
     /// No modular local system can reproduce the observed regimes.
     Infeasible,
-    /// The observed design imposes no meaningful modular restriction, or the
-    /// caller has not supplied the objects needed to decide.
-    Untestable,
+    /// The named completion query has one solution modulo declared symmetries.
+    PointIdentified,
+    /// More than one local normalized system reproduces the observed regimes.
+    SetIdentified,
 }
 
 /// Classifies the paper's two-root diagonal witness \(D=\{00,11\}\).
 ///
-/// Distinct root-mechanism replacements on two binary factors preserve product
-/// form: the log-density ratio \(h_{11}-h_{00}\) must have vanishing four-corner
-/// interaction. The design does not identify the primitive potentials, so a
-/// product-form pair is at most [`ModularCompletionClass::SetIdentified`].
-/// This function never returns [`ModularCompletionClass::Unique`].
+/// For a fixed assignment of the two factor labels to two distinct binary
+/// roots, both the baseline and combination laws must factorize. When they do,
+/// the two replacement root marginals are the combination-law marginals and
+/// are therefore point identified. This does not test composition because no
+/// primitive or rectangle law is observed.
 ///
 /// Masses are in order `00, 10, 01, 11` and must be finite and strictly positive.
 pub fn classify_two_root_diagonal(
     baseline: [f64; 4],
     combo: [f64; 4],
     tolerance: f64,
-) -> Result<ModularCompletionClass, DesignError> {
+) -> Result<CausalCompletionEvaluation, DesignError> {
     let base_odds = audit_sampling_odds(baseline, tolerance)?;
     let combo_odds = audit_sampling_odds(combo, tolerance)?;
-    let interaction_shift = combo_odds.log_odds_ratio - base_odds.log_odds_ratio;
-    if interaction_shift.abs() <= tolerance {
-        Ok(ModularCompletionClass::SetIdentified)
+    if base_odds.is_product && combo_odds.is_product {
+        Ok(CausalCompletionEvaluation::PointIdentified)
     } else {
-        Ok(ModularCompletionClass::Infeasible)
+        Ok(CausalCompletionEvaluation::Infeasible)
     }
 }
 
@@ -1100,16 +1098,22 @@ mod tests {
         let uniform = [0.25; 4];
         let correlated = [0.4, 0.1, 0.1, 0.4];
         let class = classify_two_root_diagonal(uniform, correlated, 1e-12).unwrap();
-        assert_eq!(class, ModularCompletionClass::Infeasible);
+        assert_eq!(class, CausalCompletionEvaluation::Infeasible);
     }
 
     #[test]
-    fn two_root_diagonal_product_combo_is_set_identified_never_unique() {
+    fn fixed_two_root_diagonal_product_laws_point_identify_replacement_marginals() {
         let uniform = [0.25; 4];
         let product = [0.36, 0.24, 0.24, 0.16];
         let class = classify_two_root_diagonal(uniform, product, 1e-12).unwrap();
-        assert_eq!(class, ModularCompletionClass::SetIdentified);
-        assert_ne!(class, ModularCompletionClass::Unique);
+        assert_eq!(class, CausalCompletionEvaluation::PointIdentified);
+    }
+
+    #[test]
+    fn two_root_diagonal_checks_baseline_factorization_not_only_odds_change() {
+        let correlated = [0.4, 0.1, 0.1, 0.4];
+        let class = classify_two_root_diagonal(correlated, correlated, 1e-12).unwrap();
+        assert_eq!(class, CausalCompletionEvaluation::Infeasible);
     }
 
     #[test]

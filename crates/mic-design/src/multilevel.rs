@@ -1,12 +1,12 @@
 #![forbid(unsafe_code)]
 //! Multi-level factorial geometry and fail-closed family classification.
 //!
-//! Geometry never yields [`crate::ModularCompletionClass::Unique`]. That class
-//! requires identified local, conditionally normalized potentials, which this
-//! module does not invent from a design matrix.
+//! Geometry alone never evaluates a nonlinear causal-completion fiber. Supplied
+//! laws can refute or identify a narrowly fixed model, while rank and
+//! lack-of-fit remain separate testability facts.
 
 use crate::{
-    DesignError, DesignPoint, ModularCompletionClass, ObservedDesign, audit_design,
+    CausalCompletionEvaluation, DesignError, DesignPoint, ObservedDesign, audit_design,
     classify_two_root_diagonal, matrix_rank,
 };
 use serde::{Deserialize, Serialize};
@@ -235,8 +235,8 @@ pub struct NextCornerCandidate {
 /// Geometry-plus-witness classification. Never a certificate.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ObservedFamilyClassification {
-    /// Modular-completion class. Geometry alone never yields `unique`.
-    pub modular_completion: ModularCompletionClass,
+    /// Fixed-model causal-completion evaluation, separate from testability.
+    pub completion_evaluation: CausalCompletionEvaluation,
     /// Orientation testability. Catalog squares with no tilt family are untestable.
     pub orientation: OrientationTestability,
     /// `n_coded_columns - main_effects_rank` on the observed corners.
@@ -304,7 +304,7 @@ pub fn audit_rectangle_laws(
             Err(error) => return Err(error),
         }
     }
-    let all_flat = n_evaluated > 0 && max_abs_contrast <= tolerance;
+    let all_flat = n_evaluated > 0 && n_missing_laws == 0 && max_abs_contrast <= tolerance;
     Ok(RectangleLawAudit {
         n_observed_rectangles: faces.len(),
         n_evaluated,
@@ -315,6 +315,8 @@ pub fn audit_rectangle_laws(
             "observed rectangles are flat under the supplied laws; this is a diagnostic, not a modularity certificate"
         } else if n_evaluated == 0 {
             "no rectangle could be evaluated; missing laws or no observed rectangle"
+        } else if n_missing_laws > 0 {
+            "not all observed rectangles could be evaluated because supplied laws are missing"
         } else {
             "at least one evaluated rectangle is curved under the supplied laws"
         }
@@ -328,8 +330,8 @@ pub fn audit_rectangle_laws(
 /// - `D = {00, 11}` with distinct roots and supplied laws → two-root diagonal witness
 /// - any design with fewer than two declared same-target tilts → orientation untestable
 ///
-/// `unique` is never returned. That class is reserved for a later theorem that
-/// identifies local normalized potentials.
+/// Geometry-only cases remain `not_evaluated`; they are not a fourth fiber
+/// state called `untestable`.
 pub fn classify_observed_family(
     input: FamilyClassificationInput<'_>,
     tolerance: f64,
@@ -341,26 +343,27 @@ pub fn classify_observed_family(
     let missing_primitive_corners = missing_two_factor_primitives(input.points);
     let orientation = orientation_testability(input.same_target_tilt_count);
     let diagonal = is_two_root_diagonal(input.points);
-    let (modular_completion, note) = if diagonal
+    let (completion_evaluation, note) = if diagonal
         && input.distinct_root_targets
         && let Some((baseline, combo)) = input.baseline_combo_laws
     {
         let class = classify_two_root_diagonal(baseline, combo, tolerance)?;
         let note = match class {
-            ModularCompletionClass::Infeasible => {
-                "D={00,11} with a non-product combo law cannot be realized by distinct root-mechanism replacements"
+            CausalCompletionEvaluation::Infeasible => {
+                "D={00,11} violates baseline or combination factorization and cannot be realized by the fixed distinct-root model"
             }
-            ModularCompletionClass::SetIdentified => {
-                "D={00,11} product combo is feasible but primitives are unidentified"
+            CausalCompletionEvaluation::PointIdentified => {
+                "D={00,11} point-identifies the two root replacement marginals for the fixed target mapping; composition remains untested"
             }
-            ModularCompletionClass::Unique | ModularCompletionClass::Untestable => {
+            CausalCompletionEvaluation::SetIdentified
+            | CausalCompletionEvaluation::NotEvaluated => {
                 "diagonal witness returned an unexpected class"
             }
         };
         (class, note.to_string())
     } else if diagonal {
         (
-            ModularCompletionClass::Untestable,
+            CausalCompletionEvaluation::NotEvaluated,
             "D={00,11} has vacuous flatness; do not read modularity from a trivial lack-of-fit space".into(),
         )
     } else if orientation == OrientationTestability::Untestable
@@ -368,19 +371,18 @@ pub fn classify_observed_family(
         && missing_primitive_corners.is_empty()
     {
         (
-            ModularCompletionClass::Untestable,
-            "complete catalog square with no same-target tilt family: orientation is untestable; modular completion is not unique".into(),
+            CausalCompletionEvaluation::NotEvaluated,
+            "complete catalog square with no supplied laws or fixed causal model: completion is not evaluated and orientation is untestable".into(),
         )
     } else {
         (
-            ModularCompletionClass::Untestable,
-            "geometry does not identify a unique local normalized potential system".into(),
+            CausalCompletionEvaluation::NotEvaluated,
+            "geometry alone does not evaluate the nonlinear causal-completion fiber".into(),
         )
     };
-    debug_assert_ne!(modular_completion, ModularCompletionClass::Unique);
     let next = rank_missing_boolean_corners(input.points, tolerance)?;
     Ok(ObservedFamilyClassification {
-        modular_completion,
+        completion_evaluation,
         orientation,
         identified_set_dimension,
         lack_of_fit_dimension: audit.lack_of_fit_dimension,
@@ -556,7 +558,7 @@ fn rectangle_cells(face: &RectangleFace) -> [Vec<u32>; 4] {
     [hab, ha_b, hab_, ha_b_]
 }
 
-/// Classifies a multi-level product design. Geometry never yields `unique`.
+/// Classifies a multi-level product design without evaluating a causal fiber.
 pub fn classify_multilevel_family(
     points: &[MultiLevelPoint],
     cardinalities: &[u32],
@@ -581,7 +583,7 @@ pub fn classify_multilevel_family(
         "multi-level geometry does not identify a unique local normalized potential system"
     };
     Ok(ObservedFamilyClassification {
-        modular_completion: ModularCompletionClass::Untestable,
+        completion_evaluation: CausalCompletionEvaluation::NotEvaluated,
         orientation,
         identified_set_dimension,
         lack_of_fit_dimension,
@@ -772,10 +774,9 @@ mod tests {
         .unwrap();
         assert_eq!(report.orientation, OrientationTestability::Untestable);
         assert_eq!(
-            report.modular_completion,
-            ModularCompletionClass::Untestable
+            report.completion_evaluation,
+            CausalCompletionEvaluation::NotEvaluated
         );
-        assert_ne!(report.modular_completion, ModularCompletionClass::Unique);
         assert!(report.missing_primitive_corners.is_empty());
         assert_eq!(report.identified_set_dimension, 0);
         assert!(report.note.contains("orientation is untestable"));
@@ -804,10 +805,9 @@ mod tests {
             OrientationTestability::TestableWithDeclaredTilts
         );
         assert_eq!(
-            report.modular_completion,
-            ModularCompletionClass::Untestable
+            report.completion_evaluation,
+            CausalCompletionEvaluation::NotEvaluated
         );
-        assert_ne!(report.modular_completion, ModularCompletionClass::Unique);
     }
 
     #[test]
@@ -824,8 +824,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            report.modular_completion,
-            ModularCompletionClass::Infeasible
+            report.completion_evaluation,
+            CausalCompletionEvaluation::Infeasible
         );
         assert_eq!(report.orientation, OrientationTestability::Untestable);
         assert_eq!(report.lack_of_fit_dimension, 0);
@@ -846,12 +846,11 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            report.modular_completion,
-            ModularCompletionClass::Untestable
+            report.completion_evaluation,
+            CausalCompletionEvaluation::NotEvaluated
         );
         assert_eq!(report.lack_of_fit_dimension, 0);
         assert!(report.note.contains("vacuous flatness"));
-        assert_ne!(report.modular_completion, ModularCompletionClass::Unique);
     }
 
     #[test]
@@ -941,11 +940,10 @@ mod tests {
         let points = [ml(&[0, 0]), ml(&[1, 0]), ml(&[0, 1])];
         let report = classify_multilevel_family(&points, &[2, 3], 0, 1e-12).unwrap();
         assert_eq!(
-            report.modular_completion,
-            ModularCompletionClass::Untestable
+            report.completion_evaluation,
+            CausalCompletionEvaluation::NotEvaluated
         );
         assert_eq!(report.orientation, OrientationTestability::Untestable);
-        assert_ne!(report.modular_completion, ModularCompletionClass::Unique);
         assert!(report.recommended_next_corner.is_some());
         assert!(report.identified_set_dimension > 0 || report.recommended_next_corner.is_some());
     }
@@ -1029,5 +1027,22 @@ mod tests {
         let curved = audit_rectangle_laws(&points, &[2, 2], &laws, 1e-12).unwrap();
         assert!(!curved.all_flat);
         assert!((curved.max_abs_contrast.unwrap() - 1.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn rectangle_law_audit_cannot_call_a_partial_law_map_all_flat() {
+        let points = (0..2)
+            .flat_map(|first| (0..3).map(move |second| ml(&[first, second])))
+            .collect::<Vec<_>>();
+        let laws = [([0, 0], 0.0), ([1, 0], 0.0), ([0, 1], 0.0), ([1, 1], 0.0)]
+            .into_iter()
+            .map(|(levels, value)| (levels.to_vec(), value))
+            .collect::<BTreeMap<_, _>>();
+        let audit = audit_rectangle_laws(&points, &[2, 3], &laws, 1e-12).unwrap();
+        assert_eq!(audit.n_observed_rectangles, 3);
+        assert_eq!(audit.n_evaluated, 1);
+        assert_eq!(audit.n_missing_laws, 2);
+        assert!(!audit.all_flat);
+        assert!(audit.note.contains("not all observed rectangles"));
     }
 }
