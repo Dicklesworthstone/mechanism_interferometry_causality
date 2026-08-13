@@ -1365,6 +1365,8 @@ dependencies = [
 name = "mic-design"
 version = "0.1.0"
 dependencies = [
+ "num-bigint 0.4.8",
+ "num-traits",
  "serde",
  "thiserror",
 ]
@@ -1427,6 +1429,7 @@ dependencies = [
  "mic-core",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror",
 ]
 
