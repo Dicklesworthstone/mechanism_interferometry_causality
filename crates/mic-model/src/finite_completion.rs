@@ -962,6 +962,10 @@ mod tests {
         assert!(!report.additive_lack_of_fit_testable);
         assert_eq!(report.potentials.len(), 2);
         assert!(report.causal_potentials_evaluated);
+        assert_eq!(
+            report.model_input_sha256(),
+            "4dfcc1c1744721133de5d89154548fe8a2dc3f3320f099c37c94b9c702f0cea6"
+        );
     }
 
     #[test]
