@@ -960,6 +960,53 @@ The full pipeline reduces largely to two reusable primitives:
 \end{enumerate}
 This unification is operationally important.  It replaces a collection of bespoke tests with one residualization engine, one kernel/distance engine, shared cross-fitting, and one simultaneous-resampling layer.
 
+\subsection{Natural contexts as candidate regimes}
+\label{sec:natural-contexts}
+
+Regime-labeled observational samples can expose recurring changes without a
+designed experiment, but a context label is not thereby an intervention.
+Seasons, regions, cohorts, versions, and policy eras can change several causal
+mechanisms, measurement systems, support, and selection at once; the label may
+also be a descendant or collider.  Joint Causal Inference provides a framework
+for representing context variables \citep{mooij2020jci}, and invariant
+prediction supplies conditional tests under its environment assumptions
+\citep{peters2016icp}.  Neither framework establishes the physical semantics
+of a context from rows alone.
+
+Accordingly, natural contexts enter the autonomous system first as
+\emph{proposal-grade regimes}.  If external knowledge or a restricted model
+separately justifies common support, stable measurement and inclusion, the
+dependence unit, and a localized single-mechanism shift, then the ordinary
+locality, conditional-normalization, and deletion-equivalence audits can be
+run.  Equivalence bounds quantify whether a selected observable discrepancy is
+smaller than a declared tolerance; they do not establish faithfulness or rule
+out exact cancellation.  A declared group may pool multiple independently
+justified tilts of the same target, but grouping does not turn a coordinated
+multi-mechanism environment into a primitive intervention.
+
+A preregistered GHCN prototype illustrates both the opportunity and the
+boundary.  It compared January and July 2025 on a fixed panel of 9{,}109
+northern-hemisphere stations.  The fixed-panel construction made the elevation
+marginal identical by design, while the station-averaged temperature mean
+differed by (24.24\,^{\circ}\mathrm C); a within-station month-label shuffle
+rendered that mean statistic undetermined.  This is a useful pass-count and
+negative-control exercise, not evidence that elevation causes temperature: the
+prototype did not test conditional laws, locality, normalization, selection,
+or a single-target season model, and latitude, location, circulation, and
+measurement remain alternative explanations.  The identical pass pattern is
+compatible with a latent-geography model in which elevation has no causal
+effect.  Natural-experiment routing must preserve precisely this distinction
+between a promising context contrast and an identified causal direction.
+
+Support restriction has only a similarly conditional robustness property.  If
+the analyzed support remains a subset of the true causal family and still
+contains the true target, omitting a parent cannot make the true target fail a
+deletion-normalization check.  It can destroy deletion faithfulness and create
+additional passes, so uniqueness must be re-established and the audit must
+otherwise abstain.  No such guarantee applies when the target is omitted or
+descendants, proxies, selection variables, or unrelated coordinates enter the
+support.
+
 \section{Partial factorial designs}
 
 Pointwise in \(x\), flatness says that the vector \(h_D(x)=(h_s(x):s\in D)\) lies in the column space of a main-effects design matrix.  Let
@@ -1134,7 +1181,7 @@ algebra above; observational conditional-independence geometry; or a deliberatel
 restricted structural model with its own falsifiers.  Under Markov,
 faithfulness, acyclicity, causal sufficiency, and no selection, observational
 conditional independences identify only a Markov equivalence class: a CPDAG,
-not a forced DAG citep{spirtes2000causation,meek1995causal}.  Joint Causal
+not a forced DAG \citep{spirtes2000causation,meek1995causal}.  Joint Causal
 Inference is a framework that makes context variables explicit; invariant
 prediction controls false parent selections under its environment assumptions,
 while full parent recovery additionally needs sufficiently informative
@@ -1302,7 +1349,22 @@ The strongest graph-identification conclusions require ratio faithfulness, delet
 
 The locality result is the Markov blanket of a context node in an augmented causal graph, squarely connected to causal discovery from mechanism changes and Joint Causal Inference.  The density ratio is classical change of measure and has recently been promoted as a pointwise causal object \citep{mahadevan2026density}.  The exact pairwise product identity and four-corner null have direct precedent in \citet{xu2024pairwise}, including an empirical study using microscopy readouts from 50 gene-pair knockouts.  That work strengthens the case that distribution-level four-corner tests are empirically viable on unstructured biological data.
 
-The certificate also admits an exact sparsity reading.  Under modularity, the master log-linear model \eqref{eq:master-loglinear} confines all \(2^K\) regime log laws, pointwise in \(x\), to the \((K+1)\)-dimensional main-effects subspace spanned by the baseline log density and one potential per primitive perturbation; without modularity the family occupies up to \(2^K\) unconstrained functions.  Every nonvanishing curvature field is an additional function that the regime family forces the description to carry, and the M\"obius expansion \eqref{eq:mobius-curvature} enumerates these correction terms order by order.  Modularity is therefore a maximal-parsimony statement about the regime family, and curvature terms are its epicycles.  This is a bridge of principle to the algorithmic-independence-of-mechanisms and minimum-description-length traditions in causal inference \citep{janzing2010algorithmic,grunwald2007mdl}, not a codelength theorem: the object constrained here is the exact dimension of a function-valued design subspace, derived from an explicit interventional algebra rather than postulated about observational complexity.  The practical corollary is a tie-breaking principle used throughout the protocol: among localized supports and representations that meet the same held-out sufficiency threshold, prefer the most parsimonious one, because by locality the true support \(\{t\}\cup\pa(t)\) is, under ratio and deletion faithfulness and adequate data, the smallest support consistent with the regime information.
+The certificate also admits an exact sparsity reading.  Under modularity, the master log-linear model \eqref{eq:master-loglinear} confines all \(2^K\) regime log laws, pointwise in \(x\), to the \((K+1)\)-dimensional main-effects subspace spanned by the baseline log density and one potential per primitive perturbation; without modularity the family occupies up to \(2^K\) unconstrained functions.  Every nonvanishing curvature field is an additional function that the regime family forces the description to carry, and the M\"obius expansion \eqref{eq:mobius-curvature} enumerates these correction terms order by order.  Relative to an already specified labeled cube, modularity is therefore a maximal-parsimony statement about the regime family, and curvature terms are its epicycles.  This is a bridge of principle to the algorithmic-independence-of-mechanisms and minimum-description-length traditions in causal inference \citep{janzing2010algorithmic,grunwald2007mdl}, not a codelength theorem: the object constrained here is the exact dimension of a function-valued design subspace, derived from an explicit interventional algebra rather than postulated about observational complexity.  The practical corollary is a tie-breaking principle used throughout the protocol: among localized supports and representations that meet the same held-out sufficiency threshold, prefer the most parsimonious one, because by locality the true support \(\{t\}\cup\pa(t)\) is, under ratio and deletion faithfulness and adequate data, the smallest support consistent with the regime information.
+
+This compression reading is a restricted proposal principle, not a definition
+of causal coordinates.  Real environments can be fat interventions, and
+componentwise invertible or other structure-preserving reparameterizations can
+retain sparse changes.  Change sparsity alone therefore ranks candidate
+factorizations; it does not identify one.  The certificate conditions test
+different consequences of a proposed sparse-mechanism account: locality
+restricts a primitive ratio to one causal family, conditional normalization
+asks whether it can be a valid replacement at a proposed target, square
+flatness tests context-invariant composition of proposed distinct
+replacements, and the conservation identities relate complete- and
+observed-state curvature only after a complete flat factorization has been
+separately assumed.  Deletion equivalence orients only a credible single-target
+family under deletion faithfulness.  None of these conditions by itself
+measures causal sparsity or identifies a hidden coordinate.
 
 The differential-geometric program of \citet{mahadevan2026infinitesimal} is conceptually adjacent: failures of intervention-induced fields to close can witness unmodeled structure.  Its Lie brackets measure sequential infinitesimal noncommutativity, while the present construction is a finite symmetric mixed difference on a Boolean design and requires no smooth intervention path.
 
