@@ -24,9 +24,16 @@ pub const fn backend_name() -> &'static str {
 
 /// Loads the manifest's CSV through `FrankenPandas`.
 ///
-/// Contractually identical to [`crate::load_csv_table`], including the error a
-/// regime-spanning cluster ultimately produces. Two properties make that hold rather
-/// than merely hope for it.
+/// Contractually identical to [`crate::load_csv_table`] — same report on success, same
+/// error text on failure. Three properties make that hold rather than merely hope for it.
+///
+/// Structure and every malformed-input error come from
+/// [`crate::tokenize_csv_with_std_rules`], which runs before the sibling is invoked. Both
+/// readers therefore reject a duplicate header, a short row, an extra field, or an
+/// unterminated quote with one message from one implementation. Letting each backend
+/// report its own diagnostic was the earlier behavior and it is a subtler bug than it
+/// looks: both sides still refuse, so nothing fails, and the disagreement only surfaces
+/// when somebody is debugging real data against the wrong explanation.
 ///
 /// Every column is forced to [`DType::Utf8`]. Left to infer, `FrankenPandas` types a
 /// cluster column of `007, 008` as `Int64` and hands back `7, 8`, silently merging
@@ -63,7 +70,10 @@ pub fn load_csv_table_franken(
         message: "csv is not valid UTF-8".into(),
     })?;
 
-    let headers = header_names(&text)?;
+    // The standard tokenizer is the oracle for structure and for every malformed-input
+    // error, so both backends refuse the same files with the same message. It also gives
+    // the cell values the sibling's output is checked against.
+    let (headers, expected_records) = crate::tokenize_csv_with_std_rules(&text)?;
     let mut dtype = HashMap::new();
     for name in &headers {
         dtype.insert(name.clone(), DType::Utf8);
@@ -100,7 +110,7 @@ pub fn load_csv_table_franken(
         records.push(columns.iter().map(|column| column[index].clone()).collect());
     }
 
-    verify_cell_fidelity(&text, &headers, &records)?;
+    verify_cell_fidelity(&expected_records, &headers, &records)?;
     build_ingest_report(manifest, &path, content_sha256, &headers, &records, n_folds)
 }
 
@@ -126,33 +136,35 @@ pub fn load_csv_table_franken(
 /// comparison. An unfaithful one — a future regression, or a different pin — is refused
 /// with a diagnosable message instead of producing a wrong `IngestReport`.
 fn verify_cell_fidelity(
-    text: &str,
+    expected_records: &[Vec<String>],
     headers: &[String],
     records: &[Vec<String>],
 ) -> Result<(), TableError> {
-    let mut expected_rows = Vec::new();
-    for (offset, line) in text.lines().skip(1).enumerate() {
-        if line.trim().is_empty() {
-            continue;
-        }
-        expected_rows.push(crate::parse_csv_header_line(line).map_err(|message| {
-            TableError::Parse {
-                row: offset + 1,
-                message,
-            }
-        })?);
-    }
-    if expected_rows.len() != records.len() {
+    if expected_records.len() != records.len() {
         return Err(TableError::Parse {
             row: 0,
             message: format!(
                 "frankenpandas returned {} data rows where the file has {}",
                 records.len(),
-                expected_rows.len()
+                expected_records.len()
             ),
         });
     }
-    for (index, (expected, actual)) in expected_rows.iter().zip(records).enumerate() {
+    for (index, (expected, actual)) in expected_records.iter().zip(records).enumerate() {
+        // Compared before the cells: zipping two rows of different length silently stops
+        // at the shorter one, and the sibling pads a short row with empty strings rather
+        // than rejecting it, so a padded row would otherwise pass the cell comparison.
+        if expected.len() != actual.len() {
+            return Err(TableError::Parse {
+                row: index + 1,
+                message: format!(
+                    "frankenpandas returned {} fields where the file row has {}; a padded or \
+                     truncated row changes which value belongs to which column",
+                    actual.len(),
+                    expected.len()
+                ),
+            });
+        }
         for (column, (want, got)) in expected.iter().zip(actual).enumerate() {
             if want != got {
                 let name = headers.get(column).map_or("<unknown>", String::as_str);
@@ -169,16 +181,6 @@ fn verify_cell_fidelity(
         }
     }
     Ok(())
-}
-
-/// Reads header names from the raw text so the dtype override can be built before parsing.
-///
-/// Deliberately uses the standard reader's own tokenizer rather than asking `FrankenPandas`
-/// for the header: the dtype override is keyed by name, so the two readers must agree on
-/// what the header names *are* before either can disagree about anything else.
-fn header_names(text: &str) -> Result<Vec<String>, TableError> {
-    let line = text.lines().next().ok_or(TableError::EmptyTable)?;
-    crate::parse_csv_header_line(line).map_err(|message| TableError::Parse { row: 0, message })
 }
 
 /// Extracts one column as owned strings, refusing anything that is not present text.
@@ -374,6 +376,74 @@ mod tests {
             franken_report.fingerprint.cluster_fingerprint,
             "cluster fingerprints bind the randomization unit and must match exactly"
         );
+        assert_eq!(std_report, franken_report);
+    }
+
+    /// Malformed input must be refused with the *same message* by both backends.
+    ///
+    /// Every case here diverged before the standard tokenizer was made the oracle: the
+    /// two readers refused the same files for different stated reasons. Both refusing is
+    /// not sufficient — a differing diagnostic means the backends disagree about what is
+    /// wrong, and that is the kind of divergence that hides until someone debugs a real
+    /// dataset at 2am.
+    ///
+    /// The short-row case is the important one. `FrankenPandas` pads a short row with
+    /// empty strings rather than rejecting it, so without an explicit row-length check
+    /// the padded row silently reaches the cell comparison, where zipping two rows of
+    /// unequal length stops at the shorter and reports agreement.
+    #[test]
+    fn malformed_input_is_refused_identically_by_both_backends() {
+        for (name, body) in [
+            (
+                "dup_headers.csv",
+                "cluster_id,regime,x,x,included\nc0,base,0.5,0.6,1\n",
+            ),
+            (
+                "short_row.csv",
+                "cluster_id,regime,x,included\nc0,base,0.5\n",
+            ),
+            (
+                "long_row.csv",
+                "cluster_id,regime,x,included\nc0,base,0.5,1,9\n",
+            ),
+            (
+                "unterminated_quote.csv",
+                "cluster_id,regime,x,included\nc0,base,\"0.5,1\n",
+            ),
+            (
+                "unparseable_state.csv",
+                "cluster_id,regime,x,included\nc0,base,notanumber,1\n",
+            ),
+            (
+                "empty_state.csv",
+                "cluster_id,regime,x,included\nc0,base,,1\n",
+            ),
+        ] {
+            let path = write_fixture(name, body);
+            let manifest = manifest_for(&path);
+            let std_error = load_csv_table(&manifest, None, 2)
+                .expect_err(&format!("{name} must be refused by the standard reader"));
+            let franken_error = load_csv_table_franken(&manifest, None, 2)
+                .expect_err(&format!("{name} must be refused by the franken reader"));
+            assert_eq!(
+                std_error.to_string(),
+                franken_error.to_string(),
+                "{name}: both backends refuse, but for different stated reasons"
+            );
+        }
+    }
+
+    /// A CRLF file must load, and load identically, under both backends.
+    #[test]
+    fn crlf_line_endings_agree_across_backends() {
+        let path = write_fixture(
+            "crlf.csv",
+            "cluster_id,regime,x,included\r\nc0,base,0.5,1\r\nc1,a,0.25,1\r\n",
+        );
+        let manifest = manifest_for(&path);
+        let std_report = load_csv_table(&manifest, None, 2).unwrap();
+        let franken_report = load_csv_table_franken(&manifest, None, 2).unwrap();
+        assert_eq!(std_report.fingerprint.n_rows, 2);
         assert_eq!(std_report, franken_report);
     }
 

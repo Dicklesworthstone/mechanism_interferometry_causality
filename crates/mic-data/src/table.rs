@@ -206,6 +206,16 @@ pub fn build_ingest_report(
     records: &[Vec<String>],
     n_folds: usize,
 ) -> Result<IngestReport, TableError> {
+    // Validated here rather than only in the callers: this is a public entry point that
+    // does not go through `load_csv_table`, and the fold assignment below is infallible
+    // only for a positive count. Returning the same error keeps every route to a zero
+    // fold count identical, and keeps a bad argument a refusal rather than a panic.
+    if n_folds == 0 {
+        return Err(TableError::Parse {
+            row: 0,
+            message: "n_folds must be positive".into(),
+        });
+    }
     let header_index = column_index(headers)?;
     let required = required_columns(manifest);
     for column in &required {
@@ -498,7 +508,7 @@ fn summarize(
         .map(|cluster_id| ClusterFold {
             cluster_id: cluster_id.clone(),
             fold: fold_for_cluster(manifest.seed, cluster_id, n_folds)
-                .expect("load_csv_table rejects a zero fold count"),
+                .expect("build_ingest_report rejects a zero fold count before reaching here"),
         })
         .collect::<Vec<_>>();
     cluster_folds.sort_by(|left, right| left.cluster_id.cmp(&right.cluster_id));
@@ -601,14 +611,43 @@ fn parse_flag(raw: &str, row: usize) -> Result<bool, TableError> {
     }
 }
 
-/// Tokenizes one CSV line with the standard reader's own rules.
+/// Tokenizes a whole CSV with the standard reader's rules, raising its exact errors.
 ///
-/// Exposed for the `FrankenPandas` adapter, which needs header names before it can build a
-/// per-column dtype override. Both readers must agree on what the header names are before
-/// they can be compared on anything else.
+/// The `FrankenPandas` adapter runs this before handing the text to the sibling, so that
+/// malformed input is rejected by one implementation with one set of messages. Without
+/// it the two backends refuse the same files for different stated reasons — duplicate
+/// headers, short rows, extra fields, and unterminated quotes each produced a different
+/// diagnostic — which makes "the adapter behaves identically" false in the way that is
+/// hardest to notice, because both sides still refuse and only the wording differs.
 #[cfg(feature = "franken")]
-pub(crate) fn parse_csv_header_line(line: &str) -> Result<Vec<String>, String> {
-    parse_csv_line(line)
+pub(crate) fn tokenize_csv_with_std_rules(
+    text: &str,
+) -> Result<(Vec<String>, Vec<Vec<String>>), TableError> {
+    let mut lines = text.lines();
+    let header_line = lines.next().ok_or(TableError::EmptyTable)?;
+    let headers =
+        parse_csv_line(header_line).map_err(|message| TableError::Parse { row: 0, message })?;
+    // Raises the empty-header and duplicate-header errors before the sibling sees anything.
+    column_index(&headers)?;
+    let mut records = Vec::new();
+    for (offset, line) in lines.enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let row_index = offset + 1;
+        let fields = parse_csv_line(line).map_err(|message| TableError::Parse {
+            row: row_index,
+            message,
+        })?;
+        if fields.len() != headers.len() {
+            return Err(TableError::Parse {
+                row: row_index,
+                message: format!("expected {} columns, found {}", headers.len(), fields.len()),
+            });
+        }
+        records.push(fields);
+    }
+    Ok((headers, records))
 }
 
 fn parse_csv_line(line: &str) -> Result<Vec<String>, String> {
@@ -739,6 +778,41 @@ mod tests {
         .unwrap();
         let report = load_csv_table(&manifest_for(&path), None, 2).unwrap();
         assert_eq!(report.clusters_spanning_regimes, vec!["shared".to_string()]);
+    }
+
+    #[test]
+    fn build_ingest_report_refuses_zero_folds_instead_of_panicking() {
+        // `build_ingest_report` is a public entry point that bypasses `load_csv_table`,
+        // so it cannot rely on a caller having checked the fold count. Before this guard
+        // it reached `fold_for_cluster(..).expect(..)` and panicked on a plain argument.
+        let dir = std::env::temp_dir().join("mic-data-zero-folds");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("zero_folds.csv");
+        fs::write(&path, "cluster_id,regime,x,included\nc0,00,0.5,1\n").unwrap();
+        let manifest = manifest_for(&path);
+        let headers: Vec<String> = ["cluster_id", "regime", "x", "included"]
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+        let records = vec![
+            ["c0", "00", "0.5", "1"]
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect::<Vec<String>>(),
+        ];
+        let error = build_ingest_report(
+            &manifest,
+            &path,
+            "fingerprint".into(),
+            &headers,
+            &records,
+            0,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("n_folds must be positive"));
+        // Identical to the error the file-reading entry point produces.
+        let via_file = load_csv_table(&manifest, None, 0).unwrap_err();
+        assert_eq!(error.to_string(), via_file.to_string());
     }
 
     #[test]
