@@ -553,6 +553,20 @@ mod tests {
         samples
     }
 
+    fn imbalanced_identical_law_samples() -> Vec<ClusteredMultinomialSample> {
+        [2_usize, 3, 5, 7]
+            .into_iter()
+            .enumerate()
+            .flat_map(|(class, n_clusters)| {
+                (0..n_clusters).map(move |cluster| ClusteredMultinomialSample {
+                    features: vec![0.0],
+                    class,
+                    cluster_id: format!("identical-{class}-{cluster}"),
+                })
+            })
+            .collect()
+    }
+
     #[test]
     fn cross_fit_records_seed_and_keeps_cluster_weight() {
         let seed = 29;
@@ -619,6 +633,53 @@ mod tests {
         assert!((original.restricted_log_loss - repeated.restricted_log_loss).abs() < 1e-12);
         assert!((original.saturated_log_loss - repeated.saturated_log_loss).abs() < 1e-12);
         assert_eq!(original.fold_plan_sha256, repeated.fold_plan_sha256);
+    }
+
+    #[test]
+    fn declared_pooling_matches_weighted_fit_under_imbalanced_cluster_counts() {
+        let sampling = [0.1, 0.2, 0.3, 0.4];
+        let diagnostic = cross_fit_closure_models(
+            &imbalanced_identical_law_samples(),
+            sampling,
+            ClosureCrossFitConfig {
+                seed: 73,
+                n_folds: 2,
+                fit: ClosureFitConfig::default(),
+            },
+        )
+        .unwrap();
+        for fold in &diagnostic.folds {
+            for (realized, declared) in fold.training_class_mass.iter().zip(sampling) {
+                assert!((realized - declared).abs() < 1e-12);
+            }
+        }
+        assert!(diagnostic.saturated_advantage.abs() < 1e-10);
+        assert!(diagnostic.curvature.baseline_mean_abs < 1e-10);
+        assert!(diagnostic.curvature.baseline_rms < 1e-10);
+    }
+
+    #[test]
+    fn stratified_fold_plan_is_row_order_invariant_and_seed_bound() {
+        let samples = imbalanced_identical_law_samples();
+        let mut reversed = samples.clone();
+        reversed.reverse();
+        let config = ClosureCrossFitConfig {
+            seed: 79,
+            n_folds: 2,
+            fit: ClosureFitConfig::default(),
+        };
+        let original = cross_fit_closure_models(&samples, [0.25; 4], config).unwrap();
+        let reordered = cross_fit_closure_models(&reversed, [0.25; 4], config).unwrap();
+        assert_eq!(original.fold_plan_sha256, reordered.fold_plan_sha256);
+        assert_eq!(original, reordered);
+
+        let changed = cross_fit_closure_models(
+            &samples,
+            [0.25; 4],
+            ClosureCrossFitConfig { seed: 80, ..config },
+        )
+        .unwrap();
+        assert_ne!(original.fold_plan_sha256, changed.fold_plan_sha256);
     }
 
     #[test]

@@ -14,7 +14,8 @@ pub use closure::{
 };
 pub use crossfit::{
     ClosureCrossFitConfig, ClosureCrossFitError, ClusteredMultinomialSample,
-    CrossFittedClosureDiagnostic, FoldClosureDiagnostic, cross_fit_closure_models,
+    CrossFittedClosureDiagnostic, CurvatureFieldSummary, FoldClosureDiagnostic,
+    cross_fit_closure_models,
 };
 pub use finite_completion::{
     CompletionFailure, CompletionStatus, FiniteCompletionAuthority, FiniteCompletionInput,
