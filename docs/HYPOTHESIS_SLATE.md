@@ -18,6 +18,17 @@ modularity. The live program is compositional closure, incomplete-design
 identified sets, and curvature-guided state completion. No new architecture
 documents. One stronger theorem, one estimator, one controlled-real demo.
 
+**Landed (2026-08-13, BeigeGorge, not a theorem).** `classify_observed_family`
+decides two required fails: `D={00,11}` + correlated combo → `infeasible`;
+complete catalog square with no same-target tilt family → orientation
+`untestable`. Geometry never returns `unique`. Multi-level coded matrix and
+rectangle enumeration exist. Survey 1.1.0 prints information-content and
+stamps every atlas square `orientation=untestable`. Exact `δ = p_AB-p_A p_B/p_0`
+and `κ̃ = κ + Δlogπ − ΔlogZ` plus Γ-intervals live in `mic-core` as
+`DiagnosticOnly`. Still blocked: RoseLark's identified-set *theorem*, the
+gated estimator, Chambers hidden-sensor collection, dictionary learning,
+tomography. Γ-intervals do not refute H-002.
+
 ## Question of record
 
 **Q-001.** Can mechanism interferometry recover *audited* causal structure from
