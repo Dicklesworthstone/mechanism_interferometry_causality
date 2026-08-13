@@ -12,6 +12,7 @@
     "candidate_library_fingerprint",
     "authority",
     "certificate_eligible",
+    "input_claims_verified",
     "status",
     "environments",
     "supports",
@@ -46,19 +47,20 @@
   ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
-    "proposal_id": { "$ref": "#/$defs/nonempty" },
-    "request_id": { "$ref": "#/$defs/nonempty" },
+    "proposal_id": { "pattern": "^proposal_[0-9]{3,}$" },
+    "request_id": { "pattern": "^request_[0-9]{3,}$" },
     "request_fingerprint": { "$ref": "#/$defs/sha256" },
     "candidate_library_fingerprint": { "$ref": "#/$defs/sha256" },
     "authority": { "const": "proposal_only" },
     "certificate_eligible": { "const": false },
+    "input_claims_verified": { "const": false },
     "status": { "enum": ["recommended", "inconclusive", "abstained"] },
     "environments": { "type": "array", "items": { "$ref": "#/$defs/environment" } },
     "supports": { "type": "array", "items": { "$ref": "#/$defs/support" } },
     "support_relations": { "type": "array", "items": { "$ref": "#/$defs/relation" } },
     "strategy_eligibility": {
       "type": "object",
-      "propertyNames": { "$ref": "#/$defs/nonempty" },
+      "propertyNames": { "pattern": "^strategy_[0-9]{3,}$" },
       "additionalProperties": { "$ref": "#/$defs/strategy" }
     },
     "contract_requests": { "type": "array", "items": { "$ref": "#/$defs/contract_request" } },
@@ -92,13 +94,25 @@
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/nonempty" }
     },
+    "neutral_columns": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "pattern": "^c_[0-9]{3,}$" }
+    },
+    "hypotheses": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "pattern": "^hyp_[0-9]{3,}$" }
+    },
     "environment": {
       "type": "object",
       "additionalProperties": false,
       "required": ["environment_id", "defining_columns", "transform_sha256", "score", "score_semantics"],
       "properties": {
-        "environment_id": { "$ref": "#/$defs/nonempty" },
-        "defining_columns": { "$ref": "#/$defs/sorted_strings" },
+        "environment_id": { "pattern": "^env_[0-9]{3,}$" },
+        "defining_columns": { "$ref": "#/$defs/neutral_columns" },
         "transform_sha256": { "$ref": "#/$defs/sha256" },
         "score": { "type": "number" },
         "score_semantics": { "$ref": "#/$defs/nonempty" }
@@ -119,12 +133,12 @@
         "on_parsimony_frontier"
       ],
       "properties": {
-        "support_id": { "$ref": "#/$defs/nonempty" },
-        "environment_id": { "$ref": "#/$defs/nonempty" },
+        "support_id": { "pattern": "^support_[0-9]{3,}$" },
+        "environment_id": { "pattern": "^env_[0-9]{3,}$" },
         "semantics": { "$ref": "#/$defs/semantics" },
-        "variables": { "$ref": "#/$defs/sorted_strings" },
+        "variables": { "$ref": "#/$defs/neutral_columns" },
         "learner_family": { "$ref": "#/$defs/nonempty" },
-        "discovery_fold": { "$ref": "#/$defs/nonempty" },
+        "discovery_fold": { "pattern": "^fold_[0-9]{3,}$" },
         "score": { "type": "number" },
         "score_semantics": { "$ref": "#/$defs/nonempty" },
         "on_parsimony_frontier": { "type": "boolean" }
@@ -135,8 +149,8 @@
       "additionalProperties": false,
       "required": ["left_support_id", "right_support_id", "semantics", "relation"],
       "properties": {
-        "left_support_id": { "$ref": "#/$defs/nonempty" },
-        "right_support_id": { "$ref": "#/$defs/nonempty" },
+        "left_support_id": { "pattern": "^support_[0-9]{3,}$" },
+        "right_support_id": { "pattern": "^support_[0-9]{3,}$" },
         "semantics": { "$ref": "#/$defs/semantics" },
         "relation": {
           "enum": ["equal", "left_proper_subset", "right_proper_subset", "overlap", "disjoint"]
@@ -148,10 +162,10 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status", "reason"],
+          "required": ["status", "contract_request_ref"],
           "properties": {
             "status": { "const": "missing_contract" },
-            "reason": { "$ref": "#/$defs/nonempty" }
+            "contract_request_ref": { "pattern": "^contract_[0-9]{3,}$" }
           }
         },
         {
@@ -160,7 +174,7 @@
           "required": ["status", "evidence_ref"],
           "properties": {
             "status": { "const": "declared_reference" },
-            "evidence_ref": { "$ref": "#/$defs/nonempty" }
+            "evidence_ref": { "pattern": "^evidence_[0-9]{3,}$" }
           }
         },
         {
@@ -169,7 +183,7 @@
           "required": ["status", "audit_request_ref"],
           "properties": {
             "status": { "const": "eligible_for_separate_audit" },
-            "audit_request_ref": { "$ref": "#/$defs/nonempty" }
+            "audit_request_ref": { "pattern": "^audit_[0-9]{3,}$" }
           }
         }
       ]
@@ -179,7 +193,7 @@
       "additionalProperties": false,
       "required": ["request_id", "kind", "required_for", "detail", "priority"],
       "properties": {
-        "request_id": { "$ref": "#/$defs/nonempty" },
+        "request_id": { "pattern": "^contract_[0-9]{3,}$" },
         "kind": {
           "enum": [
             "unit_evidence",
@@ -191,7 +205,7 @@
             "measurement"
           ]
         },
-        "required_for": { "$ref": "#/$defs/nonempty" },
+        "required_for": { "pattern": "^strategy_[0-9]{3,}$" },
         "detail": { "$ref": "#/$defs/nonempty" },
         "priority": { "type": "number", "minimum": 0 }
       }
@@ -199,9 +213,9 @@
     "next_query": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["query_id", "kind", "separates_hypotheses", "priority", "priority_semantics"],
+      "required": ["query_id", "kind", "separates_hypotheses", "contract_request_ids", "priority", "priority_semantics"],
       "properties": {
-        "query_id": { "$ref": "#/$defs/nonempty" },
+        "query_id": { "pattern": "^query_[0-9]{3,}$" },
         "kind": {
           "enum": [
             "collect_missing_corner",
@@ -212,7 +226,13 @@
             "negative_control"
           ]
         },
-        "separates_hypotheses": { "$ref": "#/$defs/sorted_strings" },
+        "separates_hypotheses": { "$ref": "#/$defs/hypotheses" },
+        "contract_request_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "pattern": "^contract_[0-9]{3,}$" }
+        },
         "priority": { "type": "number", "minimum": 0 },
         "priority_semantics": { "$ref": "#/$defs/nonempty" }
       }

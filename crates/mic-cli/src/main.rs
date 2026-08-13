@@ -307,6 +307,15 @@ fn propose_tilt(args: &[String]) -> Result<(), String> {
 }
 
 fn freeze_scout(args: &[String]) -> Result<(), String> {
+    let output = match args {
+        [_, _] => None,
+        [_, _, flag, path] if flag == "--output" && !path.trim().is_empty() => {
+            Some(PathBuf::from(path))
+        }
+        _ => {
+            return Err("usage: mic freeze-scout REQUEST.json DRAFT.json [--output PATH]".into());
+        }
+    };
     let request_path = args
         .first()
         .ok_or("usage: mic freeze-scout REQUEST.json DRAFT.json [--output PATH]")?;
@@ -322,7 +331,6 @@ fn freeze_scout(args: &[String]) -> Result<(), String> {
     let proposal = mic_proposal::freeze_shift_factorization_proposal(&request, &draft)
         .map_err(|error| error.to_string())?;
     let value = serde_json::to_value(proposal).map_err(|error| error.to_string())?;
-    let output = option_value(args, "--output").map(PathBuf::from);
     write_json_value(&value, output.as_deref())
 }
 
@@ -412,5 +420,20 @@ mod tests {
         input.source_fingerprint = "not-a-hash".into();
         assert!(validate_orientation_calibration(&input).is_err());
         assert!(validate_orientation_calibration(&calibration()).is_ok());
+    }
+
+    #[test]
+    fn freeze_scout_rejects_unknown_or_incomplete_output_options_before_io() {
+        let unknown = vec!["request.json", "draft.json", "--bogus", "out.json"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        assert!(freeze_scout(&unknown).is_err());
+
+        let missing = vec!["request.json", "draft.json", "--output"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        assert!(freeze_scout(&missing).is_err());
     }
 }

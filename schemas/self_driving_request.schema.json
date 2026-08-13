@@ -7,14 +7,11 @@
   "required": [
     "schema_version",
     "request_id",
-    "source_table_sha256",
     "discovery_table_sha256",
-    "confirmation_table_sha256",
     "transformation_sha256",
     "discovery_units_sha256",
-    "confirmation_units_sha256",
-    "partition",
-    "unit",
+    "partition_claim",
+    "unit_declaration",
     "seed",
     "split_algorithm",
     "candidate_enumeration_policy",
@@ -23,19 +20,16 @@
     "equivalence_tolerance",
     "detection_floor",
     "learner_families",
-    "sealed_context"
+    "isolation_claim"
   ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
-    "request_id": { "$ref": "#/$defs/nonempty" },
-    "source_table_sha256": { "$ref": "#/$defs/sha256" },
+    "request_id": { "pattern": "^request_[0-9]{3,}$" },
     "discovery_table_sha256": { "$ref": "#/$defs/sha256" },
-    "confirmation_table_sha256": { "$ref": "#/$defs/sha256" },
     "transformation_sha256": { "$ref": "#/$defs/sha256" },
     "discovery_units_sha256": { "$ref": "#/$defs/sha256" },
-    "confirmation_units_sha256": { "$ref": "#/$defs/sha256" },
-    "partition": { "$ref": "#/$defs/partition" },
-    "unit": { "$ref": "#/$defs/unit" },
+    "partition_claim": { "$ref": "#/$defs/partition_claim" },
+    "unit_declaration": { "$ref": "#/$defs/unit" },
     "seed": { "type": "integer", "minimum": 0, "maximum": 18446744073709551615 },
     "split_algorithm": { "$ref": "#/$defs/nonempty" },
     "candidate_enumeration_policy": { "$ref": "#/$defs/nonempty" },
@@ -49,31 +43,31 @@
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/nonempty" }
     },
-    "sealed_context": { "$ref": "#/$defs/sealed_context" }
+    "isolation_claim": { "$ref": "#/$defs/isolation_claim" }
   },
   "$defs": {
     "nonempty": { "type": "string", "minLength": 1 },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-    "partition": {
+    "partition_claim": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "receipt_id",
-        "receipt_sha256",
+        "claim_id",
+        "claim_sha256",
         "total_units",
         "discovery_units",
         "confirmation_units",
-        "disjoint",
-        "exhaustive"
+        "declared_disjoint",
+        "declared_exhaustive"
       ],
       "properties": {
-        "receipt_id": { "$ref": "#/$defs/nonempty" },
-        "receipt_sha256": { "$ref": "#/$defs/sha256" },
-        "total_units": { "type": "integer", "minimum": 2 },
-        "discovery_units": { "type": "integer", "minimum": 1 },
-        "confirmation_units": { "type": "integer", "minimum": 1 },
-        "disjoint": { "const": true },
-        "exhaustive": { "const": true }
+        "claim_id": { "pattern": "^claim_[0-9]{3,}$" },
+        "claim_sha256": { "$ref": "#/$defs/sha256" },
+        "total_units": { "type": "integer", "minimum": 2, "maximum": 9007199254740991 },
+        "discovery_units": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "confirmation_units": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "declared_disjoint": { "const": true },
+        "declared_exhaustive": { "const": true }
       }
     },
     "unit": {
@@ -81,7 +75,7 @@
       "additionalProperties": false,
       "required": ["column", "basis", "evidence_ref"],
       "properties": {
-        "column": { "$ref": "#/$defs/nonempty" },
+        "column": { "pattern": "^u_[0-9]{3,}$" },
         "basis": {
           "enum": [
             "declared_assignment_unit",
@@ -92,7 +86,7 @@
         },
         "evidence_ref": {
           "oneOf": [
-            { "$ref": "#/$defs/nonempty" },
+            { "pattern": "^evidence_[0-9]{3,}$" },
             { "type": "null" }
           ]
         }
@@ -106,7 +100,7 @@
               }
             }
           },
-          "then": { "properties": { "evidence_ref": { "$ref": "#/$defs/nonempty" } } }
+          "then": { "properties": { "evidence_ref": { "pattern": "^evidence_[0-9]{3,}$" } } }
         },
         {
           "if": {
@@ -118,7 +112,7 @@
         }
       ]
     },
-    "sealed_context": {
+    "isolation_claim": {
       "type": "object",
       "additionalProperties": false,
       "required": [

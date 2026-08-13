@@ -13,8 +13,8 @@ use thiserror::Error;
 mod scout;
 pub use scout::{
     CandidateEnvironment, CandidateSupport, ContractRequest, ContractRequestKind, DiscoveryAccess,
-    EnvironmentRelation, FrozenShiftFactorizationProposal, NextQuery, NextQueryKind,
-    PartitionReceipt, ScoutReasonCode, ScoutStatus, SealedContext, SelfDrivingRequest,
+    EnvironmentRelation, FrozenShiftFactorizationProposal, IsolationClaim, NextQuery,
+    NextQueryKind, PartitionClaim, ScoutReasonCode, ScoutStatus, SelfDrivingRequest,
     ShiftFactorizationDraft, StrategyEligibility, SupportRelation, SupportSemantics, UnitBasis,
     UnitContract, freeze_shift_factorization_proposal,
 };

@@ -39,24 +39,27 @@ pub struct UnitContract {
     pub evidence_ref: Option<String>,
 }
 
-/// Content binding for an upstream audit of the outer unit partition.
+/// Caller declaration about an outer unit partition.
+///
+/// This proposal layer checks the declaration for internal consistency but
+/// does not resolve the referenced bytes or establish that the claim is true.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct PartitionReceipt {
-    /// Stable receipt identifier.
-    pub receipt_id: String,
-    /// SHA-256 of the partition receipt.
-    pub receipt_sha256: String,
+pub struct PartitionClaim {
+    /// Stable neutral claim identifier.
+    pub claim_id: String,
+    /// SHA-256 supplied for the external claim artifact.
+    pub claim_sha256: String,
     /// Total number of distinct units.
     pub total_units: usize,
     /// Number of discovery units.
     pub discovery_units: usize,
     /// Number of sealed confirmation units.
     pub confirmation_units: usize,
-    /// Whether the receipt's validator established disjointness.
-    pub disjoint: bool,
-    /// Whether the receipt's validator established exhaustive coverage.
-    pub exhaustive: bool,
+    /// Caller declaration that the unit lists are disjoint.
+    pub declared_disjoint: bool,
+    /// Caller declaration that the unit lists exhaust the source units.
+    pub declared_exhaustive: bool,
 }
 
 /// Availability of a resource to the discovery process.
@@ -72,7 +75,7 @@ pub enum DiscoveryAccess {
 /// Context that must be absent from the router's discovery mount.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct SealedContext {
+pub struct IsolationClaim {
     /// Source URL access.
     pub source_url: DiscoveryAccess,
     /// Study-title access.
@@ -95,7 +98,7 @@ pub struct SealedContext {
     pub network: DiscoveryAccess,
 }
 
-impl SealedContext {
+impl IsolationClaim {
     fn is_sealed(&self) -> bool {
         [
             self.source_url,
@@ -122,22 +125,16 @@ pub struct SelfDrivingRequest {
     pub schema_version: String,
     /// Stable neutral request identifier.
     pub request_id: String,
-    /// SHA-256 of the immutable source table.
-    pub source_table_sha256: String,
     /// SHA-256 of the neutralized discovery table.
     pub discovery_table_sha256: String,
-    /// SHA-256 of the sealed confirmation table.
-    pub confirmation_table_sha256: String,
     /// SHA-256 of the transformation from source to neutralized views.
     pub transformation_sha256: String,
     /// SHA-256 of the ordered discovery-unit list.
     pub discovery_units_sha256: String,
-    /// SHA-256 of the ordered confirmation-unit list.
-    pub confirmation_units_sha256: String,
-    /// Content-bound audit of the outer unit partition.
-    pub partition: PartitionReceipt,
-    /// Unit used before any environment, transform, support, or model search.
-    pub unit: UnitContract,
+    /// Caller claim about the outer unit partition.
+    pub partition_claim: PartitionClaim,
+    /// Declared unit used before any environment, transform, support, or model search.
+    pub unit_declaration: UnitContract,
     /// Caller-supplied seed independent of outcome bytes.
     pub seed: u64,
     /// Fixed fold algorithm identifier.
@@ -155,7 +152,7 @@ pub struct SelfDrivingRequest {
     /// Learner families to run as a disagreement battery.
     pub learner_families: Vec<String>,
     /// Context withheld from discovery.
-    pub sealed_context: SealedContext,
+    pub isolation_claim: IsolationClaim,
 }
 
 impl SelfDrivingRequest {
@@ -175,20 +172,28 @@ impl SelfDrivingRequest {
                 self.candidate_enumeration_policy.as_str(),
             ),
             ("common_cohort_policy", self.common_cohort_policy.as_str()),
-            ("unit.column", self.unit.column.as_str()),
-            ("partition.receipt_id", self.partition.receipt_id.as_str()),
+            ("unit.column", self.unit_declaration.column.as_str()),
+            ("partition.claim_id", self.partition_claim.claim_id.as_str()),
         ] {
             require_nonempty(name, value)?;
         }
+        require_quarantined_text("split_algorithm", &self.split_algorithm)?;
+        require_quarantined_text(
+            "candidate_enumeration_policy",
+            &self.candidate_enumeration_policy,
+        )?;
+        require_quarantined_text("common_cohort_policy", &self.common_cohort_policy)?;
+        require_opaque_identifier("request_id", &self.request_id, "request_")?;
+        require_opaque_identifier("unit.column", &self.unit_declaration.column, "u_")?;
+        require_opaque_identifier(
+            "partition.claim_id",
+            &self.partition_claim.claim_id,
+            "claim_",
+        )?;
         for (name, value) in [
-            ("source_table_sha256", self.source_table_sha256.as_str()),
             (
                 "discovery_table_sha256",
                 self.discovery_table_sha256.as_str(),
-            ),
-            (
-                "confirmation_table_sha256",
-                self.confirmation_table_sha256.as_str(),
             ),
             ("transformation_sha256", self.transformation_sha256.as_str()),
             (
@@ -196,12 +201,8 @@ impl SelfDrivingRequest {
                 self.discovery_units_sha256.as_str(),
             ),
             (
-                "confirmation_units_sha256",
-                self.confirmation_units_sha256.as_str(),
-            ),
-            (
-                "partition.receipt_sha256",
-                self.partition.receipt_sha256.as_str(),
+                "partition.claim_sha256",
+                self.partition_claim.claim_sha256.as_str(),
             ),
         ] {
             require_sha256(name, value)?;
@@ -221,29 +222,32 @@ impl SelfDrivingRequest {
                 "detection_floor must be finite and positive".into(),
             ));
         }
-        if self.partition.total_units == 0
-            || self.partition.discovery_units == 0
-            || self.partition.confirmation_units == 0
-            || self.partition.discovery_units + self.partition.confirmation_units
-                != self.partition.total_units
-            || !self.partition.disjoint
-            || !self.partition.exhaustive
+        let declared_total = self
+            .partition_claim
+            .discovery_units
+            .checked_add(self.partition_claim.confirmation_units);
+        if self.partition_claim.total_units < 2
+            || self.partition_claim.discovery_units == 0
+            || self.partition_claim.confirmation_units == 0
+            || declared_total != Some(self.partition_claim.total_units)
+            || !self.partition_claim.declared_disjoint
+            || !self.partition_claim.declared_exhaustive
         {
             return Err(ProposalError::InvalidScoutContract(
-                "partition receipt must describe positive, disjoint, exhaustive discovery and confirmation units".into(),
+                "partition claim must declare positive, disjoint, exhaustive discovery and confirmation units without overflow".into(),
             ));
         }
-        if !self.sealed_context.is_sealed() {
+        if !self.isolation_claim.is_sealed() {
             return Err(ProposalError::InvalidScoutContract(
                 "discovery context exposes sealed study, confirmation, oracle, or network information"
                     .into(),
             ));
         }
         if matches!(
-            self.unit.basis,
+            self.unit_declaration.basis,
             UnitBasis::DeclaredAssignmentUnit | UnitBasis::DeclaredDependenceBlock
         ) && self
-            .unit
+            .unit_declaration
             .evidence_ref
             .as_deref()
             .is_none_or(|value| value.trim().is_empty())
@@ -253,15 +257,21 @@ impl SelfDrivingRequest {
             ));
         }
         if matches!(
-            self.unit.basis,
+            self.unit_declaration.basis,
             UnitBasis::UnverifiedIdentifier | UnitBasis::Row
-        ) && self.unit.evidence_ref.is_some()
+        ) && self.unit_declaration.evidence_ref.is_some()
         {
             return Err(ProposalError::InvalidScoutContract(
                 "an unverified or row unit may not carry an authority-looking evidence_ref".into(),
             ));
         }
+        if let Some(evidence_ref) = &self.unit_declaration.evidence_ref {
+            require_opaque_identifier("unit evidence_ref", evidence_ref, "evidence_")?;
+        }
         require_sorted_unique("learner_families", &self.learner_families)?;
+        for learner in &self.learner_families {
+            require_quarantined_text("learner family", learner)?;
+        }
         Ok(())
     }
 
@@ -338,7 +348,7 @@ pub enum EnvironmentRelation {
     Disjoint,
 }
 
-/// Verified descriptive set relation; it is never an edge or target claim.
+/// Recomputed descriptive set relation; it is never an edge or target claim.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct SupportRelation {
@@ -358,8 +368,8 @@ pub struct SupportRelation {
 pub enum StrategyEligibility {
     /// A load-bearing contract is missing.
     MissingContract {
-        /// Stable missing-contract reason.
-        reason: String,
+        /// Contract request that names the missing premise or design fact.
+        contract_request_ref: String,
     },
     /// An external declaration exists but has not been resolved by an audit.
     DeclaredReference {
@@ -437,6 +447,8 @@ pub struct NextQuery {
     pub kind: NextQueryKind,
     /// Serialized surviving hypotheses separated by this action.
     pub separates_hypotheses: Vec<String>,
+    /// Contract requests that must be resolved before this query can enter an audit.
+    pub contract_request_ids: Vec<String>,
     /// Descriptive priority.
     pub priority: f64,
     /// Exact priority meaning and direction.
@@ -495,8 +507,6 @@ pub struct ShiftFactorizationDraft {
     pub contract_requests: Vec<ContractRequest>,
     /// Ranked next actions.
     pub next_queries: Vec<NextQuery>,
-    /// Non-causal reason codes in canonical order.
-    pub reasons: Vec<ScoutReasonCode>,
 }
 
 /// Immutable, serialize-only shift-factorization proposal.
@@ -509,6 +519,7 @@ pub struct FrozenShiftFactorizationProposal {
     candidate_library_fingerprint: String,
     authority: ProposalAuthority,
     certificate_eligible: bool,
+    input_claims_verified: bool,
     status: ScoutStatus,
     environments: Vec<CandidateEnvironment>,
     supports: Vec<CandidateSupport>,
@@ -539,6 +550,12 @@ impl FrozenShiftFactorizationProposal {
         self.certificate_eligible
     }
 
+    /// This layer never resolves the caller's partition, unit, or isolation claims.
+    #[must_use]
+    pub const fn input_claims_verified(&self) -> bool {
+        self.input_claims_verified
+    }
+
     /// Fingerprint of the complete ordered adapter draft.
     #[must_use]
     pub fn candidate_library_fingerprint(&self) -> &str {
@@ -555,15 +572,30 @@ pub fn freeze_shift_factorization_proposal(
     require_nonempty("proposal_id", &draft.proposal_id)?;
     validate_environments(&draft.environments)?;
     let supports = validate_supports(&draft.supports, &draft.environments)?;
-    validate_relations(&draft.support_relations, &supports)?;
-    validate_strategy_eligibility(&draft.strategy_eligibility)?;
-    validate_contract_requests(&draft.contract_requests)?;
-    validate_next_queries(&draft.next_queries)?;
-    if !draft.reasons.windows(2).all(|pair| pair[0] < pair[1]) {
+    if draft
+        .environments
+        .len()
+        .saturating_add(draft.supports.len())
+        > request.candidate_budget
+    {
         return Err(ProposalError::InvalidScoutContract(
-            "reasons must be unique and sorted".into(),
+            "environment and support candidates exceed candidate_budget".into(),
         ));
     }
+    if draft.supports.iter().any(|support| {
+        request
+            .learner_families
+            .binary_search(&support.learner_family)
+            .is_err()
+    }) {
+        return Err(ProposalError::InvalidScoutContract(
+            "a support references a learner outside the frozen learner battery".into(),
+        ));
+    }
+    validate_relations(&draft.support_relations, &supports)?;
+    validate_contract_requests(&draft.contract_requests, &draft.strategy_eligibility)?;
+    validate_strategy_eligibility(&draft.strategy_eligibility, &draft.contract_requests)?;
+    validate_next_queries(&draft.next_queries, &draft.contract_requests)?;
     let status = if draft.environments.is_empty() {
         ScoutStatus::Abstained
     } else if draft.next_queries.is_empty() {
@@ -571,6 +603,7 @@ pub fn freeze_shift_factorization_proposal(
     } else {
         ScoutStatus::Recommended
     };
+    let reasons = derived_reasons(request, draft);
     Ok(FrozenShiftFactorizationProposal {
         schema_version: SCHEMA_VERSION.into(),
         proposal_id: draft.proposal_id.clone(),
@@ -579,6 +612,7 @@ pub fn freeze_shift_factorization_proposal(
         candidate_library_fingerprint: fingerprint(b"mic-shift-factorization-library-v1\0", draft)?,
         authority: ProposalAuthority::ProposalOnly,
         certificate_eligible: false,
+        input_claims_verified: false,
         status,
         environments: draft.environments.clone(),
         supports: draft.supports.clone(),
@@ -586,15 +620,23 @@ pub fn freeze_shift_factorization_proposal(
         strategy_eligibility: draft.strategy_eligibility.clone(),
         contract_requests: draft.contract_requests.clone(),
         next_queries: draft.next_queries.clone(),
-        reasons: draft.reasons.clone(),
+        reasons,
         seed: request.seed,
     })
 }
 
 fn validate_environments(environments: &[CandidateEnvironment]) -> Result<(), ProposalError> {
+    if !environments
+        .windows(2)
+        .all(|pair| pair[0].environment_id < pair[1].environment_id)
+    {
+        return Err(ProposalError::InvalidScoutContract(
+            "environments must be ordered by unique environment_id".into(),
+        ));
+    }
     let mut identifiers = BTreeSet::new();
     for environment in environments {
-        require_nonempty("environment_id", &environment.environment_id)?;
+        require_opaque_identifier("environment_id", &environment.environment_id, "env_")?;
         if !identifiers.insert(environment.environment_id.clone()) {
             return Err(ProposalError::InvalidScoutContract(format!(
                 "duplicate environment_id {:?}",
@@ -602,9 +644,12 @@ fn validate_environments(environments: &[CandidateEnvironment]) -> Result<(), Pr
             )));
         }
         require_sorted_unique("defining_columns", &environment.defining_columns)?;
+        for column in &environment.defining_columns {
+            require_opaque_identifier("defining_columns", column, "c_")?;
+        }
         require_sha256("transform_sha256", &environment.transform_sha256)?;
         require_finite("environment score", environment.score)?;
-        require_nonempty("environment score_semantics", &environment.score_semantics)?;
+        require_quarantined_text("environment score_semantics", &environment.score_semantics)?;
     }
     Ok(())
 }
@@ -613,14 +658,22 @@ fn validate_supports<'a>(
     supports: &'a [CandidateSupport],
     environments: &[CandidateEnvironment],
 ) -> Result<BTreeMap<&'a str, &'a CandidateSupport>, ProposalError> {
+    if !supports
+        .windows(2)
+        .all(|pair| pair[0].support_id < pair[1].support_id)
+    {
+        return Err(ProposalError::InvalidScoutContract(
+            "supports must be ordered by unique support_id".into(),
+        ));
+    }
     let environment_ids: BTreeSet<&str> = environments
         .iter()
         .map(|environment| environment.environment_id.as_str())
         .collect();
     let mut indexed = BTreeMap::new();
     for support in supports {
-        require_nonempty("support_id", &support.support_id)?;
-        require_nonempty("support.environment_id", &support.environment_id)?;
+        require_opaque_identifier("support_id", &support.support_id, "support_")?;
+        require_opaque_identifier("support.environment_id", &support.environment_id, "env_")?;
         if !environment_ids.contains(support.environment_id.as_str()) {
             return Err(ProposalError::InvalidScoutContract(format!(
                 "support {:?} references unknown environment {:?}",
@@ -628,9 +681,12 @@ fn validate_supports<'a>(
             )));
         }
         require_sorted_unique("support.variables", &support.variables)?;
+        for variable in &support.variables {
+            require_opaque_identifier("support.variables", variable, "c_")?;
+        }
         require_nonempty("learner_family", &support.learner_family)?;
-        require_nonempty("discovery_fold", &support.discovery_fold)?;
-        require_nonempty("support score_semantics", &support.score_semantics)?;
+        require_opaque_identifier("discovery_fold", &support.discovery_fold, "fold_")?;
+        require_quarantined_text("support score_semantics", &support.score_semantics)?;
         require_finite("support score", support.score)?;
         if indexed
             .insert(support.support_id.as_str(), support)
@@ -649,6 +705,14 @@ fn validate_relations(
     relations: &[SupportRelation],
     supports: &BTreeMap<&str, &CandidateSupport>,
 ) -> Result<(), ProposalError> {
+    if !relations.windows(2).all(|pair| {
+        (&pair[0].left_support_id, &pair[0].right_support_id)
+            < (&pair[1].left_support_id, &pair[1].right_support_id)
+    }) {
+        return Err(ProposalError::InvalidScoutContract(
+            "support relations must be ordered by unique support-id pair".into(),
+        ));
+    }
     let mut pairs = BTreeSet::new();
     for relation in relations {
         if relation.left_support_id == relation.right_support_id {
@@ -698,30 +762,64 @@ fn validate_relations(
 
 fn validate_strategy_eligibility(
     strategies: &BTreeMap<String, StrategyEligibility>,
+    requests: &[ContractRequest],
 ) -> Result<(), ProposalError> {
+    let request_ids: BTreeSet<&str> = requests
+        .iter()
+        .map(|request| request.request_id.as_str())
+        .collect();
     for (identifier, eligibility) in strategies {
         require_nonempty("strategy identifier", identifier)?;
+        require_opaque_identifier("strategy identifier", identifier, "strategy_")?;
         match eligibility {
-            StrategyEligibility::MissingContract { reason } => {
-                require_nonempty("missing-contract reason", reason)?;
+            StrategyEligibility::MissingContract {
+                contract_request_ref,
+            } => {
+                require_opaque_identifier(
+                    "missing-contract request_ref",
+                    contract_request_ref,
+                    "contract_",
+                )?;
+                if !request_ids.contains(contract_request_ref.as_str()) {
+                    return Err(ProposalError::InvalidScoutContract(format!(
+                        "strategy {identifier:?} references an unknown contract request"
+                    )));
+                }
             }
             StrategyEligibility::DeclaredReference { evidence_ref } => {
-                require_nonempty("strategy evidence_ref", evidence_ref)?;
+                require_opaque_identifier("strategy evidence_ref", evidence_ref, "evidence_")?;
             }
             StrategyEligibility::EligibleForSeparateAudit { audit_request_ref } => {
-                require_nonempty("audit_request_ref", audit_request_ref)?;
+                require_opaque_identifier("audit_request_ref", audit_request_ref, "audit_")?;
             }
         }
     }
     Ok(())
 }
 
-fn validate_contract_requests(requests: &[ContractRequest]) -> Result<(), ProposalError> {
+fn validate_contract_requests(
+    requests: &[ContractRequest],
+    strategies: &BTreeMap<String, StrategyEligibility>,
+) -> Result<(), ProposalError> {
+    if !requests
+        .windows(2)
+        .all(|pair| pair[0].request_id < pair[1].request_id)
+    {
+        return Err(ProposalError::InvalidScoutContract(
+            "contract requests must be ordered by unique request_id".into(),
+        ));
+    }
     let mut identifiers = BTreeSet::new();
     for request in requests {
-        require_nonempty("contract request_id", &request.request_id)?;
-        require_nonempty("contract required_for", &request.required_for)?;
-        require_nonempty("contract detail", &request.detail)?;
+        require_opaque_identifier("contract request_id", &request.request_id, "contract_")?;
+        require_opaque_identifier("contract required_for", &request.required_for, "strategy_")?;
+        if !strategies.contains_key(&request.required_for) {
+            return Err(ProposalError::InvalidScoutContract(format!(
+                "contract request {:?} references unknown strategy {:?}",
+                request.request_id, request.required_for
+            )));
+        }
+        require_quarantined_text("contract detail", &request.detail)?;
         require_finite("contract priority", request.priority)?;
         if request.priority < 0.0 {
             return Err(ProposalError::InvalidScoutContract(
@@ -738,12 +836,40 @@ fn validate_contract_requests(requests: &[ContractRequest]) -> Result<(), Propos
     Ok(())
 }
 
-fn validate_next_queries(queries: &[NextQuery]) -> Result<(), ProposalError> {
+fn validate_next_queries(
+    queries: &[NextQuery],
+    requests: &[ContractRequest],
+) -> Result<(), ProposalError> {
+    if !queries
+        .windows(2)
+        .all(|pair| pair[0].query_id < pair[1].query_id)
+    {
+        return Err(ProposalError::InvalidScoutContract(
+            "next queries must be ordered by unique query_id".into(),
+        ));
+    }
+    let request_ids: BTreeSet<&str> = requests
+        .iter()
+        .map(|request| request.request_id.as_str())
+        .collect();
     let mut identifiers = BTreeSet::new();
     for query in queries {
-        require_nonempty("next query_id", &query.query_id)?;
+        require_opaque_identifier("next query_id", &query.query_id, "query_")?;
         require_sorted_unique("separates_hypotheses", &query.separates_hypotheses)?;
-        require_nonempty("priority_semantics", &query.priority_semantics)?;
+        for hypothesis in &query.separates_hypotheses {
+            require_opaque_identifier("separates_hypotheses", hypothesis, "hyp_")?;
+        }
+        require_sorted_unique("contract_request_ids", &query.contract_request_ids)?;
+        for request_id in &query.contract_request_ids {
+            require_opaque_identifier("contract_request_ids", request_id, "contract_")?;
+            if !request_ids.contains(request_id.as_str()) {
+                return Err(ProposalError::InvalidScoutContract(format!(
+                    "next query {:?} references unknown contract request {:?}",
+                    query.query_id, request_id
+                )));
+            }
+        }
+        require_quarantined_text("priority_semantics", &query.priority_semantics)?;
         require_finite("next-query priority", query.priority)?;
         if query.priority < 0.0 {
             return Err(ProposalError::InvalidScoutContract(
@@ -776,11 +902,76 @@ fn set_relation(left: &[String], right: &[String]) -> EnvironmentRelation {
     }
 }
 
+fn derived_reasons(
+    request: &SelfDrivingRequest,
+    draft: &ShiftFactorizationDraft,
+) -> Vec<ScoutReasonCode> {
+    let mut reasons = BTreeSet::from([
+        ScoutReasonCode::SelectionUnestablished,
+        ScoutReasonCode::ConfirmationSealed,
+    ]);
+    if matches!(
+        request.unit_declaration.basis,
+        UnitBasis::UnverifiedIdentifier | UnitBasis::Row
+    ) {
+        reasons.insert(ScoutReasonCode::UnitUnverified);
+    }
+    if draft.environments.is_empty() {
+        reasons.insert(ScoutReasonCode::NoEnvironmentCandidate);
+    }
+    if draft
+        .contract_requests
+        .iter()
+        .any(|request| request.kind == ContractRequestKind::SameTargetGrouping)
+    {
+        reasons.insert(ScoutReasonCode::SameTargetPremiseUnestablished);
+    }
+    reasons.into_iter().collect()
+}
+
 fn require_nonempty(name: &'static str, value: &str) -> Result<(), ProposalError> {
-    if value.trim().is_empty() {
+    if value.is_empty() || value.trim() != value {
         Err(ProposalError::EmptyIdentifier(name))
     } else {
         Ok(())
+    }
+}
+
+fn require_quarantined_text(name: &'static str, value: &str) -> Result<(), ProposalError> {
+    require_nonempty(name, value)?;
+    let normalized = value.to_ascii_lowercase().replace(['-', '_'], " ");
+    for forbidden in [
+        "passed",
+        "established",
+        "certified",
+        "certificate",
+        "unique target",
+        "oriented",
+        "causal edge",
+        "confidence",
+        "probability",
+    ] {
+        if normalized.contains(forbidden) {
+            return Err(ProposalError::InvalidScoutContract(format!(
+                "{name} contains reserved authority vocabulary {forbidden:?}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn require_opaque_identifier(
+    name: &'static str,
+    value: &str,
+    prefix: &str,
+) -> Result<(), ProposalError> {
+    let suffix = value.strip_prefix(prefix).unwrap_or_default();
+    if suffix.len() >= 3 && suffix.bytes().all(|byte| byte.is_ascii_digit()) {
+        Ok(())
+    } else {
+        Err(ProposalError::InvalidScoutContract(format!(
+            "{name} must use the neutral form {prefix}<three-or-more-digits>"
+        )))
     }
 }
 
@@ -878,25 +1069,22 @@ mod tests {
         SelfDrivingRequest {
             schema_version: SCHEMA_VERSION.into(),
             request_id: "request_001".into(),
-            source_table_sha256: digest('a'),
             discovery_table_sha256: digest('b'),
-            confirmation_table_sha256: digest('c'),
             transformation_sha256: digest('d'),
             discovery_units_sha256: digest('e'),
-            confirmation_units_sha256: digest('f'),
-            partition: PartitionReceipt {
-                receipt_id: "partition_001".into(),
-                receipt_sha256: digest('1'),
+            partition_claim: PartitionClaim {
+                claim_id: "claim_001".into(),
+                claim_sha256: digest('1'),
                 total_units: 20,
                 discovery_units: 12,
                 confirmation_units: 8,
-                disjoint: true,
-                exhaustive: true,
+                declared_disjoint: true,
+                declared_exhaustive: true,
             },
-            unit: UnitContract {
+            unit_declaration: UnitContract {
                 column: "u_001".into(),
                 basis: UnitBasis::DeclaredAssignmentUnit,
-                evidence_ref: Some("unit_receipt_001".into()),
+                evidence_ref: Some("evidence_001".into()),
             },
             seed: 20_260_812,
             split_algorithm: "sha256_cluster_v1".into(),
@@ -906,7 +1094,7 @@ mod tests {
             equivalence_tolerance: 0.1,
             detection_floor: 0.05,
             learner_families: vec!["kernel".into(), "linear".into()],
-            sealed_context: SealedContext {
+            isolation_claim: IsolationClaim {
                 source_url: DiscoveryAccess::Unavailable,
                 study_title: DiscoveryAccess::Unavailable,
                 file_names: DiscoveryAccess::Unavailable,
@@ -926,7 +1114,7 @@ mod tests {
             proposal_id: "proposal_001".into(),
             environments: vec![CandidateEnvironment {
                 environment_id: "env_001".into(),
-                defining_columns: vec!["e_001".into()],
+                defining_columns: vec!["c_001".into()],
                 transform_sha256: digest('2'),
                 score: 0.8,
                 score_semantics: "held-out regime-prediction gain".into(),
@@ -936,7 +1124,7 @@ mod tests {
                     support_id: "support_001".into(),
                     environment_id: "env_001".into(),
                     semantics: SupportSemantics::RegimeInformationSupport,
-                    variables: vec!["x_001".into()],
+                    variables: vec!["c_001".into()],
                     learner_family: "linear".into(),
                     discovery_fold: "fold_001".into(),
                     score: 0.2,
@@ -947,7 +1135,7 @@ mod tests {
                     support_id: "support_002".into(),
                     environment_id: "env_001".into(),
                     semantics: SupportSemantics::RegimeInformationSupport,
-                    variables: vec!["x_001".into(), "x_002".into()],
+                    variables: vec!["c_001".into(), "c_002".into()],
                     learner_family: "kernel".into(),
                     discovery_fold: "fold_001".into(),
                     score: 0.19,
@@ -962,29 +1150,26 @@ mod tests {
                 relation: EnvironmentRelation::LeftProperSubset,
             }],
             strategy_eligibility: BTreeMap::from([(
-                "anchored_invariance".into(),
+                "strategy_001".into(),
                 StrategyEligibility::MissingContract {
-                    reason: "anchor exclusion is not established".into(),
+                    contract_request_ref: "contract_001".into(),
                 },
             )]),
             contract_requests: vec![ContractRequest {
                 request_id: "contract_001".into(),
                 kind: ContractRequestKind::IdentificationPremise,
-                required_for: "anchored_invariance".into(),
+                required_for: "strategy_001".into(),
                 detail: "supply a content-bound exclusion receipt".into(),
                 priority: 1.0,
             }],
             next_queries: vec![NextQuery {
                 query_id: "query_001".into(),
                 kind: NextQueryKind::ObtainContract,
-                separates_hypotheses: vec!["anchor_valid".into(), "anchor_violated".into()],
+                separates_hypotheses: vec!["hyp_001".into(), "hyp_002".into()],
+                contract_request_ids: vec!["contract_001".into()],
                 priority: 1.0,
                 priority_semantics: "external premise required before separate audit".into(),
             }],
-            reasons: vec![
-                ScoutReasonCode::SelectionUnestablished,
-                ScoutReasonCode::ConfirmationSealed,
-            ],
         }
     }
 
@@ -1003,7 +1188,7 @@ mod tests {
     #[test]
     fn confirmation_visibility_is_a_hard_request_failure() {
         let mut bad = request();
-        bad.sealed_context.confirmation_outcomes = DiscoveryAccess::Available;
+        bad.isolation_claim.confirmation_outcomes = DiscoveryAccess::Available;
         assert!(matches!(
             bad.validate(),
             Err(ProposalError::InvalidScoutContract(_))
@@ -1013,17 +1198,53 @@ mod tests {
     #[test]
     fn partition_must_be_positive_disjoint_and_exhaustive() {
         let mut bad = request();
-        bad.partition.disjoint = false;
+        bad.partition_claim.declared_disjoint = false;
         assert!(matches!(
             bad.validate(),
             Err(ProposalError::InvalidScoutContract(_))
         ));
-        bad.partition.disjoint = true;
-        bad.partition.confirmation_units = 7;
+        bad.partition_claim.declared_disjoint = true;
+        bad.partition_claim.confirmation_units = 7;
         assert!(matches!(
             bad.validate(),
             Err(ProposalError::InvalidScoutContract(_))
         ));
+    }
+
+    #[test]
+    fn partition_count_overflow_is_rejected_without_panicking() {
+        let mut bad = request();
+        bad.partition_claim.total_units = 1;
+        bad.partition_claim.discovery_units = usize::MAX;
+        bad.partition_claim.confirmation_units = 2;
+        assert!(matches!(
+            bad.validate(),
+            Err(ProposalError::InvalidScoutContract(_))
+        ));
+    }
+
+    #[test]
+    fn unverified_unit_blockers_are_derived_and_cannot_be_omitted() {
+        let mut input = request();
+        input.unit_declaration.basis = UnitBasis::Row;
+        input.unit_declaration.evidence_ref = None;
+        let proposal = freeze_shift_factorization_proposal(&input, &draft())
+            .expect("row units remain eligible for proposal-only next actions");
+        let value = serde_json::to_value(proposal).expect("serialize output");
+        assert_eq!(value["input_claims_verified"], false);
+        assert_eq!(value["status"], "recommended");
+        assert!(
+            value["reasons"]
+                .as_array()
+                .expect("reason array")
+                .contains(&serde_json::json!("unit_unverified"))
+        );
+        assert!(
+            value["reasons"]
+                .as_array()
+                .expect("reason array")
+                .contains(&serde_json::json!("selection_unestablished"))
+        );
     }
 
     #[test]
@@ -1061,12 +1282,31 @@ mod tests {
     }
 
     #[test]
+    fn candidate_order_and_learner_battery_are_frozen() {
+        let mut out_of_order = draft();
+        out_of_order.supports.reverse();
+        assert!(freeze_shift_factorization_proposal(&request(), &out_of_order).is_err());
+
+        let mut outside_battery = draft();
+        outside_battery.supports[0].learner_family = "neural".into();
+        assert!(freeze_shift_factorization_proposal(&request(), &outside_battery).is_err());
+    }
+
+    #[test]
+    fn free_text_cannot_smuggle_authority_vocabulary() {
+        let mut bad = draft();
+        bad.next_queries[0].priority_semantics = "certified causal edge".into();
+        assert!(freeze_shift_factorization_proposal(&request(), &bad).is_err());
+    }
+
+    #[test]
     fn output_is_serialize_only_and_has_private_authority_fields() {
         let proposal =
             freeze_shift_factorization_proposal(&request(), &draft()).expect("valid proposal");
         let value = serde_json::to_value(&proposal).expect("serialize output");
         assert_eq!(value["authority"], "proposal_only");
         assert_eq!(value["certificate_eligible"], false);
+        assert_eq!(value["input_claims_verified"], false);
         assert_eq!(value["status"], "recommended");
     }
 }

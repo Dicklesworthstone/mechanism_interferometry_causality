@@ -2,16 +2,17 @@
   "schema_version": "1.0.0",
   "proposal_id": "proposal_001",
   "request_id": "request_001",
-  "request_fingerprint": "937b601f10a8a2bc8269d500e6b80709006e988c079b419888733e34173a62b3",
-  "candidate_library_fingerprint": "6e2db7c6c3141ec36a144bd9219159b9315d26817bb241810f0015008c4b3afc",
+  "request_fingerprint": "626b32b3fabb6030e34880989ee18f9567a5cfc411c6a201927aa751a48b8980",
+  "candidate_library_fingerprint": "bfdc19b67942f65acb8b3faed5c4cd98aa82235c0ddf8a7524cb9f2607ff479b",
   "authority": "proposal_only",
   "certificate_eligible": false,
+  "input_claims_verified": false,
   "status": "recommended",
   "environments": [
     {
       "environment_id": "env_001",
       "defining_columns": [
-        "e_001"
+        "c_001"
       ],
       "transform_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
       "score": 0.8,
@@ -24,7 +25,7 @@
       "environment_id": "env_001",
       "semantics": "regime_information_support",
       "variables": [
-        "x_001"
+        "c_001"
       ],
       "learner_family": "linear",
       "discovery_fold": "fold_001",
@@ -37,8 +38,8 @@
       "environment_id": "env_001",
       "semantics": "regime_information_support",
       "variables": [
-        "x_001",
-        "x_002"
+        "c_001",
+        "c_002"
       ],
       "learner_family": "kernel",
       "discovery_fold": "fold_001",
@@ -56,16 +57,16 @@
     }
   ],
   "strategy_eligibility": {
-    "anchored_invariance": {
+    "strategy_001": {
       "status": "missing_contract",
-      "reason": "anchor exclusion is not established"
+      "contract_request_ref": "contract_001"
     }
   },
   "contract_requests": [
     {
       "request_id": "contract_001",
       "kind": "identification_premise",
-      "required_for": "anchored_invariance",
+      "required_for": "strategy_001",
       "detail": "supply a content-bound exclusion receipt",
       "priority": 1.0
     }
@@ -75,8 +76,11 @@
       "query_id": "query_001",
       "kind": "obtain_contract",
       "separates_hypotheses": [
-        "anchor_valid",
-        "anchor_violated"
+        "hyp_001",
+        "hyp_002"
+      ],
+      "contract_request_ids": [
+        "contract_001"
       ],
       "priority": 1.0,
       "priority_semantics": "external premise required before separate audit"

@@ -1,25 +1,22 @@
 {
   "schema_version": "1.0.0",
   "request_id": "request_001",
-  "source_table_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "discovery_table_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "confirmation_table_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
   "transformation_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
   "discovery_units_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-  "confirmation_units_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-  "partition": {
-    "receipt_id": "partition_001",
-    "receipt_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "partition_claim": {
+    "claim_id": "claim_001",
+    "claim_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
     "total_units": 20,
     "discovery_units": 12,
     "confirmation_units": 8,
-    "disjoint": true,
-    "exhaustive": true
+    "declared_disjoint": true,
+    "declared_exhaustive": true
   },
-  "unit": {
+  "unit_declaration": {
     "column": "u_001",
     "basis": "declared_assignment_unit",
-    "evidence_ref": "unit_receipt_001"
+    "evidence_ref": "evidence_001"
   },
   "seed": 20260812,
   "split_algorithm": "sha256_cluster_v1",
@@ -29,7 +26,7 @@
   "equivalence_tolerance": 0.1,
   "detection_floor": 0.05,
   "learner_families": ["kernel", "linear"],
-  "sealed_context": {
+  "isolation_claim": {
     "source_url": "unavailable",
     "study_title": "unavailable",
     "file_names": "unavailable",

@@ -508,7 +508,7 @@ def scout_bundle_semantic_errors(request: dict, draft: dict, proposal: dict) -> 
             and value == sorted(set(value))
         )
 
-    partition = request.get("partition", {})
+    partition = request.get("partition_claim", {})
     if isinstance(partition, dict):
         require(
             partition.get("discovery_units", 0) + partition.get("confirmation_units", 0)
@@ -528,6 +528,7 @@ def scout_bundle_semantic_errors(request: dict, draft: dict, proposal: dict) -> 
         len(environment_ids) == len(environments) == len(set(environment_ids)),
         "scout environment identifiers are incomplete or duplicated",
     )
+    require(environment_ids == sorted(environment_ids), "scout environments are not canonical")
     for environment in environments:
         if isinstance(environment, dict):
             require(
@@ -542,6 +543,11 @@ def scout_bundle_semantic_errors(request: dict, draft: dict, proposal: dict) -> 
         len(support_ids) == len(supports) == len(set(support_ids)),
         "scout support identifiers are incomplete or duplicated",
     )
+    require(support_ids == sorted(support_ids), "scout supports are not canonical")
+    require(
+        len(environments) + len(supports) <= request.get("candidate_budget", -1),
+        "scout exceeds the frozen candidate budget",
+    )
     support_by_id = {item.get("support_id"): item for item in support_items}
     for support in support_items:
         require(
@@ -551,6 +557,10 @@ def scout_bundle_semantic_errors(request: dict, draft: dict, proposal: dict) -> 
         require(
             sorted_unique_strings(support.get("variables")),
             f"scout support {support.get('support_id')} variables are not canonical",
+        )
+        require(
+            support.get("learner_family") in request.get("learner_families", []),
+            f"scout support {support.get('support_id')} is outside the learner battery",
         )
 
     def relation(left: list[str], right: list[str]) -> str:
@@ -590,6 +600,7 @@ def scout_bundle_semantic_errors(request: dict, draft: dict, proposal: dict) -> 
         len(relation_pairs) == len(set(relation_pairs)),
         "scout repeats an ordered support relation",
     )
+    require(relation_pairs == sorted(relation_pairs), "scout support relations are not canonical")
 
     for field, identifier in [
         ("contract_requests", "request_id"),
@@ -601,13 +612,40 @@ def scout_bundle_semantic_errors(request: dict, draft: dict, proposal: dict) -> 
             len(identifiers) == len(items) == len(set(identifiers)),
             f"scout {field} identifiers are incomplete or duplicated",
         )
+        require(identifiers == sorted(identifiers), f"scout {field} are not canonical")
+    request_items = [
+        item for item in draft.get("contract_requests", []) if isinstance(item, dict)
+    ]
+    request_ids = {item.get("request_id") for item in request_items}
+    strategy_items = draft.get("strategy_eligibility", {})
+    strategy_ids = set(strategy_items) if isinstance(strategy_items, dict) else set()
+    for item in request_items:
+        require(
+            item.get("required_for") in strategy_ids,
+            f"scout contract {item.get('request_id')} references an unknown strategy",
+        )
+    if isinstance(strategy_items, dict):
+        for strategy_id, eligibility in strategy_items.items():
+            if isinstance(eligibility, dict) and eligibility.get("status") == "missing_contract":
+                require(
+                    eligibility.get("contract_request_ref") in request_ids,
+                    f"scout strategy {strategy_id} references an unknown contract request",
+                )
     for query in draft.get("next_queries", []):
         if isinstance(query, dict):
             require(
                 sorted_unique_strings(query.get("separates_hypotheses")),
                 f"scout query {query.get('query_id')} hypotheses are not canonical",
             )
-    reasons = draft.get("reasons", [])
+            require(
+                sorted_unique_strings(query.get("contract_request_ids")),
+                f"scout query {query.get('query_id')} contract requests are not canonical",
+            )
+            require(
+                set(query.get("contract_request_ids", [])).issubset(request_ids),
+                f"scout query {query.get('query_id')} has an unknown contract request",
+            )
+    reasons = proposal.get("reasons", [])
     reason_order = [
         "no_environment_candidate",
         "unit_unverified",
@@ -625,6 +663,21 @@ def scout_bundle_semantic_errors(request: dict, draft: dict, proposal: dict) -> 
         and reasons == sorted(reasons, key=reason_rank.get),
         "scout reason codes are not canonical",
     )
+    expected_reasons = {"selection_unestablished", "confirmation_sealed"}
+    unit_declaration = request.get("unit_declaration", {})
+    if isinstance(unit_declaration, dict) and unit_declaration.get("basis") in {
+        "unverified_identifier",
+        "row",
+    }:
+        expected_reasons.add("unit_unverified")
+    if not environments:
+        expected_reasons.add("no_environment_candidate")
+    if any(item.get("kind") == "same_target_grouping" for item in request_items):
+        expected_reasons.add("same_target_premise_unestablished")
+    require(
+        set(reasons) == expected_reasons,
+        "scout reason codes are not derived from the typed request and draft",
+    )
 
     next_queries = draft.get("next_queries", [])
     expected_status = (
@@ -637,6 +690,10 @@ def scout_bundle_semantic_errors(request: dict, draft: dict, proposal: dict) -> 
     require(proposal.get("status") == expected_status, "scout status is not derived from the draft")
     require(proposal.get("authority") == "proposal_only", "scout grants causal authority")
     require(proposal.get("certificate_eligible") is False, "scout is certificate eligible")
+    require(
+        proposal.get("input_claims_verified") is False,
+        "scout falsely verifies caller-supplied partition, unit, or isolation claims",
+    )
     require(proposal.get("request_id") == request.get("request_id"), "scout request ID drifted")
     require(proposal.get("proposal_id") == draft.get("proposal_id"), "scout proposal ID drifted")
     require(proposal.get("seed") == request.get("seed"), "scout seed drifted")
@@ -657,7 +714,6 @@ def scout_bundle_semantic_errors(request: dict, draft: dict, proposal: dict) -> 
         "strategy_eligibility",
         "contract_requests",
         "next_queries",
-        "reasons",
     ]:
         require(proposal.get(field) == draft.get(field), f"scout output drifted from draft field {field}")
     return errors
@@ -830,8 +886,11 @@ def validate_schemas_and_manifests() -> None:
             )
             mutations.append(("unsorted learner battery", unsorted_learners, draft, proposal))
             bad_partition = copy.deepcopy(request)
-            bad_partition["partition"]["confirmation_units"] -= 1
+            bad_partition["partition_claim"]["confirmation_units"] -= 1
             mutations.append(("nonexhaustive unit counts", bad_partition, draft, proposal))
+            confirmation_leak = copy.deepcopy(request)
+            confirmation_leak["confirmation_table_sha256"] = "0" * 64
+            mutations.append(("confirmation commitment leak", confirmation_leak, draft, proposal))
             unknown_environment = copy.deepcopy(draft)
             unknown_environment["supports"][0]["environment_id"] = "env_999"
             mutations.append(("unknown support environment", request, unknown_environment, proposal))
@@ -844,12 +903,24 @@ def validate_schemas_and_manifests() -> None:
             repeated_support = copy.deepcopy(draft)
             repeated_support["supports"][1]["support_id"] = repeated_support["supports"][0]["support_id"]
             mutations.append(("duplicate support ID", request, repeated_support, proposal))
+            permuted_supports = copy.deepcopy(draft)
+            permuted_supports["supports"].reverse()
+            mutations.append(("permuted support library", request, permuted_supports, proposal))
+            outside_battery = copy.deepcopy(draft)
+            outside_battery["supports"][0]["learner_family"] = "neural"
+            mutations.append(("learner outside battery", request, outside_battery, proposal))
+            unknown_contract = copy.deepcopy(draft)
+            unknown_contract["next_queries"][0]["contract_request_ids"] = ["contract_999"]
+            mutations.append(("unknown query contract", request, unknown_contract, proposal))
             stale_fingerprint = copy.deepcopy(proposal)
             stale_fingerprint["candidate_library_fingerprint"] = "0" * 64
             mutations.append(("stale library fingerprint", request, draft, stale_fingerprint))
             forged_authority = copy.deepcopy(proposal)
             forged_authority["authority"] = "certificate"
             mutations.append(("forged authority", request, draft, forged_authority))
+            forged_claim_verification = copy.deepcopy(proposal)
+            forged_claim_verification["input_claims_verified"] = True
+            mutations.append(("forged claim verification", request, draft, forged_claim_verification))
             for name, candidate_request, candidate_draft, candidate_proposal in mutations:
                 check(
                     scout_bundle_rejected(
