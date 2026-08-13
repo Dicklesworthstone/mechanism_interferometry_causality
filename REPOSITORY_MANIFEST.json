@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-13T04:17:43Z",
+  "generated_at_utc": "2026-08-13T04:46:42Z",
   "hash_algorithm": "sha256",
-  "file_count": 191,
-  "aggregate_sha256": "2063c22538822706ccae543fe4032b940791ba1f3d3219c1eb4af7c4537c3064",
+  "file_count": 194,
+  "aggregate_sha256": "8254f246f4379071ef6cc6d03b12e6169e9cf20227c4a618b2ecf492d32643af",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -63,8 +63,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 13777,
-      "sha256": "a1ca2b460b38ac304a76ebcb250def05cf2ae835a69793f081f3d4196093d041"
+      "bytes": 14953,
+      "sha256": "c22834eb83a369a8696af0b28d560dfacd8b041eb620aae865c16efce9df8b8a"
     },
     {
       "path": "artifacts/simulations/exact_results.json",
@@ -103,8 +103,8 @@
     },
     {
       "path": "crates/mic-cli/src/main.rs",
-      "bytes": 28240,
-      "sha256": "6dbefec698b348fff79730bdecbc3b5c299dd879e5fe8c778641bd9bd0951fd5"
+      "bytes": 33665,
+      "sha256": "7edf18afac32603387ed458c7bb48d2e3d6953def262fd4ffd3e760c58817ca9"
     },
     {
       "path": "crates/mic-conformance/Cargo.toml",
@@ -208,8 +208,8 @@
     },
     {
       "path": "crates/mic-model/src/lib.rs",
-      "bytes": 7538,
-      "sha256": "7dcaa36fc01641117e41869d517e0298e47fb8ded80903cf1b1547d5dcfbbf8f"
+      "bytes": 8030,
+      "sha256": "7b7547670a22728cef48a1afca47b0723a978d2984d96f2c72f4cd1c9aabe841"
     },
     {
       "path": "crates/mic-model/src/multinomial.rs",
@@ -225,6 +225,11 @@
       "path": "crates/mic-model/src/transport.rs",
       "bytes": 54710,
       "sha256": "71370ea707769f6a18b5f5ff6525c171f765a0f64a4d95730b7497fb65823e7d"
+    },
+    {
+      "path": "crates/mic-model/src/transport_uncertainty.rs",
+      "bytes": 48774,
+      "sha256": "37862f201f501ea4750d4579ae2ba90f61f4fd4dc3a05fe08ac7251679b20dd9"
     },
     {
       "path": "crates/mic-proposal/Cargo.toml",
@@ -313,8 +318,8 @@
     },
     {
       "path": "docs/IMPLEMENTATION_BLUEPRINT.md",
-      "bytes": 9447,
-      "sha256": "5bad32e87021d6b118951d3531bb5a7101b6b952a919c5da14e01efb2ff428bf"
+      "bytes": 9798,
+      "sha256": "7ee565e1cd67c44f7ed64424c58260e6a2c964b015976a8278799af6f5064588"
     },
     {
       "path": "docs/INFERENCE_PROTOCOL.md",
@@ -333,8 +338,8 @@
     },
     {
       "path": "docs/ROADMAP.md",
-      "bytes": 7219,
-      "sha256": "09f7e2d6fb0f260756910df8e911c4bf962abf990ee224f2616064ab08611ba0"
+      "bytes": 7472,
+      "sha256": "7c12044dfe26d66a8a2ab5deec65a69497492be4a51a17d1f98c23f0c1ac2de6"
     },
     {
       "path": "docs/SECURITY_AND_REPRODUCIBILITY.md",
@@ -343,8 +348,8 @@
     },
     {
       "path": "docs/SELF_DRIVING_CAMPAIGN.md",
-      "bytes": 25908,
-      "sha256": "c756157e275d6448f5de59b955e0820fe89a1163879f7f2a846acf5f6bd9458a"
+      "bytes": 26318,
+      "sha256": "27cefce9ddd4f1bf8edef6a91a74722da7f4e4506e51ea9c4e461fece7403383"
     },
     {
       "path": "examples/README.md",
@@ -587,6 +592,11 @@
       "sha256": "e5155e2c7e2329a52e4ea6d3f72de9a4833ed8e97a94f68c3b0e5b2ec3c277b6"
     },
     {
+      "path": "examples/transport_refit_request.json",
+      "bytes": 91,
+      "sha256": "d1cd26f9d86e813aa1bd52d8c0898fa3d4339b034a0bb09adf4be003525350ab"
+    },
+    {
       "path": "experiments/tierb_pilots/README.md",
       "bytes": 3143,
       "sha256": "b47b17b64f926f619eede8f0450a779e88875709cd8721609ead435399cd5d77"
@@ -668,8 +678,8 @@
     },
     {
       "path": "paper/main.tex",
-      "bytes": 113041,
-      "sha256": "a12d2ae71cc43a1b23ee1d28c6ea71b84978e8e254d6c15253efaf3de3b3954a"
+      "bytes": 114376,
+      "sha256": "e3318cabf8309a36a815f9a8e09928ee06877b7f22150fe442a271e7e9df3646"
     },
     {
       "path": "paper/references.bib",
@@ -792,6 +802,11 @@
       "sha256": "33b905751bd82b372e5dfc3cb118d8de04f3447ef44645819b1b0e09f39f1c73"
     },
     {
+      "path": "schemas/transport_refit_request.schema.json",
+      "bytes": 637,
+      "sha256": "1525191c3d0be91cd10d2e6ae0f2e58a5016ad05c94811d98f43e381ebb688d4"
+    },
+    {
       "path": "scripts/build_all.sh",
       "bytes": 1551,
       "sha256": "2c6dde0da68656dbca3d00f0f6d8f0c62eca781b960daa78622429733fe24967"
@@ -803,8 +818,8 @@
     },
     {
       "path": "scripts/check_repo.py",
-      "bytes": 110317,
-      "sha256": "e265094f4c5290f8c2a718c0b784832c5d4c61e80cb877a34c9f18aae96df8da"
+      "bytes": 111876,
+      "sha256": "f6167f6ee16acfe455f96b0c1a606cabd1f06894a2b903452882a81612c7b970"
     },
     {
       "path": "scripts/generate_example_data.py",

@@ -740,6 +740,7 @@ def required_files() -> None:
         "schemas/closure_crossfit_request.schema.json",
         "schemas/primitive_transport_request.schema.json",
         "schemas/combination_confirmation_request.schema.json",
+        "schemas/transport_refit_request.schema.json",
         "schemas/finite_completion_request.schema.json",
         "schemas/proposal_batch.schema.json",
         "schemas/self_driving_request.schema.json",
@@ -754,6 +755,7 @@ def required_files() -> None:
         "examples/closure_crossfit_request.json",
         "examples/primitive_transport_request.json",
         "examples/combination_confirmation_request.json",
+        "examples/transport_refit_request.json",
         "examples/finite_completion_request.json",
         "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
@@ -811,6 +813,7 @@ def validate_schemas_and_manifests() -> None:
     closure_crossfit_schema = schemas.get("closure_crossfit_request.schema.json")
     primitive_transport_schema = schemas.get("primitive_transport_request.schema.json")
     combination_confirmation_schema = schemas.get("combination_confirmation_request.schema.json")
+    transport_refit_schema = schemas.get("transport_refit_request.schema.json")
     finite_completion_schema = schemas.get("finite_completion_request.schema.json")
     proposal_input_schema = schemas.get("active_tilt_input.schema.json")
     proposal_schema = schemas.get("proposal_batch.schema.json")
@@ -872,6 +875,7 @@ def validate_schemas_and_manifests() -> None:
         combination_confirmation_schema is not None,
         "combination-confirmation schema was not loaded",
     )
+    check(transport_refit_schema is not None, "transport-refit schema was not loaded")
     if primitive_transport_schema is not None and combination_confirmation_schema is not None:
         primitive_request = load_json(ROOT / "examples" / "primitive_transport_request.json")
         confirmation_request = load_json(
@@ -922,6 +926,29 @@ def validate_schemas_and_manifests() -> None:
             check(
                 bool(list(confirmation_validator.iter_errors(unknown))),
                 "combination-confirmation schema accepts an authority-bearing unknown field",
+            )
+    if transport_refit_schema is not None:
+        refit_request = load_json(ROOT / "examples" / "transport_refit_request.json")
+        refit_validator = Draft202012Validator(transport_refit_schema)
+        for error in sorted(
+            refit_validator.iter_errors(refit_request), key=lambda item: list(item.path)
+        ):
+            location = ".".join(str(part) for part in error.path) or "<root>"
+            fail(f"transport-refit request schema violation at {location}: {error.message}")
+        if isinstance(refit_request, dict):
+            check(
+                isinstance(refit_request.get("seed"), int)
+                and 20 <= refit_request.get("n_refits", 0) <= 1000
+                and isinstance(refit_request.get("retain_fraction"), (int, float))
+                and math.isfinite(refit_request["retain_fraction"])
+                and 0.0 < refit_request["retain_fraction"] < 1.0,
+                "transport-refit request has invalid seed, count, or retain fraction",
+            )
+            unknown = copy.deepcopy(refit_request)
+            unknown["calibrated_test"] = True
+            check(
+                bool(list(refit_validator.iter_errors(unknown))),
+                "transport-refit schema accepts an authority-bearing unknown field",
             )
 
     check(finite_completion_schema is not None, "finite-completion schema was not loaded")

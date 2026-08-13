@@ -7,6 +7,7 @@ pub mod finite_completion;
 pub mod multinomial;
 pub mod prediction;
 pub mod transport;
+pub mod transport_uncertainty;
 
 pub use closure::{
     ClosureFitConfig, ClosureFitError, ClosureModelKind, FourCornerClosureModel,
@@ -37,6 +38,13 @@ pub use transport::{
     PrimitiveArm, PrimitiveTransportConfig, PrimitiveTransportFoldSummary,
     PrimitiveTransportReceipt, PrimitiveTransportSample, TransportContractFacts,
     WeightedEnergyDistance, freeze_primitive_transport, score_combination_confirmation,
+};
+pub use transport_uncertainty::{
+    EmpiricalRefitQuantiles, PrimitiveRefitSelectionCoverage, RefitFeatureTransformTreatment,
+    RefitMetricQuantileStatus, RefitPlanDiversity, RefitQuantileStatus, RefitSelectionCoverage,
+    RefitStratumCoverage, TransportRefitConfig, TransportRefitError, TransportRefitFailure,
+    TransportRefitFailureStage, TransportRefitReport, TransportRefitStatus,
+    refit_transport_uncertainty, validate_primitive_refit_request,
 };
 
 use mic_design::audit_sampling_odds;

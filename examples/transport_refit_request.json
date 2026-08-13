@@ -1,0 +1,6 @@
+{
+  "schema_version": "1.0.0",
+  "seed": 73,
+  "n_refits": 20,
+  "retain_fraction": 0.75
+}

@@ -107,8 +107,11 @@ also in place. The remaining work is the authority-bearing integration below.
   freeze stage, log-domain product weights, raw normalizer, cluster ESS,
   linear-time proper scoring, and optional exact weighted energy distance
   (implemented diagnostic path);
-- cluster-resampled refit uncertainty and calibrated weighted-law equivalence
-  inference (outstanding);
+- deterministic stratified cluster-subsampling refits of the fitted transport
+  nuisance and scoring stages conditional on the frozen feature transform,
+  with explicit failures, metric-specific plan diversity, seed-specific subset
+  coverage, and descriptive empirical quantiles (implemented);
+- calibrated weighted-law equivalence inference (outstanding);
 - held-out combination scoring (implemented descriptively);
 - effective sample-size and truncation sensitivity.
 

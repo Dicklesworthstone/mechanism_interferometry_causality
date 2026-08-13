@@ -41,6 +41,7 @@ fn run(args: &[String]) -> Result<(), String> {
         "preflight" => preflight(&args[1..]),
         "closure-crossfit" => closure_crossfit(&args[1..]),
         "predict-combination" => predict_combination(&args[1..]),
+        "predict-combination-refits" => predict_combination_refits(&args[1..]),
         "finite-completion" => finite_completion(&args[1..]),
         "orient" => orient(&args[1..]),
         "propose-tilt" => propose_tilt(&args[1..]),
@@ -226,6 +227,15 @@ struct CombinationConfirmationRequest {
     samples: Vec<mic_model::CombinationConfirmationSample>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TransportRefitRequest {
+    schema_version: String,
+    seed: u64,
+    n_refits: usize,
+    retain_fraction: f64,
+}
+
 fn predict_combination(args: &[String]) -> Result<(), String> {
     let (primitive_path, confirmation_path, output) = match args {
         [primitive, confirmation] => (primitive, confirmation, None),
@@ -325,6 +335,109 @@ fn validate_transport_schema_version(version: &str) -> Result<(), String> {
     } else {
         Err("fitted transport schema_version must be 1.0.0".into())
     }
+}
+
+fn predict_combination_refits(args: &[String]) -> Result<(), String> {
+    let (primitive_path, confirmation_path, refit_path, output) = match args {
+        [primitive, confirmation, refit] => (primitive, confirmation, refit, None),
+        [primitive, confirmation, refit, flag, output]
+            if flag == "--output" && !output.trim().is_empty() =>
+        {
+            (primitive, confirmation, refit, Some(PathBuf::from(output)))
+        }
+        _ => {
+            return Err("usage: mic predict-combination-refits PRIMITIVES.json CONFIRMATION.json REFITS.json [--output PATH]".into());
+        }
+    };
+    let refit_bytes = fs::read(refit_path).map_err(|error| error.to_string())?;
+    let refit_request_sha256 = sha256_bytes(&refit_bytes);
+    let refit: TransportRefitRequest =
+        serde_json::from_slice(&refit_bytes).map_err(|error| error.to_string())?;
+    validate_transport_schema_version(&refit.schema_version)?;
+
+    let primitive_bytes = fs::read(primitive_path).map_err(|error| error.to_string())?;
+    let primitive_request_sha256 = sha256_bytes(&primitive_bytes);
+    let primitive: PrimitiveTransportRequest =
+        serde_json::from_slice(&primitive_bytes).map_err(|error| error.to_string())?;
+    validate_transport_schema_version(&primitive.schema_version)?;
+    if primitive.declared_independent_unit.trim().is_empty() {
+        return Err("declared_independent_unit must not be empty".into());
+    }
+    let refit_config = mic_model::TransportRefitConfig {
+        seed: refit.seed,
+        n_refits: refit.n_refits,
+        retain_fraction: refit.retain_fraction,
+    };
+    mic_model::validate_primitive_refit_request(&primitive.samples, primitive.config, refit_config)
+        .map_err(|error| error.to_string())?;
+    // Establish the API-observable Stage-A freeze before opening `11`.
+    let _stage_a_guard = mic_model::freeze_primitive_transport(
+        &primitive.samples,
+        primitive.primitive_sampling_proportions,
+        &primitive.declared_independent_unit,
+        primitive.feature_contract.clone(),
+        primitive.config,
+    )
+    .map_err(|error| error.to_string())?;
+
+    let confirmation_bytes = fs::read(confirmation_path).map_err(|error| error.to_string())?;
+    let confirmation_request_sha256 = sha256_bytes(&confirmation_bytes);
+    let confirmation: CombinationConfirmationRequest =
+        serde_json::from_slice(&confirmation_bytes).map_err(|error| error.to_string())?;
+    validate_transport_schema_version(&confirmation.schema_version)?;
+    if primitive.declared_independent_unit != confirmation.declared_independent_unit {
+        return Err("primitive and confirmation independent-unit declarations differ".into());
+    }
+    if primitive.feature_contract != confirmation.feature_contract {
+        return Err("primitive and confirmation feature contracts differ".into());
+    }
+    let report = mic_model::refit_transport_uncertainty(
+        &primitive.samples,
+        &confirmation.samples,
+        primitive.primitive_sampling_proportions,
+        &primitive.declared_independent_unit,
+        &primitive.feature_contract,
+        primitive.config,
+        refit_config,
+    )
+    .map_err(|error| error.to_string())?;
+    let mut ledger = EvidenceLedger::new(ExecutionMode::Exploratory);
+    for (key, value) in [
+        (
+            "primitive_transport_request_sha256",
+            primitive_request_sha256.as_str(),
+        ),
+        (
+            "combination_confirmation_request_sha256",
+            confirmation_request_sha256.as_str(),
+        ),
+        (
+            "transport_refit_request_sha256",
+            refit_request_sha256.as_str(),
+        ),
+        ("transport_refit_plan_sha256", report.resample_plan_sha256()),
+    ] {
+        ledger.provenance(key, value);
+    }
+    ledger.provenance(
+        "primitive_transport_seed",
+        primitive.config.seed.to_string(),
+    );
+    ledger.provenance("transport_refit_seed", refit.seed.to_string());
+    ledger.provenance(
+        "declared_independent_unit",
+        &primitive.declared_independent_unit,
+    );
+    let value = serde_json::json!({
+        "schema_version": "1.0.0",
+        "authority": "diagnostic_only",
+        "certificate_eligible": false,
+        "calibrated_test": false,
+        "stage_order": "primitive_validated_before_confirmation_opened",
+        "diagnostic": report,
+        "ledger": ledger,
+    });
+    write_json_value(&value, output.as_deref())
 }
 
 /// Input contract for the finite-state fixed-model completion diagnostic.
@@ -611,6 +724,7 @@ fn print_help() {
            mic preflight MANIFEST.json [--output PATH]\n\
            mic closure-crossfit INPUT.json [--output PATH]\n\
            mic predict-combination PRIMITIVES.json CONFIRMATION.json [--output PATH]\n\
+           mic predict-combination-refits PRIMITIVES.json CONFIRMATION.json REFITS.json [--output PATH]\n\
            mic finite-completion INPUT.json [--output PATH]\n\
            mic orient INPUT.json [--output PATH]\n\
            mic propose-tilt INPUT.json [--output PATH]\n\
@@ -698,6 +812,11 @@ mod tests {
         assert_eq!(primitive.schema_version, "1.0.0");
         assert_eq!(primitive.samples.len(), 6);
         assert_eq!(confirmation.samples.len(), 2);
+        let refit: TransportRefitRequest = serde_json::from_str(include_str!(
+            "../../../examples/transport_refit_request.json"
+        ))
+        .unwrap();
+        assert_eq!(refit.n_refits, 20);
 
         let unknown = vec![
             "primitive.json".into(),
@@ -716,6 +835,17 @@ mod tests {
         assert_eq!(
             predict_combination(&missing_output).unwrap_err(),
             "usage: mic predict-combination PRIMITIVES.json CONFIRMATION.json [--output PATH]"
+        );
+
+        let unknown_refit = vec![
+            "primitive.json".into(),
+            "confirmation.json".into(),
+            "refits.json".into(),
+            "--bogus".into(),
+        ];
+        assert_eq!(
+            predict_combination_refits(&unknown_refit).unwrap_err(),
+            "usage: mic predict-combination-refits PRIMITIVES.json CONFIRMATION.json REFITS.json [--output PATH]"
         );
     }
 

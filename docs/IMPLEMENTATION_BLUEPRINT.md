@@ -74,6 +74,11 @@ Owns learned nuisance and diagnostic models:
   cross-fits before opening `11`, preserves raw product mass, computes
   cluster-level ESS, and reports a descriptive proper score plus optional exact
   weighted energy distance;
+- deterministic, arm-stratified cluster subsampling that refits the transport
+  nuisance and scoring stages conditional on the frozen feature transform,
+  binds the plan and seed, reports metric-specific plan diversity and per-arm
+  inclusion coverage, and preserves every failed refit without promoting
+  empirical quantiles to calibrated intervals;
 - a full-rank finite-state fixed-DAG completion solver that separates design
   inconsistency, Markov failure, nonlocality, conditional-normalization failure,
   and conservative rank-deficient set identification;

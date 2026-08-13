@@ -351,9 +351,14 @@ qualification.
   per-fold raw normalizers, cluster ESS, a linear-time held-out proper score,
   separate stage fingerprints, and optional exact weighted energy distance are
   serialized with diagnostic-only authority.
-- [ ] Add cluster-resampled full-pipeline refits and calibrated weighted-law
-  equivalence/change inference; ordinary row permutations are invalid for the
-  cross-fitted weighted empirical law.
+- [x] Add deterministic without-replacement, arm-stratified cluster refits of
+  the primitive nuisance and combination-scoring stages conditional on the
+  frozen feature transform; preserve the seed, complete plan fingerprint,
+  realized counts, metric-specific successful-plan diversity, per-arm inclusion
+  coverage, failed-refit reasons, and descriptive empirical quantiles without
+  calling them confidence intervals or general robustness guarantees.
+- [ ] Add calibrated weighted-law equivalence/change inference; ordinary row
+  permutations are invalid for the cross-fitted weighted empirical law.
 - [ ] Calibrate cluster-level type-I error and coverage before adding flexible learner families.
 - [ ] Add one controlled-real factorial experiment before making general discovery claims.
 - [ ] Add Python, Arrow, Parquet, Polars/pandas, and AnnData surfaces only after the reference estimator is end to end.

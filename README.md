@@ -68,6 +68,7 @@ cargo run -p mic-cli -- design audit examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- preflight examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- closure-crossfit examples/closure_crossfit_request.json
 cargo run -p mic-cli -- predict-combination examples/primitive_transport_request.json examples/combination_confirmation_request.json
+cargo run -p mic-cli -- predict-combination-refits examples/primitive_transport_request.json examples/combination_confirmation_request.json examples/transport_refit_request.json
 cargo run -p mic-cli -- orient examples/orientation/parity_demo.json
 cargo run -p mic-cli -- propose-tilt examples/proposal_inputs/parity_active_tilt.json
 cargo run -p mic-cli -- freeze-scout examples/scout_inputs/self_driving_request.json examples/scout_inputs/shift_factorization_draft.json
@@ -147,6 +148,21 @@ does not prove that an upstream analyst chose the feature transform without
 seeing `11`; that historical isolation requires a trusted external receipt. It
 does not turn either a small normalized-law discrepancy or a near-unit raw
 normalizer into a closure certificate.
+
+`mic predict-combination-refits` adds deterministic, arm-stratified cluster
+subsampling around the transport nuisance and scoring stages, conditional on
+the frozen feature transform. Every selected unit remains intact and appears at
+most once per refit; Stage A is refit from scratch and the separately sampled
+`11` units are rescored. The output retains the refit seed, complete
+resample-plan hash, realized counts, metric-specific attempted and successful
+plan diversity, per-arm inclusion coverage and frequency ranges,
+failed-replicate reasons, and the exact quantile-reporting state. Quantiles for
+raw-normalizer residual, cluster ESS, proper-score gain, and weighted energy
+are suppressed when the relevant successful subset ensemble is degenerate, too
+few refits succeed, or the exact-energy budget is not met uniformly. These are
+seed-specific successful-refit subset-ensemble summaries, not confidence
+intervals, general robustness guarantees, equivalence tests, or certificate
+evidence.
 
 Passive DAG learners, parsimony searches, residual heuristics, and previous audit runs may be connected only as proposal adapters. They can prioritize candidate supports, measurements, or follow-up interventions, but their scores never count as certificate evidence and data-adaptive proposals require independent confirmation.
 

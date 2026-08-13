@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mechanism-interferometry.invalid/schemas/transport_refit_request.schema.json",
+  "title": "Fitted transport cluster-refit request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "seed", "n_refits", "retain_fraction"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "seed": {"type": "integer", "minimum": 0},
+    "n_refits": {"type": "integer", "minimum": 20, "maximum": 1000},
+    "retain_fraction": {
+      "type": "number",
+      "exclusiveMinimum": 0.0,
+      "exclusiveMaximum": 1.0
+    }
+  }
+}
