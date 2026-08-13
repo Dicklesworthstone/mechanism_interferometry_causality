@@ -3,6 +3,7 @@
 
 pub mod closure;
 pub mod crossfit;
+pub mod finite_completion;
 pub mod multinomial;
 pub mod prediction;
 
@@ -14,6 +15,11 @@ pub use closure::{
 pub use crossfit::{
     ClosureCrossFitConfig, ClosureCrossFitError, ClusteredMultinomialSample,
     CrossFittedClosureDiagnostic, FoldClosureDiagnostic, cross_fit_closure_models,
+};
+pub use finite_completion::{
+    CompletionFailure, CompletionStatus, FiniteCompletionInput, FiniteCompletionReport,
+    FiniteMechanismFamily, FiniteObservedRegime, IdentifiedPotential,
+    solve_finite_modular_completion,
 };
 pub use multinomial::{
     FitConfig, FitSummary, MultinomialFitError, MultinomialLinearModel, MultinomialSample,
