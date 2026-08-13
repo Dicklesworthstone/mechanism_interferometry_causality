@@ -6,9 +6,10 @@
 
 use crate::{
     DesignError, DesignPoint, ModularCompletionClass, audit_design, classify_two_root_diagonal,
+    matrix_rank,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// One cell of a product of categorical mechanism families.
 ///
@@ -201,6 +202,23 @@ pub struct FamilyClassificationInput<'a> {
     pub baseline_combo_laws: Option<([f64; 4], [f64; 4])>,
 }
 
+/// One unobserved cell scored by how much it shrinks the additive identified set.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NextCornerCandidate {
+    /// Bit-string or `level,level,…` label.
+    pub corner: String,
+    /// Drop in `n_coded − rank` after adding this cell.
+    pub identified_set_reduction: usize,
+    /// Identified-set dimension if this cell is collected.
+    pub new_identified_set_dimension: usize,
+    /// Increase in lack-of-fit dimension after adding this cell.
+    pub lack_of_fit_gain: usize,
+    /// Lack-of-fit dimension if this cell is collected.
+    pub new_lack_of_fit_dimension: usize,
+    /// Positive integer cost. Default unit cost is 1000.
+    pub cost: u32,
+}
+
 /// Geometry-plus-witness classification. Never a certificate.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ObservedFamilyClassification {
@@ -218,6 +236,10 @@ pub struct ObservedFamilyClassification {
     pub n_coded_columns: usize,
     /// Missing one-bit primitive corners, if the design is two-factor.
     pub missing_primitive_corners: Vec<String>,
+    /// Highest-ranked unobserved cell, if any remain.
+    pub recommended_next_corner: Option<String>,
+    /// Identified-set reduction delivered by that cell.
+    pub next_corner_identified_set_reduction: Option<usize>,
     /// Human-readable refusal or witness note.
     pub note: String,
 }
@@ -278,6 +300,7 @@ pub fn classify_observed_family(
         )
     };
     debug_assert_ne!(modular_completion, ModularCompletionClass::Unique);
+    let next = rank_missing_boolean_corners(input.points, tolerance)?;
     Ok(ObservedFamilyClassification {
         modular_completion,
         orientation,
@@ -286,8 +309,241 @@ pub fn classify_observed_family(
         main_effects_rank: audit.main_effects_rank,
         n_coded_columns,
         missing_primitive_corners,
+        recommended_next_corner: next.first().map(|item| item.corner.clone()),
+        next_corner_identified_set_reduction: next
+            .first()
+            .map(|item| item.identified_set_reduction),
         note,
     })
+}
+
+/// Ranks unobserved Boolean corners by identified-set reduction per unit cost.
+///
+/// Dimension is capped at 6 so the enumeration stays a design audit, not a search.
+/// Every missing cell has unit cost 1000.
+pub fn rank_missing_boolean_corners(
+    points: &[DesignPoint],
+    tolerance: f64,
+) -> Result<Vec<NextCornerCandidate>, DesignError> {
+    rank_missing_boolean_corners_with_costs(points, &BTreeMap::new(), tolerance)
+}
+
+/// Same ranking with optional positive integer costs (default 1000).
+pub fn rank_missing_boolean_corners_with_costs(
+    points: &[DesignPoint],
+    costs: &BTreeMap<String, u32>,
+    tolerance: f64,
+) -> Result<Vec<NextCornerCandidate>, DesignError> {
+    if points.is_empty() {
+        return Err(DesignError::EmptyDesign);
+    }
+    let dimension = points[0].dimension();
+    if dimension == 0 || dimension > 6 {
+        return Ok(Vec::new());
+    }
+    let current = audit_design(points, tolerance)?;
+    let n_coded = dimension + 1;
+    let current_idim = n_coded.saturating_sub(current.main_effects_rank);
+    let seen: BTreeSet<String> = points.iter().map(DesignPoint::bit_string).collect();
+    let n_corners = 1_usize << dimension;
+    let mut ranked = Vec::new();
+    for index in 0..n_corners {
+        let label: String = (0..dimension)
+            .map(|bit| if (index >> bit) & 1 == 1 { '1' } else { '0' })
+            .collect();
+        if seen.contains(&label) {
+            continue;
+        }
+        let cost = *costs.get(&label).unwrap_or(&1000);
+        if cost == 0 {
+            return Err(DesignError::InvalidCost {
+                corner: label,
+                cost,
+            });
+        }
+        let mut expanded = points.to_vec();
+        expanded.push(DesignPoint::parse(&label)?);
+        let next = audit_design(&expanded, tolerance)?;
+        let new_idim = n_coded.saturating_sub(next.main_effects_rank);
+        ranked.push(NextCornerCandidate {
+            corner: label,
+            identified_set_reduction: current_idim.saturating_sub(new_idim),
+            new_identified_set_dimension: new_idim,
+            lack_of_fit_gain: next
+                .lack_of_fit_dimension
+                .saturating_sub(current.lack_of_fit_dimension),
+            new_lack_of_fit_dimension: next.lack_of_fit_dimension,
+            cost,
+        });
+    }
+    sort_next_corners(&mut ranked);
+    Ok(ranked)
+}
+
+fn sort_next_corners(ranked: &mut [NextCornerCandidate]) {
+    ranked.sort_by(|left, right| {
+        // reduction/cost then lof_gain/cost, via cross-multiply; then label.
+        let left_id = left.identified_set_reduction as u128 * u128::from(right.cost);
+        let right_id = right.identified_set_reduction as u128 * u128::from(left.cost);
+        let left_lof = left.lack_of_fit_gain as u128 * u128::from(right.cost);
+        let right_lof = right.lack_of_fit_gain as u128 * u128::from(left.cost);
+        right_id
+            .cmp(&left_id)
+            .then(right_lof.cmp(&left_lof))
+            .then(left.corner.cmp(&right.corner))
+    });
+}
+
+/// Rectangle contrast `h(a',b') - h(a',b) - h(a,b') + h(a,b)` on supplied log-laws.
+pub fn rectangle_contrast(
+    face: &RectangleFace,
+    log_laws: &BTreeMap<Vec<u32>, f64>,
+) -> Result<f64, DesignError> {
+    let cells = rectangle_cells(face);
+    let mut values = [0.0; 4];
+    for (index, cell) in cells.iter().enumerate() {
+        values[index] = *log_laws.get(cell).ok_or_else(|| {
+            DesignError::MissingLaw(
+                cell.iter()
+                    .map(u32::to_string)
+                    .collect::<Vec<_>>()
+                    .join(","),
+            )
+        })?;
+        if !values[index].is_finite() {
+            return Err(DesignError::InvalidTolerance(values[index]));
+        }
+    }
+    let [hab, ha_b, hab_, ha_b_] = values;
+    Ok(ha_b_ - ha_b - hab_ + hab)
+}
+
+fn rectangle_cells(face: &RectangleFace) -> [Vec<u32>; 4] {
+    let dim = face
+        .held
+        .iter()
+        .map(|(index, _)| *index)
+        .chain([face.first, face.second])
+        .max()
+        .unwrap_or(0)
+        + 1;
+    let mut base = vec![0_u32; dim];
+    for (index, level) in &face.held {
+        base[*index] = *level;
+    }
+    let [a, a_prime] = face.first_levels;
+    let [b, b_prime] = face.second_levels;
+    let mut hab = base.clone();
+    hab[face.first] = a;
+    hab[face.second] = b;
+    let mut ha_b = base.clone();
+    ha_b[face.first] = a_prime;
+    ha_b[face.second] = b;
+    let mut hab_ = base.clone();
+    hab_[face.first] = a;
+    hab_[face.second] = b_prime;
+    let mut ha_b_ = base;
+    ha_b_[face.first] = a_prime;
+    ha_b_[face.second] = b_prime;
+    [hab, ha_b, hab_, ha_b_]
+}
+
+/// Classifies a multi-level product design. Geometry never yields `unique`.
+pub fn classify_multilevel_family(
+    points: &[MultiLevelPoint],
+    cardinalities: &[u32],
+    same_target_tilt_count: usize,
+    tolerance: f64,
+) -> Result<ObservedFamilyClassification, DesignError> {
+    let matrix = multilevel_main_effects_matrix(points, cardinalities)?;
+    let n_coded_columns = matrix.first().map_or(0, Vec::len);
+    let main_effects_rank = matrix_rank(matrix, tolerance)?;
+    let identified_set_dimension = n_coded_columns.saturating_sub(main_effects_rank);
+    let lack_of_fit_dimension = points.len().saturating_sub(main_effects_rank);
+    let orientation = orientation_testability(same_target_tilt_count);
+    let next = rank_missing_multilevel_cells(points, cardinalities, tolerance)?;
+    let note = if orientation == OrientationTestability::Untestable {
+        "multi-level geometry does not identify a unique local normalized potential system; orientation is untestable without a same-target tilt family"
+    } else {
+        "multi-level geometry does not identify a unique local normalized potential system"
+    };
+    Ok(ObservedFamilyClassification {
+        modular_completion: ModularCompletionClass::Untestable,
+        orientation,
+        identified_set_dimension,
+        lack_of_fit_dimension,
+        main_effects_rank,
+        n_coded_columns,
+        missing_primitive_corners: Vec::new(),
+        recommended_next_corner: next.first().map(|item| item.corner.clone()),
+        next_corner_identified_set_reduction: next
+            .first()
+            .map(|item| item.identified_set_reduction),
+        note: note.to_string(),
+    })
+}
+
+fn rank_missing_multilevel_cells(
+    points: &[MultiLevelPoint],
+    cardinalities: &[u32],
+    tolerance: f64,
+) -> Result<Vec<NextCornerCandidate>, DesignError> {
+    let n_cells: usize = cardinalities
+        .iter()
+        .map(|&levels| levels as usize)
+        .try_fold(1_usize, usize::checked_mul)
+        .unwrap_or(usize::MAX);
+    if n_cells > 64 {
+        return Ok(Vec::new());
+    }
+    let current = multilevel_main_effects_matrix(points, cardinalities)?;
+    let n_coded = current.first().map_or(0, Vec::len);
+    let current_rank = matrix_rank(current, tolerance)?;
+    let current_idim = n_coded.saturating_sub(current_rank);
+    let current_lof = points.len().saturating_sub(current_rank);
+    let seen: BTreeSet<Vec<u32>> = points.iter().map(|point| point.levels.clone()).collect();
+    let mut ranked = Vec::new();
+    for cell in product_cells(cardinalities) {
+        if seen.contains(&cell) {
+            continue;
+        }
+        let mut expanded = points.to_vec();
+        expanded.push(MultiLevelPoint::new(cell.clone())?);
+        let matrix = multilevel_main_effects_matrix(&expanded, cardinalities)?;
+        let rank = matrix_rank(matrix, tolerance)?;
+        let new_idim = n_coded.saturating_sub(rank);
+        let new_lof = expanded.len().saturating_sub(rank);
+        ranked.push(NextCornerCandidate {
+            corner: cell
+                .iter()
+                .map(u32::to_string)
+                .collect::<Vec<_>>()
+                .join(","),
+            identified_set_reduction: current_idim.saturating_sub(new_idim),
+            new_identified_set_dimension: new_idim,
+            lack_of_fit_gain: new_lof.saturating_sub(current_lof),
+            new_lack_of_fit_dimension: new_lof,
+            cost: 1000,
+        });
+    }
+    sort_next_corners(&mut ranked);
+    Ok(ranked)
+}
+
+fn product_cells(cardinalities: &[u32]) -> Vec<Vec<u32>> {
+    let mut cells = vec![Vec::new()];
+    for &levels in cardinalities {
+        let mut next = Vec::new();
+        for prefix in &cells {
+            for level in 0..levels {
+                let mut row = prefix.clone();
+                row.push(level);
+                next.push(row);
+            }
+        }
+        cells = next;
+    }
+    cells
 }
 
 fn is_two_root_diagonal(points: &[DesignPoint]) -> bool {
@@ -313,6 +569,7 @@ fn missing_two_factor_primitives(points: &[DesignPoint]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     fn bool_point(bits: &str) -> DesignPoint {
         DesignPoint::parse(bits).unwrap()
@@ -461,5 +718,127 @@ mod tests {
         assert_eq!(report.lack_of_fit_dimension, 0);
         assert!(report.note.contains("vacuous flatness"));
         assert_ne!(report.modular_completion, ModularCompletionClass::Unique);
+    }
+
+    #[test]
+    fn diagonal_recommends_a_primitive_that_kills_the_identified_set() {
+        let points = [bool_point("00"), bool_point("11")];
+        let ranked = rank_missing_boolean_corners(&points, 1e-12).unwrap();
+        assert_eq!(ranked.len(), 2);
+        assert_eq!(ranked[0].identified_set_reduction, 1);
+        assert_eq!(ranked[0].new_identified_set_dimension, 0);
+        assert!(
+            ranked
+                .iter()
+                .all(|item| item.corner == "01" || item.corner == "10")
+        );
+        let report = classify_observed_family(
+            FamilyClassificationInput {
+                points: &points,
+                same_target_tilt_count: 0,
+                distinct_root_targets: true,
+                baseline_combo_laws: None,
+            },
+            1e-12,
+        )
+        .unwrap();
+        assert_eq!(report.identified_set_dimension, 1);
+        assert!(matches!(
+            report.recommended_next_corner.as_deref(),
+            Some("01" | "10")
+        ));
+        assert_eq!(report.next_corner_identified_set_reduction, Some(1));
+    }
+
+    #[test]
+    fn three_corner_ell_recommends_the_missing_interaction_cell() {
+        let points = [bool_point("00"), bool_point("10"), bool_point("01")];
+        let ranked = rank_missing_boolean_corners(&points, 1e-12).unwrap();
+        assert_eq!(ranked.len(), 1);
+        assert_eq!(ranked[0].corner, "11");
+        assert_eq!(ranked[0].identified_set_reduction, 0);
+        assert_eq!(ranked[0].lack_of_fit_gain, 1);
+    }
+
+    #[test]
+    fn complete_square_has_no_next_corner() {
+        let points = [
+            bool_point("00"),
+            bool_point("10"),
+            bool_point("01"),
+            bool_point("11"),
+        ];
+        assert!(
+            rank_missing_boolean_corners(&points, 1e-12)
+                .unwrap()
+                .is_empty()
+        );
+        let report = classify_observed_family(
+            FamilyClassificationInput {
+                points: &points,
+                same_target_tilt_count: 0,
+                distinct_root_targets: true,
+                baseline_combo_laws: None,
+            },
+            1e-12,
+        )
+        .unwrap();
+        assert_eq!(report.identified_set_dimension, 0);
+        assert!(report.recommended_next_corner.is_none());
+    }
+
+    #[test]
+    fn multilevel_partial_grid_recommends_a_missing_cell() {
+        let points = [ml(&[0, 0]), ml(&[1, 0]), ml(&[0, 1])];
+        let report = classify_multilevel_family(&points, &[2, 3], 0, 1e-12).unwrap();
+        assert_eq!(
+            report.modular_completion,
+            ModularCompletionClass::Untestable
+        );
+        assert_eq!(report.orientation, OrientationTestability::Untestable);
+        assert_ne!(report.modular_completion, ModularCompletionClass::Unique);
+        assert!(report.recommended_next_corner.is_some());
+        assert!(report.identified_set_dimension > 0 || report.recommended_next_corner.is_some());
+    }
+
+    #[test]
+    fn expensive_primitive_loses_to_the_cheap_one() {
+        let points = [bool_point("00"), bool_point("11")];
+        let mut costs = BTreeMap::new();
+        costs.insert("01".into(), 1000);
+        costs.insert("10".into(), 50_000);
+        let ranked = rank_missing_boolean_corners_with_costs(&points, &costs, 1e-12).unwrap();
+        assert_eq!(ranked[0].corner, "01");
+        assert_eq!(ranked[0].cost, 1000);
+        assert_eq!(ranked[1].corner, "10");
+        let error = rank_missing_boolean_corners_with_costs(
+            &points,
+            &BTreeMap::from([("01".into(), 0)]),
+            1e-12,
+        )
+        .unwrap_err();
+        assert!(matches!(error, DesignError::InvalidCost { .. }));
+    }
+
+    #[test]
+    fn rectangle_contrast_recovers_the_boolean_interaction() {
+        let face = RectangleFace {
+            first: 0,
+            second: 1,
+            first_levels: [0, 1],
+            second_levels: [0, 1],
+            held: Vec::new(),
+        };
+        let mut laws = BTreeMap::new();
+        laws.insert(vec![0, 0], 0.0);
+        laws.insert(vec![1, 0], 0.0);
+        laws.insert(vec![0, 1], 0.0);
+        laws.insert(vec![1, 1], 1.0);
+        assert!((rectangle_contrast(&face, &laws).unwrap() - 1.0).abs() < 1e-15);
+        laws.remove(&vec![1, 1]);
+        assert!(matches!(
+            rectangle_contrast(&face, &laws),
+            Err(DesignError::MissingLaw(_))
+        ));
     }
 }

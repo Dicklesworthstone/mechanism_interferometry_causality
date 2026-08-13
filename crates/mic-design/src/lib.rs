@@ -4,9 +4,10 @@
 mod multilevel;
 
 pub use multilevel::{
-    FamilyClassificationInput, MultiLevelPoint, ObservedFamilyClassification,
-    OrientationTestability, RectangleFace, classify_observed_family, enumerate_rectangles,
-    multilevel_main_effects_matrix, orientation_testability,
+    FamilyClassificationInput, MultiLevelPoint, NextCornerCandidate, ObservedFamilyClassification,
+    OrientationTestability, RectangleFace, classify_multilevel_family, classify_observed_family,
+    enumerate_rectangles, multilevel_main_effects_matrix, orientation_testability,
+    rank_missing_boolean_corners, rank_missing_boolean_corners_with_costs, rectangle_contrast,
 };
 
 use serde::{Deserialize, Serialize};
@@ -76,6 +77,17 @@ pub enum DesignError {
         /// Declared number of levels.
         levels: u32,
     },
+    /// A next-corner cost was zero or otherwise unusable.
+    #[error("cost for corner {corner} must be a positive integer, got {cost}")]
+    InvalidCost {
+        /// Corner label.
+        corner: String,
+        /// Rejected cost.
+        cost: u32,
+    },
+    /// A rectangle contrast is missing one of its four laws.
+    #[error("rectangle is missing a law at cell {0}")]
+    MissingLaw(String),
 }
 
 /// One Boolean factorial design corner.
