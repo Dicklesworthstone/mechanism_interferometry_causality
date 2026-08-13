@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-13T01:57:05Z",
+  "generated_at_utc": "2026-08-13T02:00:50Z",
   "hash_algorithm": "sha256",
   "file_count": 174,
-  "aggregate_sha256": "3c9a569553f31a18d0cc4adeb34a67640f990881a3900a09ccadb20dd858ec2a",
+  "aggregate_sha256": "2bac52d312ffc4c9e5ca5f292e1091331725dac98f3120dbaed23baab10a5ba1",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -148,13 +148,13 @@
     },
     {
       "path": "crates/mic-design/src/lib.rs",
-      "bytes": 50913,
-      "sha256": "6c1988bdb54291b088743daea8572aff8e42ae37b5a98eb8fc9012fac3a62d1c"
+      "bytes": 50990,
+      "sha256": "08df3fe525f55ca63e8d3dd821932f6ee2700f464f98cd83e88240662cd7a5cd"
     },
     {
       "path": "crates/mic-design/src/multilevel.rs",
-      "bytes": 35356,
-      "sha256": "c37bc87a6a33be9d049e9c3e79455a333beaf327b3c939b6fc478b3adf59dc4c"
+      "bytes": 36101,
+      "sha256": "08a0d7ba539c88ab9d6564482c5c3d6753c4702be6d5fa3004ae64d096176562"
     },
     {
       "path": "crates/mic-engine/Cargo.toml",
@@ -173,8 +173,8 @@
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 42630,
-      "sha256": "bdda48aa611db4d3850361eb8d93bf323eb7ef5f93fef7927cdbdaebf74ab63b"
+      "bytes": 43397,
+      "sha256": "99566b66be1f666246c9e7317939692abbebe9005ed93e7bad1097f439a34e10"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
@@ -598,13 +598,13 @@
     },
     {
       "path": "paper/main.pdf",
-      "bytes": 566100,
-      "sha256": "02bf3410bc6e5b8d9d24e2703cbbdc94022f128c46179465c0479e10e68aca7e"
+      "bytes": 568846,
+      "sha256": "e1d775bfeb347a26583ed103b09f942cd1292f8eb386e099f652587604f976b2"
     },
     {
       "path": "paper/main.tex",
-      "bytes": 108344,
-      "sha256": "617ffdce2e06f3e928daef166271098c8b2ba47c39eb16d5c93f8929e6da36fb"
+      "bytes": 109613,
+      "sha256": "14e3892c946843c982244816803a27ddb541cc27922ca4cf94e11fdd763622b8"
     },
     {
       "path": "paper/references.bib",
@@ -753,8 +753,8 @@
     },
     {
       "path": "scripts/public_extracts/common.py",
-      "bytes": 4211,
-      "sha256": "d973902c72c8e3c63ab5ea40e72eb67dc3522d1a8c218fe2c22371d19e784742"
+      "bytes": 4439,
+      "sha256": "7a95d788ae286dc2ecf8601846b9e80d2d1f605041a66050403861197f72e413"
     },
     {
       "path": "scripts/public_extracts/process_alts.py",
@@ -838,8 +838,8 @@
     },
     {
       "path": "site/mechanism_interferometry.pdf",
-      "bytes": 566100,
-      "sha256": "02bf3410bc6e5b8d9d24e2703cbbdc94022f128c46179465c0479e10e68aca7e"
+      "bytes": 568846,
+      "sha256": "e1d775bfeb347a26583ed103b09f942cd1292f8eb386e099f652587604f976b2"
     },
     {
       "path": "site/pkg/mic.d.ts",
