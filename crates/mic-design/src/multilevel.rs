@@ -6,8 +6,8 @@
 //! module does not invent from a design matrix.
 
 use crate::{
-    DesignError, DesignPoint, ModularCompletionClass, audit_design, classify_two_root_diagonal,
-    matrix_rank,
+    DesignError, DesignPoint, ModularCompletionClass, ObservedDesign, audit_design,
+    classify_two_root_diagonal, matrix_rank,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -203,11 +203,23 @@ pub struct FamilyClassificationInput<'a> {
     pub baseline_combo_laws: Option<([f64; 4], [f64; 4])>,
 }
 
+/// Why a ranked cell is absent from the retained design.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NextCornerKind {
+    /// The cell never appeared in the table.
+    NeverSeen,
+    /// The cell was observed below `min_corner_count` and dropped.
+    UnderSupported,
+}
+
 /// One unobserved cell scored by how much it shrinks the additive identified set.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NextCornerCandidate {
     /// Bit-string or `level,level,…` label.
     pub corner: String,
+    /// Never-seen arm versus under-supported already-attempted cell.
+    pub kind: NextCornerKind,
     /// Drop in `n_coded − rank` after adding this cell.
     pub identified_set_reduction: usize,
     /// Identified-set dimension if this cell is collected.
@@ -401,6 +413,29 @@ pub fn rank_missing_boolean_corners_with_costs(
     costs: &BTreeMap<String, u32>,
     tolerance: f64,
 ) -> Result<Vec<NextCornerCandidate>, DesignError> {
+    rank_missing_boolean_corners_with_kinds(points, costs, &BTreeSet::new(), tolerance)
+}
+
+/// Same ranking, tagging dropped-but-observed cells as under-supported.
+pub fn rank_missing_boolean_corners_from_observed(
+    design: &ObservedDesign,
+    costs: &BTreeMap<String, u32>,
+    tolerance: f64,
+) -> Result<Vec<NextCornerCandidate>, DesignError> {
+    let dropped: BTreeSet<String> = design
+        .dropped
+        .iter()
+        .map(|corner| corner.point.bit_string())
+        .collect();
+    rank_missing_boolean_corners_with_kinds(&design.points, costs, &dropped, tolerance)
+}
+
+fn rank_missing_boolean_corners_with_kinds(
+    points: &[DesignPoint],
+    costs: &BTreeMap<String, u32>,
+    under_supported: &BTreeSet<String>,
+    tolerance: f64,
+) -> Result<Vec<NextCornerCandidate>, DesignError> {
     if points.is_empty() {
         return Err(DesignError::EmptyDesign);
     }
@@ -432,8 +467,14 @@ pub fn rank_missing_boolean_corners_with_costs(
         expanded.push(DesignPoint::parse(&label)?);
         let next = audit_design(&expanded, tolerance)?;
         let new_idim = n_coded.saturating_sub(next.main_effects_rank);
+        let kind = if under_supported.contains(&label) {
+            NextCornerKind::UnderSupported
+        } else {
+            NextCornerKind::NeverSeen
+        };
         ranked.push(NextCornerCandidate {
             corner: label,
+            kind,
             identified_set_reduction: current_idim.saturating_sub(new_idim),
             new_identified_set_dimension: new_idim,
             lack_of_fit_gain: next
@@ -611,6 +652,7 @@ pub fn rank_missing_multilevel_cells_with_costs(
         let new_lof = expanded.len().saturating_sub(rank);
         ranked.push(NextCornerCandidate {
             corner: label,
+            kind: NextCornerKind::NeverSeen,
             identified_set_reduction: current_idim.saturating_sub(new_idim),
             new_identified_set_dimension: new_idim,
             lack_of_fit_gain: new_lof.saturating_sub(current_lof),

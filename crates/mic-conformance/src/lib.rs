@@ -84,9 +84,17 @@ mod tests {
         }
 
         let mut samples = Vec::new();
-        for (class, law) in example.laws.iter().enumerate() {
-            for (state, mass) in law.observed_probabilities.iter().enumerate() {
-                let count = (mass * 10.0).round() as usize;
+        let exact_counts = [[5_usize, 5], [5, 5], [5, 5], [4, 6]];
+        let exact_masses = [[0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.4, 0.6]];
+        for (class, ((law, counts), masses)) in example
+            .laws
+            .iter()
+            .zip(exact_counts)
+            .zip(exact_masses)
+            .enumerate()
+        {
+            for (state, count) in counts.into_iter().enumerate() {
+                assert!((law.observed_probabilities[state] - masses[state]).abs() < 1e-14);
                 let y = if state == 0 { -1.0 } else { 1.0 };
                 samples.extend((0..count).map(|_| MultinomialSample {
                     features: vec![y],
