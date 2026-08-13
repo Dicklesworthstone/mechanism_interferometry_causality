@@ -7,7 +7,8 @@
 use crate::EngineError;
 use mic_data::{RawTable, load_raw_csv};
 use mic_design::{
-    DesignPoint, ObservedDesign, SamplingOddsAudit, audit_sampling_odds, observed_design_from_rows,
+    DesignPoint, ObservedDesign, SamplingOddsAudit, audit_design, audit_sampling_odds,
+    observed_design_from_rows,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -83,9 +84,32 @@ pub struct InterferometerProposal {
     pub empirically_product: bool,
     /// Smallest retained corner count.
     pub min_corner_count: usize,
+    /// Pointwise lack-of-fit dimension of the retained corners, when defined.
+    pub lack_of_fit_dimension: Option<usize>,
     /// Ranking score: complete square first, then min corner count.
     pub priority: f64,
     /// Why this is or is not immediately auditable.
+    pub note: String,
+}
+
+/// Rows-versus-units header. A million cells with three replicates is three units.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CausalInformationContent {
+    /// Raw table rows.
+    pub n_rows: usize,
+    /// Distinct values of the cluster column, or `n_rows` when the unit is a row.
+    pub n_independent_units: usize,
+    /// How the independent unit was chosen.
+    pub unit_basis: ClusterUnitBasis,
+    /// Retained corners on the highest-priority interferometer.
+    pub n_distinct_supported_regimes: usize,
+    /// Number of complete two-factor squares in the atlas.
+    pub n_complete_testable_squares: usize,
+    /// Smallest retained corner count on the headline interferometer.
+    pub confirmatory_units_per_corner_min: Option<usize>,
+    /// Largest retained corner count on the headline interferometer.
+    pub confirmatory_units_per_corner_max: Option<usize>,
+    /// Reminder that this header is not an arrow.
     pub note: String,
 }
 
@@ -104,6 +128,8 @@ pub struct SurveyReport {
     pub path: String,
     /// Row count.
     pub n_rows: usize,
+    /// Rows, independent units, regimes, and complete squares.
+    pub information_content: CausalInformationContent,
     /// Column triage.
     pub columns: Vec<ColumnTriage>,
     /// Coarsest cluster-candidate column, if any.
@@ -171,13 +197,20 @@ pub fn run_unsupervised_survey(
         .find(|item| item.complete_square)
         .and_then(|item| suggested_four_law_manifest(&table, item, cluster_column.as_deref()));
     let next_step = survey_next_step(&interferometers);
+    let information_content = information_content(
+        &table,
+        cluster_column.as_deref(),
+        cluster_unit_basis,
+        &interferometers,
+    )?;
     Ok(SurveyReport {
-        schema_version: "1.0.0".into(),
+        schema_version: "1.1.0".into(),
         authority: SurveyAuthority::ProposalOnly,
         wall: "State-independent within-regime selection cannot be established from observed rows. This survey cannot issue a certificate.".into(),
         table_sha256: table.content_sha256,
         path: table.path.display().to_string(),
         n_rows: table.rows.len(),
+        information_content,
         columns,
         inferred_cluster_column: cluster_column,
         cluster_unit_basis,
@@ -406,6 +439,9 @@ fn propose(
     };
     let empirically_product = sampling.is_some_and(|audit| audit.is_product);
     let min_corner_count = design.counts.iter().copied().min().unwrap_or(0);
+    let lack_of_fit_dimension = audit_design(&design.points, 1e-10)
+        .ok()
+        .map(|audit| audit.lack_of_fit_dimension);
     let near_square = design
         .points
         .first()
@@ -428,9 +464,49 @@ fn propose(
         dropped_corners,
         empirically_product,
         min_corner_count,
+        lack_of_fit_dimension,
         priority,
         note,
     }))
+}
+
+fn information_content(
+    table: &RawTable,
+    cluster_column: Option<&str>,
+    unit_basis: ClusterUnitBasis,
+    interferometers: &[InterferometerProposal],
+) -> Result<CausalInformationContent, EngineError> {
+    let n_rows = table.rows.len();
+    let n_independent_units = match cluster_column {
+        Some(name) => unique_values(table, header_index(table, name)?).len(),
+        None => n_rows,
+    };
+    let headline = interferometers
+        .iter()
+        .find(|item| item.complete_square)
+        .or_else(|| interferometers.first());
+    let n_distinct_supported_regimes = headline.map_or(0, |item| item.design.points.len());
+    let n_complete_testable_squares = interferometers
+        .iter()
+        .filter(|item| item.complete_square)
+        .count();
+    let (confirmatory_units_per_corner_min, confirmatory_units_per_corner_max) = headline
+        .map_or((None, None), |item| {
+            (
+                item.design.counts.iter().copied().min(),
+                item.design.counts.iter().copied().max(),
+            )
+        });
+    Ok(CausalInformationContent {
+        n_rows,
+        n_independent_units,
+        unit_basis,
+        n_distinct_supported_regimes,
+        n_complete_testable_squares,
+        confirmatory_units_per_corner_min,
+        confirmatory_units_per_corner_max,
+        note: "Independent units are clusters when a unit column is declared or inferred, otherwise rows. Complete squares are design facts, not arrows.".into(),
+    })
 }
 
 fn survey_next_step(interferometers: &[InterferometerProposal]) -> String {
@@ -665,6 +741,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.authority, SurveyAuthority::ProposalOnly);
+        assert_eq!(report.schema_version, "1.1.0");
         assert!(
             report
                 .interferometers
@@ -673,6 +750,12 @@ mod tests {
         );
         assert!(report.wall.contains("cannot issue a certificate"));
         assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Declared);
+        assert_eq!(report.information_content.n_rows, report.n_rows);
+        assert!(report.information_content.n_independent_units > 0);
+        assert!(report.information_content.n_independent_units <= report.n_rows);
+        assert!(report.information_content.n_complete_testable_squares >= 1);
+        assert_eq!(report.information_content.n_distinct_supported_regimes, 4);
+        assert!(report.information_content.note.contains("not arrows"));
         let suggested = report
             .suggested_manifest
             .expect("complete square should emit a draft");
@@ -834,6 +917,35 @@ mod tests {
         assert!(report.suggested_manifest.is_none());
     }
 
+    #[test]
+    fn diagonal_two_corner_table_has_vacuous_flatness_and_no_complete_square() {
+        let dir = std::env::temp_dir().join("mic-survey-diagonal");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("diagonal.csv");
+        std::fs::write(
+            &path,
+            "cluster_id,regime,x\n\
+             c00a,00,0\nc00b,00,1\n\
+             c11a,11,0\nc11b,11,1\n",
+        )
+        .unwrap();
+        let report =
+            run_unsupervised_survey(&path, None, Some("cluster_id"), SurveyPolicy::default())
+                .unwrap();
+        assert_eq!(report.authority, SurveyAuthority::ProposalOnly);
+        assert_eq!(report.information_content.n_independent_units, 4);
+        assert_eq!(report.information_content.n_complete_testable_squares, 0);
+        let square = report
+            .interferometers
+            .iter()
+            .find(|item| item.context_columns == ["regime"])
+            .expect("bitstring regime should still be proposed");
+        assert!(!square.complete_square);
+        assert_eq!(square.missing_corners, ["10", "01"]);
+        assert_eq!(square.lack_of_fit_dimension, Some(0));
+        assert_eq!(report.information_content.n_distinct_supported_regimes, 2);
+    }
+
     /// S2a season tautology as an atlas fixture, not a direction scout.
     /// elev × season is a complete square; the survey must not mint an arrow.
     #[test]
@@ -932,6 +1044,7 @@ mod tests {
             "table_sha256",
             "path",
             "n_rows",
+            "information_content",
             "columns",
             "inferred_cluster_column",
             "cluster_unit_basis",

@@ -15,8 +15,8 @@ use thiserror::Error;
 mod survey;
 mod tabular;
 pub use survey::{
-    ClusterUnitBasis, ColumnRole, ColumnTriage, InterferometerProposal, SurveyAuthority,
-    SurveyPolicy, SurveyReport, run_unsupervised_survey,
+    CausalInformationContent, ClusterUnitBasis, ColumnRole, ColumnTriage, InterferometerProposal,
+    SurveyAuthority, SurveyPolicy, SurveyReport, run_unsupervised_survey,
 };
 pub use tabular::{
     CellCurvature, ColumnProjection, FourLawFaceAudit, FourLawPolicy, ProjectionSpec,

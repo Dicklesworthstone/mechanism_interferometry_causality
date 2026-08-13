@@ -100,10 +100,16 @@ def summarize_survey(report_path: Path) -> dict:
         }
         for item in data.get("interferometers", [])
     ]
+    info = data.get("information_content") or {}
     return {
         "n_rows": data.get("n_rows"),
         "authority": data.get("authority"),
         "cluster_unit_basis": data.get("cluster_unit_basis"),
+        "n_independent_units": info.get("n_independent_units"),
+        "n_complete_testable_squares": info.get("n_complete_testable_squares"),
+        "n_distinct_supported_regimes": info.get("n_distinct_supported_regimes"),
+        "units_per_corner_min": info.get("confirmatory_units_per_corner_min"),
+        "units_per_corner_max": info.get("confirmatory_units_per_corner_max"),
         "n_interferometers": len(squares),
         "complete_squares": [item["id"] for item in squares if item["complete"]],
         "has_direction_scout": "direction_scout" in data and data["direction_scout"] is not None,
