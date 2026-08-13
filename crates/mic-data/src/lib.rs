@@ -15,6 +15,53 @@ pub use table::{
     build_ingest_report, fold_for_cluster, load_csv_table, load_raw_csv, resolve_data_path,
 };
 
+/// Adapter boundary for tabular ecosystems such as Arrow, Parquet, or `AnnData` bridges.
+///
+/// An adapter owns bytes-to-cells interoperability only. Every implementation
+/// must return the shared [`IngestReport`], so it cannot redefine units,
+/// regimes, folds, inclusion, or evidence authority.
+pub trait TabularAdapter {
+    /// Stable backend identifier recorded by higher-level evidence ledgers.
+    fn backend_name(&self) -> &'static str;
+
+    /// Loads and validates the manifest through this backend.
+    fn load(
+        &self,
+        manifest: &ExperimentManifest,
+        base_dir: Option<&Path>,
+        n_folds: usize,
+    ) -> Result<IngestReport, TableError>;
+}
+
+/// Dependency-free CSV adapter used by the default executable path.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct StdCsvAdapter;
+
+impl TabularAdapter for StdCsvAdapter {
+    fn backend_name(&self) -> &'static str {
+        "std_csv"
+    }
+
+    fn load(
+        &self,
+        manifest: &ExperimentManifest,
+        base_dir: Option<&Path>,
+        n_folds: usize,
+    ) -> Result<IngestReport, TableError> {
+        load_csv_table(manifest, base_dir, n_folds)
+    }
+}
+
+/// Loads through an explicit adapter without exposing adapter details to causal contracts.
+pub fn load_table_with_adapter(
+    adapter: &dyn TabularAdapter,
+    manifest: &ExperimentManifest,
+    base_dir: Option<&Path>,
+    n_folds: usize,
+) -> Result<IngestReport, TableError> {
+    adapter.load(manifest, base_dir, n_folds)
+}
+
 /// Requested inferential track.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -27,19 +74,27 @@ pub enum InferenceTrack {
     Both,
 }
 
-/// Whether inclusion can depend on state within regime.
+/// Caller declaration about whether inclusion can depend on state within regime.
+///
+/// This value is not evidence. Engine readiness must resolve it against a
+/// separately content-bound selection-evidence receipt.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum SelectionContract {
-    /// Inclusion is known to be independent of state conditional on regime.
+pub enum SelectionDeclaration {
+    /// The caller declares independence of state conditional on regime.
     StateIndependentWithinRegime,
-    /// A validated selection model is supplied separately.
+    /// The caller declares that a selection model exists separately.
     Modeled,
     /// The contract is unknown and strict causal inference must abstain.
     Unknown,
     /// Inclusion is known to depend on state and is not modeled.
     StateDependentUnmodeled,
 }
+
+/// Backward-compatible name for the manifest declaration.
+///
+/// This alias carries no validated-selection authority.
+pub type SelectionContract = SelectionDeclaration;
 
 /// One regime/corner declaration.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -75,8 +130,8 @@ pub struct ExperimentManifest {
     pub strict: bool,
     /// Requested inference track.
     pub inference_track: InferenceTrack,
-    /// Within-regime selection contract.
-    pub selection: SelectionContract,
+    /// Within-regime selection declaration; never evidence by itself.
+    pub selection: SelectionDeclaration,
     /// Randomization/cluster identifier column.
     pub cluster_column: String,
     /// Regime-label column.
