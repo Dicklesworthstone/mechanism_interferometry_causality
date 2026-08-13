@@ -15,15 +15,15 @@ use thiserror::Error;
 
 mod survey;
 mod tabular;
-pub use mic_design::{CausalCompletionEvaluation, OrientationTestability};
+pub use mic_design::{CausalCompletionEvaluation, NextQueryPurpose, OrientationTestability};
 pub use survey::{
     ClusterUnitBasis, ColumnRole, ColumnTriage, InterferometerProposal, SurveyAuthority,
     SurveyDesignInformationContent, SurveyPolicy, SurveyReport, run_unsupervised_survey,
 };
 pub use tabular::{
-    CellCurvature, ColumnProjection, FourLawFaceAudit, FourLawPolicy, ProjectionSpec,
-    TabularAuditReport, TabularInformationContent, TabularIngestSummary, run_tabular_audit,
-    run_tabular_audit_with_selection_evidence,
+    CellCurvature, ColumnProjection, FaceRatioOverlapAudit, FourLawFaceAudit, FourLawPolicy,
+    ProjectionSpec, TabularAuditReport, TabularInformationContent, TabularIngestSummary,
+    run_tabular_audit, run_tabular_audit_with_selection_evidence,
 };
 
 /// Numerical and policy settings for preflight validation.
@@ -112,11 +112,18 @@ pub struct SelectionEvidenceReceipt {
     pub authority_source_sha256: String,
 }
 
-/// Opaque evidence token created only by content verification.
+/// Opaque provenance token created only by content verification.
+///
+/// This token proves that the receipt, manifest, analyzed bytes, and cited
+/// source agree byte-for-byte. It deliberately does **not** prove that the
+/// caller-supplied source is an independently trusted scientific authority,
+/// and therefore cannot by itself satisfy strict selection readiness.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidatedSelectionEvidence {
     receipt_id: String,
     receipt_sha256: String,
+    experiment_id: String,
+    manifest_canonical_sha256: String,
     data_content_sha256: String,
     declaration: SelectionContract,
     evidence_class: SelectionEvidenceClass,
@@ -181,6 +188,8 @@ fn resolve_selection_evidence_hashes(
     Ok(ValidatedSelectionEvidence {
         receipt_id: receipt.receipt_id,
         receipt_sha256: hex_sha256(receipt_bytes),
+        experiment_id: receipt.experiment_id,
+        manifest_canonical_sha256: receipt.manifest_canonical_sha256,
         data_content_sha256: data_content_sha256.to_string(),
         declaration: receipt.declaration,
         evidence_class: receipt.evidence_class,
@@ -229,7 +238,9 @@ pub struct PreflightReport {
     face_sampling: Vec<FaceSamplingAudit>,
     /// Whether four-law functionals are permitted by the declared selection contract.
     four_law_eligible: bool,
-    /// Whether all observed pair faces have product pooled odds.
+    /// Whether product-factorial inference has independently resolved design
+    /// authority. Arithmetic checks of caller-declared quotas are retained in
+    /// `face_sampling`, but cannot make this field true by themselves.
     product_factorial_eligible: bool,
     /// Conservative preflight state.
     status: PreflightStatus,
@@ -289,7 +300,7 @@ impl PreflightReport {
         self.four_law_eligible
     }
 
-    /// Returns whether every observed square passed the product-odds audit.
+    /// Returns whether product-factorial inference has resolved design authority.
     #[must_use]
     pub const fn product_factorial_eligible(&self) -> bool {
         self.product_factorial_eligible
@@ -372,22 +383,31 @@ impl PreflightPolicy {
 }
 
 /// Serializable result of the deletion-orientation audit.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct OrientationAudit {
     /// Classified deletions in input order.
-    pub deletions: Vec<mic_stats::DeletionEquivalence>,
+    deletions: Vec<mic_stats::DeletionEquivalence>,
     /// Full-support intervention discrepancy.
-    pub full_discrepancy: f64,
+    full_discrepancy: f64,
     /// Power threshold below which the audit abstains as underpowered.
-    pub min_full_discrepancy: f64,
+    min_full_discrepancy: f64,
     /// Five-state pass-count outcome.
-    pub outcome: mic_stats::OrientationOutcome,
+    outcome: mic_stats::OrientationOutcome,
+}
+
+impl OrientationAudit {
+    /// Returns the numerical pass-pattern outcome. It is not causal authority.
+    #[must_use]
+    pub const fn outcome(&self) -> &mic_stats::OrientationOutcome {
+        &self.outcome
+    }
 }
 
 /// Runs the pass-count state machine and records the verdict in the ledger.
 ///
-/// Only the unique-target state orients a family and is recorded as an
-/// informational finding.  Every other state is recorded as a blocking error
+/// A unique numerical pass is recorded as an informational proposal only;
+/// this function has no inputs establishing the single-target and
+/// deletion-faithfulness premises required for causal orientation. Every other state is recorded as a blocking error
 /// with reason code [`code::ORIENTATION_UNRESOLVED`], so strict runs abstain
 /// rather than forcing an orientation.  The multiple-pass state additionally
 /// signals that an active same-target disambiguation tilt should be proposed.
@@ -404,13 +424,13 @@ pub fn audit_orientation(
     context.insert("deletion_count".into(), deletions.len().to_string());
     context.insert("full_discrepancy".into(), format!("{full_discrepancy:.6}"));
     match &outcome {
-        mic_stats::OrientationOutcome::UniqueTarget { target } => {
-            context.insert("target".into(), target.clone());
+        mic_stats::OrientationOutcome::UniquePassPattern { variable } => {
+            context.insert("variable".into(), variable.clone());
             ledger.push(finding_with_context(
                 Severity::Info,
                 stage,
-                code::info::ORIENTATION_UNIQUE_TARGET,
-                "exactly one deletion is certified invariant and every competitor is certified changed",
+                code::info::ORIENTATION_UNIQUE_PASS_PATTERN,
+                "exactly one deletion passes the numerical equivalence audit; causal orientation premises remain unresolved",
                 context,
             ));
         }
@@ -470,18 +490,50 @@ pub fn audit_orientation(
 }
 
 /// Serializable result of the ratio-weight overlap audit.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct OverlapAudit {
     /// Kish effective sample size of the ratio weights.
-    pub effective_sample_size: f64,
+    effective_sample_size: f64,
     /// Number of observations carrying weights.
-    pub sample_size: usize,
+    sample_size: usize,
     /// Effective sample size divided by sample size.
-    pub ess_ratio: f64,
+    ess_ratio: f64,
     /// Policy floor the ratio was compared against.
-    pub minimum_ratio: f64,
+    minimum_ratio: f64,
     /// Whether the overlap is adequate under the policy.
-    pub adequate: bool,
+    adequate: bool,
+}
+
+impl OverlapAudit {
+    /// Kish effective sample size of the supplied ratio weights.
+    #[must_use]
+    pub fn effective_sample_size(&self) -> f64 {
+        self.effective_sample_size
+    }
+
+    /// Number of supplied ratio weights.
+    #[must_use]
+    pub fn sample_size(&self) -> usize {
+        self.sample_size
+    }
+
+    /// Kish effective sample size divided by sample size.
+    #[must_use]
+    pub fn ess_ratio(&self) -> f64 {
+        self.ess_ratio
+    }
+
+    /// Frozen adequacy threshold.
+    #[must_use]
+    pub fn minimum_ratio(&self) -> f64 {
+        self.minimum_ratio
+    }
+
+    /// Whether the descriptive overlap threshold was met.
+    #[must_use]
+    pub fn adequate(&self) -> bool {
+        self.adequate
+    }
 }
 
 /// Audits common-support overlap through the effective sample size of ratio weights.
@@ -555,18 +607,50 @@ pub struct LensEstimate {
 }
 
 /// Sensitivity audit across a battery of deliberately dissimilar estimator families.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct LensBatteryAudit {
     /// The estimates in input order.
-    pub estimates: Vec<LensEstimate>,
+    estimates: Vec<LensEstimate>,
     /// Largest standard-error-scaled pairwise gap observed across the battery.
-    pub max_scaled_gap: f64,
+    max_scaled_gap: f64,
     /// The pair of family labels achieving the largest scaled gap.
-    pub worst_pair: [String; 2],
+    worst_pair: [String; 2],
     /// Tolerance applied to the scaled gaps.
-    pub tolerance: f64,
+    tolerance: f64,
     /// Whether every scaled gap is within tolerance.
-    pub agrees: bool,
+    agrees: bool,
+}
+
+impl LensBatteryAudit {
+    /// Validated input estimates in declared order.
+    #[must_use]
+    pub fn estimates(&self) -> &[LensEstimate] {
+        &self.estimates
+    }
+
+    /// Largest standard-error-scaled pairwise gap.
+    #[must_use]
+    pub fn max_scaled_gap(&self) -> f64 {
+        self.max_scaled_gap
+    }
+
+    /// Family pair producing the largest scaled gap.
+    #[must_use]
+    pub fn worst_pair(&self) -> &[String; 2] {
+        &self.worst_pair
+    }
+
+    /// Frozen sensitivity tolerance.
+    #[must_use]
+    pub fn tolerance(&self) -> f64 {
+        self.tolerance
+    }
+
+    /// Whether every descriptive scaled gap lies within tolerance.
+    #[must_use]
+    pub fn agrees(&self) -> bool {
+        self.agrees
+    }
 }
 
 /// Audits learner sensitivity of one estimand across estimator families.
@@ -687,7 +771,7 @@ pub fn run_preflight(
     run_preflight_inner(manifest, policy, None)
 }
 
-/// Runs preflight with an opaque, content-verified selection-evidence token.
+/// Runs preflight with an opaque, content-verified selection-provenance token.
 pub fn run_preflight_with_selection_evidence(
     manifest: &ExperimentManifest,
     policy: PreflightPolicy,
@@ -738,7 +822,13 @@ fn run_preflight_inner(
     let design = audit_design(&points, policy.rank_tolerance)?;
     record_design_geometry(manifest.inference_track, &design, &mut ledger);
 
-    let selection_ok = selection_gate(manifest.selection, selection_evidence, &policy, &mut ledger);
+    let selection_ok = selection_gate(
+        manifest,
+        &manifest_canonical_sha256,
+        selection_evidence,
+        &policy,
+        &mut ledger,
+    );
     let four_law_geometry_ok = !design.square_faces.is_empty();
     let four_law_eligible = selection_ok && four_law_geometry_ok;
     let proportions: BTreeMap<DesignPoint, f64> = manifest
@@ -747,22 +837,18 @@ fn run_preflight_inner(
         .map(|regime| (regime.design.clone(), regime.sampling_proportion))
         .collect();
     let face_sampling = audit_faces(&design.square_faces, &proportions, product_odds_tolerance)?;
-    let product_factorial_eligible = !face_sampling.is_empty()
-        && face_sampling.iter().all(|face| face.sampling.is_product)
-        && four_law_eligible;
+    let product_odds_arithmetic_passed =
+        !face_sampling.is_empty() && face_sampling.iter().all(|face| face.sampling.is_product);
+    // Caller-declared sampling proportions are arithmetic inputs, not a
+    // resolved randomization/allocation receipt. No trusted product-design
+    // resolver exists in this engine yet, so fail closed.
+    let product_factorial_eligible = false;
 
-    let requires_product = matches!(
+    record_product_design_authority(
         manifest.inference_track,
-        InferenceTrack::ProductFactorial | InferenceTrack::Both
+        product_odds_arithmetic_passed,
+        &mut ledger,
     );
-    if requires_product && !product_factorial_eligible {
-        ledger.note(
-            Severity::Error,
-            "sampling",
-            code::NON_PRODUCT_GCM,
-            "product-factorial inference was requested, but at least one required face lacks product pooled odds or no complete face is observed",
-        );
-    }
 
     let requested_eligible = match manifest.inference_track {
         InferenceTrack::FourLaw => four_law_eligible,
@@ -795,6 +881,32 @@ fn run_preflight_inner(
         status,
         ledger,
     })
+}
+
+fn record_product_design_authority(
+    track: InferenceTrack,
+    product_odds_arithmetic_passed: bool,
+    ledger: &mut EvidenceLedger,
+) {
+    let requires_product = matches!(
+        track,
+        InferenceTrack::ProductFactorial | InferenceTrack::Both
+    );
+    if requires_product && !product_odds_arithmetic_passed {
+        ledger.note(
+            Severity::Error,
+            "sampling",
+            code::NON_PRODUCT_GCM,
+            "product-factorial inference was requested, but at least one required face lacks product pooled odds or no complete face is observed",
+        );
+    } else if requires_product {
+        ledger.note(
+            Severity::Error,
+            "sampling",
+            code::PRODUCT_DESIGN_AUTHORITY_UNRESOLVED,
+            "caller-declared quotas pass the product-odds arithmetic check, but no independently trusted allocation or explicit reweighting authority is resolved",
+        );
+    }
 }
 
 fn canonical_manifest_sha256(manifest: &ExperimentManifest) -> Result<String, EngineError> {
@@ -914,18 +1026,22 @@ fn record_design_geometry(
 }
 
 fn selection_gate(
-    selection: SelectionContract,
+    manifest: &ExperimentManifest,
+    manifest_canonical_sha256: &str,
     evidence: Option<&ValidatedSelectionEvidence>,
     policy: &PreflightPolicy,
     ledger: &mut EvidenceLedger,
 ) -> bool {
     if let Some(evidence) = evidence {
-        if evidence.declaration != selection {
+        if evidence.experiment_id != manifest.experiment_id
+            || evidence.manifest_canonical_sha256 != manifest_canonical_sha256
+            || evidence.declaration != manifest.selection
+        {
             ledger.note(
                 Severity::Error,
                 "selection",
                 code::SELECTION_MODEL_UNVALIDATED,
-                "resolved selection evidence does not match the manifest declaration",
+                "content-verified selection provenance is scoped to a different experiment, manifest, or declaration",
             );
             return false;
         }
@@ -946,9 +1062,19 @@ fn selection_gate(
             "selection_evidence_class",
             format!("{:?}", evidence.evidence_class),
         );
-        return true;
+        ledger.provenance(
+            "selection_evidence_authority",
+            "content_verified_provenance_only",
+        );
+        ledger.note(
+            Severity::Error,
+            "selection",
+            code::SELECTION_MODEL_UNVALIDATED,
+            "selection receipt bytes and cited source are content-bound, but the source is caller-supplied and no independent trust authority has validated the scientific selection premise",
+        );
+        return false;
     }
-    match selection {
+    match manifest.selection {
         SelectionContract::StateIndependentWithinRegime
             if policy.accept_unvalidated_selection_model =>
         {
@@ -1113,14 +1239,16 @@ mod tests {
 
     #[test]
     fn declared_selection_override_is_diagnostic_never_ready() {
+        let mut diagnostic_manifest = manifest([0.25; 4], true);
+        diagnostic_manifest.inference_track = InferenceTrack::FourLaw;
         let policy = PreflightPolicy {
             accept_unvalidated_selection_model: true,
             ..PreflightPolicy::default()
         };
-        let report = run_preflight(&manifest([0.25; 4], true), policy).unwrap();
+        let report = run_preflight(&diagnostic_manifest, policy).unwrap();
         assert_eq!(report.status, PreflightStatus::DiagnosticOnly);
         assert!(report.four_law_eligible);
-        assert!(report.product_factorial_eligible);
+        assert!(!report.product_factorial_eligible);
         assert!(report.ledger.findings().iter().any(|finding| {
             finding.code == code::SELECTION_MODEL_UNVALIDATED
                 && finding.severity == Severity::Warning
@@ -1128,7 +1256,7 @@ mod tests {
     }
 
     #[test]
-    fn content_bound_selection_evidence_can_satisfy_strict_readiness() {
+    fn content_bound_selection_provenance_cannot_self_mint_strict_readiness() {
         let manifest = manifest([0.25; 4], true);
         let data = b"exact analyzed table bytes";
         let authority = b"external sampling log asserting state-independent inclusion";
@@ -1147,9 +1275,10 @@ mod tests {
         let report =
             run_preflight_with_selection_evidence(&manifest, PreflightPolicy::default(), &evidence)
                 .unwrap();
-        assert_eq!(report.status, PreflightStatus::Ready);
-        assert!(report.four_law_eligible);
-        assert!(report.product_factorial_eligible);
+        assert_eq!(report.status, PreflightStatus::Blocked);
+        assert!(!report.four_law_eligible);
+        assert!(!report.product_factorial_eligible);
+        assert!(blocking_codes(&report).contains(code::SELECTION_MODEL_UNVALIDATED));
         assert_eq!(
             report
                 .ledger
@@ -1158,10 +1287,55 @@ mod tests {
                 .map(String::as_str),
             Some("selection-receipt-001")
         );
+        assert_eq!(
+            report
+                .ledger
+                .provenance_fields()
+                .get("selection_evidence_authority")
+                .map(String::as_str),
+            Some("content_verified_provenance_only")
+        );
         assert!(matches!(
             resolve_selection_evidence(&manifest, &receipt, b"mutated data", authority),
             Err(EngineError::InvalidSelectionEvidence(_))
         ));
+    }
+
+    #[test]
+    fn selection_provenance_token_is_scoped_to_exact_manifest_and_experiment() {
+        let original = manifest([0.25; 4], true);
+        let data = b"exact analyzed table bytes";
+        let authority = b"caller supplied sampling record";
+        let receipt = serde_json::to_vec(&serde_json::json!({
+            "schema_version": "1.0.0",
+            "receipt_id": "selection-receipt-scoped",
+            "experiment_id": original.experiment_id.clone(),
+            "manifest_canonical_sha256": canonical_manifest_sha256(&original).unwrap(),
+            "data_content_sha256": hex_sha256(data),
+            "declaration": "state_independent_within_regime",
+            "evidence_class": "external_sampling_record",
+            "authority_source_sha256": hex_sha256(authority),
+        }))
+        .unwrap();
+        let evidence = resolve_selection_evidence(&original, &receipt, data, authority).unwrap();
+
+        let mut replay_target = original.clone();
+        replay_target.experiment_id = "different-experiment".into();
+        let report = run_preflight_with_selection_evidence(
+            &replay_target,
+            PreflightPolicy::default(),
+            &evidence,
+        )
+        .unwrap();
+        assert_eq!(report.status(), PreflightStatus::Blocked);
+        assert!(blocking_codes(&report).contains(code::SELECTION_MODEL_UNVALIDATED));
+        assert!(
+            report
+                .ledger()
+                .findings()
+                .iter()
+                .any(|finding| { finding.message.contains("scoped to a different experiment") })
+        );
     }
 
     #[test]
@@ -1211,6 +1385,7 @@ mod tests {
     fn unvalidated_selection_override_is_diagnostic_never_ready() {
         let mut modeled = manifest([0.25; 4], true);
         modeled.selection = SelectionContract::Modeled;
+        modeled.inference_track = InferenceTrack::FourLaw;
         let policy = PreflightPolicy {
             accept_unvalidated_selection_model: true,
             ..PreflightPolicy::default()
@@ -1362,7 +1537,7 @@ mod tests {
     }
 
     #[test]
-    fn unique_target_orientation_is_informational() {
+    fn unique_pass_pattern_is_informational_and_not_causal_authority() {
         let mut ledger = EvidenceLedger::new(ExecutionMode::Strict);
         let deletions = vec![
             mic_stats::classify_deletion("t", 0.01, 0.0, 0.02, 0.05).unwrap(),
@@ -1370,8 +1545,10 @@ mod tests {
         ];
         let audit = audit_orientation(&deletions, 1.0, 0.1, "orientation", &mut ledger).unwrap();
         assert_eq!(
-            audit.outcome,
-            mic_stats::OrientationOutcome::UniqueTarget { target: "t".into() }
+            audit.outcome(),
+            &mic_stats::OrientationOutcome::UniquePassPattern {
+                variable: "t".into()
+            }
         );
         assert!(!ledger.has_blocking_error());
     }
@@ -1385,7 +1562,7 @@ mod tests {
         ];
         let audit = audit_orientation(&deletions, 1.0, 0.1, "orientation", &mut ledger).unwrap();
         assert!(matches!(
-            audit.outcome,
+            audit.outcome(),
             mic_stats::OrientationOutcome::MultiplePasses { .. }
         ));
         assert!(ledger.has_blocking_error());

@@ -8,8 +8,8 @@ use crate::EngineError;
 use mic_data::{RawTable, load_raw_csv};
 use mic_design::{
     CausalCompletionEvaluation, DesignPoint, FamilyClassificationInput, NextCornerCandidate,
-    NextCornerKind, ObservedDesign, OrientationTestability, SamplingOddsAudit, audit_design,
-    audit_sampling_odds, classify_observed_family, observed_design_from_rows,
+    NextCornerKind, NextQueryPurpose, ObservedDesign, OrientationTestability, SamplingOddsAudit,
+    audit_design, audit_sampling_odds, classify_observed_family, observed_design_from_rows,
     orientation_testability, rank_missing_boolean_corners_from_observed,
 };
 use serde::{Deserialize, Serialize};
@@ -98,6 +98,8 @@ pub struct InterferometerProposal {
     pub recommended_next_corner_cost: Option<u32>,
     /// Never-seen versus under-supported for the recommended cell.
     pub recommended_next_corner_kind: Option<NextCornerKind>,
+    /// Why that cell is worth collecting. Geometry-only; not a causal ranking.
+    pub recommended_next_corner_purpose: Option<NextQueryPurpose>,
     /// Top ranked cells, never more than three.
     pub ranked_next_corners: Vec<NextCornerCandidate>,
     /// Causal-completion evaluation. Survey supplies no laws, so this is not evaluated.
@@ -138,6 +140,8 @@ pub struct SurveyDesignInformationContent {
     pub recommended_next_corner_cost: Option<u32>,
     /// Never-seen versus under-supported for that cell.
     pub recommended_next_corner_kind: Option<NextCornerKind>,
+    /// Why that cell is worth collecting. Geometry-only; not a causal ranking.
+    pub recommended_next_corner_purpose: Option<NextQueryPurpose>,
     /// Top ranked cells from the headline incomplete design, at most three.
     pub ranked_next_corners: Vec<NextCornerCandidate>,
     /// True when candidate grouping collapsed to rows.
@@ -237,7 +241,7 @@ pub fn run_unsupervised_survey(
     )?;
     let next_step = survey_next_step(&interferometers, &information_content);
     Ok(SurveyReport {
-        schema_version: "1.4.0".into(),
+        schema_version: "1.5.0".into(),
         authority: SurveyAuthority::ProposalOnly,
         wall: "State-independent within-regime selection cannot be established from observed rows. This survey cannot issue a certificate.".into(),
         table_sha256: table.content_sha256,
@@ -500,18 +504,7 @@ fn propose(
     debug_assert_eq!(orientation, OrientationTestability::Untestable);
     // Geometric nullity of the pointwise main-effects matrix, not a causal fiber.
     let main_effect_alias_dimension = family.as_ref().map(|item| item.main_effect_alias_dimension);
-    let ranked_next_corners = rank_missing_boolean_corners_from_observed(
-        &design,
-        &std::collections::BTreeMap::new(),
-        1e-10,
-    )
-    .unwrap_or_default()
-    .into_iter()
-    .take(3)
-    .collect::<Vec<_>>();
-    let recommended_next_corner = ranked_next_corners.first().map(|item| item.corner.clone());
-    let recommended_next_corner_cost = ranked_next_corners.first().map(|item| item.cost);
-    let recommended_next_corner_kind = ranked_next_corners.first().map(|item| item.kind);
+    let next_query = rank_next_query(&design);
     let near_square = design
         .points
         .first()
@@ -536,10 +529,11 @@ fn propose(
         min_corner_count,
         lack_of_fit_dimension,
         main_effect_alias_dimension,
-        recommended_next_corner,
-        recommended_next_corner_cost,
-        recommended_next_corner_kind,
-        ranked_next_corners,
+        recommended_next_corner: next_query.corner,
+        recommended_next_corner_cost: next_query.cost,
+        recommended_next_corner_kind: next_query.kind,
+        recommended_next_corner_purpose: next_query.purpose,
+        ranked_next_corners: next_query.ranked,
         completion_evaluation,
         orientation,
         priority,
@@ -596,6 +590,8 @@ fn information_content(
         main_effect_alias_dimension: incomplete.and_then(|item| item.main_effect_alias_dimension),
         recommended_next_corner_cost: incomplete.and_then(|item| item.recommended_next_corner_cost),
         recommended_next_corner_kind: incomplete.and_then(|item| item.recommended_next_corner_kind),
+        recommended_next_corner_purpose: incomplete
+            .and_then(|item| item.recommended_next_corner_purpose),
         ranked_next_corners: incomplete
             .map(|item| item.ranked_next_corners.clone())
             .unwrap_or_default(),
@@ -636,22 +632,20 @@ fn survey_next_step(
         let next = match (
             item.recommended_next_corner.as_deref(),
             item.recommended_next_corner_kind,
+            item.recommended_next_corner_purpose,
             item.main_effect_alias_dimension,
         ) {
-            (Some(corner), Some(kind), idim) => {
-                let purpose = next_query_purpose(item, kind, corner);
-                match idim {
-                    Some(dim) => format!(
-                        " Ranked next corner `{corner}` is {kind_label} (main-effect alias dimension {dim}); purpose: {purpose}. Ranking is algebraic alias reduction, not causal-completion identification.",
-                        kind_label = next_corner_kind_label(kind),
-                    ),
-                    None => format!(
-                        " Ranked next corner `{corner}` is {kind_label}; purpose: {purpose}.",
-                        kind_label = next_corner_kind_label(kind),
-                    ),
-                }
-            }
-            (Some(corner), None, _) => format!(" Ranked next corner `{corner}`."),
+            (Some(corner), Some(kind), Some(purpose), Some(dim)) => format!(
+                " Ranked next corner `{corner}` is {kind_label} (main-effect alias dimension {dim}); purpose: {purpose}. Ranking is algebraic alias reduction, not causal-completion identification.",
+                kind_label = next_corner_kind_label(kind),
+                purpose = next_query_purpose_label(purpose),
+            ),
+            (Some(corner), Some(kind), Some(purpose), None) => format!(
+                " Ranked next corner `{corner}` is {kind_label}; purpose: {purpose}.",
+                kind_label = next_corner_kind_label(kind),
+                purpose = next_query_purpose_label(purpose),
+            ),
+            (Some(corner), _, _, _) => format!(" Ranked next corner `{corner}`."),
             _ => String::new(),
         };
         let ranked = format_ranked_list(&item.ranked_next_corners);
@@ -705,42 +699,43 @@ fn next_corner_kind_label(kind: NextCornerKind) -> &'static str {
     }
 }
 
-fn next_query_purpose(
-    item: &InterferometerProposal,
-    kind: NextCornerKind,
-    corner: &str,
-) -> &'static str {
-    match kind {
-        NextCornerKind::UnderSupported => {
+fn next_query_purpose_label(purpose: NextQueryPurpose) -> &'static str {
+    match purpose {
+        NextQueryPurpose::ReplicateUnderSupportedCell => {
             "replicate an under-supported cell, do not invent the arm"
         }
-        NextCornerKind::NeverSeen => {
-            if never_seen_cell_closes_observed_primitives(item, corner) {
-                "close a design contrast / test reuse of already-observed family-levels"
-            } else if is_primitive_arm(corner) {
-                "collect an unseen primitive arm"
-            } else {
-                "collect a never-seen cell; that is not by itself a causal completion"
-            }
+        NextQueryPurpose::CloseDesignContrast => {
+            "close a design contrast / test reuse of already-observed family-levels"
+        }
+        NextQueryPurpose::IdentifyUnseenLevel => "collect an unseen primitive arm",
+        NextQueryPurpose::TestKernelReuse => {
+            "repeat already-observed levels in a new background to audit reuse"
         }
     }
 }
 
-fn never_seen_cell_closes_observed_primitives(item: &InterferometerProposal, corner: &str) -> bool {
-    if corner != "11" {
-        return false;
-    }
-    let retained: BTreeSet<String> = item
-        .design
-        .points
-        .iter()
-        .map(DesignPoint::bit_string)
-        .collect();
-    retained.contains("10") && retained.contains("01")
+struct RankedNextQuery {
+    ranked: Vec<NextCornerCandidate>,
+    corner: Option<String>,
+    cost: Option<u32>,
+    kind: Option<NextCornerKind>,
+    purpose: Option<NextQueryPurpose>,
 }
 
-fn is_primitive_arm(corner: &str) -> bool {
-    matches!(corner, "10" | "01")
+fn rank_next_query(design: &ObservedDesign) -> RankedNextQuery {
+    let ranked = rank_missing_boolean_corners_from_observed(design, &BTreeMap::new(), 1e-10)
+        .unwrap_or_default()
+        .into_iter()
+        .take(3)
+        .collect::<Vec<_>>();
+    let first = ranked.first();
+    RankedNextQuery {
+        corner: first.map(|item| item.corner.clone()),
+        cost: first.map(|item| item.cost),
+        kind: first.map(|item| item.kind),
+        purpose: first.map(|item| item.purpose),
+        ranked,
+    }
 }
 
 fn format_ranked_list(ranked: &[NextCornerCandidate]) -> String {
@@ -754,7 +749,13 @@ fn format_ranked_list(ranked: &[NextCornerCandidate]) -> String {
                 NextCornerKind::NeverSeen => "never_seen",
                 NextCornerKind::UnderSupported => "under_supported",
             };
-            format!("{}:{kind}", item.corner)
+            let purpose = match item.purpose {
+                NextQueryPurpose::ReplicateUnderSupportedCell => "replicate",
+                NextQueryPurpose::CloseDesignContrast => "close_contrast",
+                NextQueryPurpose::IdentifyUnseenLevel => "identify_unseen_level",
+                NextQueryPurpose::TestKernelReuse => "test_reuse",
+            };
+            format!("{}:{kind}:{purpose}", item.corner)
         })
         .collect();
     format!(" Ranked list [{}].", items.join(", "))
@@ -919,13 +920,33 @@ fn suggested_four_law_manifest(
     interferometer: &InterferometerProposal,
     cluster_column: Option<&str>,
 ) -> Option<mic_data::ExperimentManifest> {
-    if !interferometer.complete_square || interferometer.design.points.len() != 4 {
+    // The current manifest has one regime column. A square discovered from two
+    // separate context columns must first be materialized as an encoded regime
+    // view; pointing the manifest at either source column would make its `00`/
+    // `10`/`01`/`11` regime identifiers non-executable.
+    if !interferometer.complete_square
+        || interferometer.design.points.len() != 4
+        || interferometer.context_columns.len() != 1
+    {
+        return None;
+    }
+    let regime_column = &interferometer.context_columns[0];
+    let regime_index = header_index(table, regime_column).ok()?;
+    let observed_regimes = unique_values(table, regime_index);
+    let encoded_regimes = interferometer
+        .design
+        .points
+        .iter()
+        .map(DesignPoint::bit_string)
+        .collect::<BTreeSet<_>>();
+    if observed_regimes != encoded_regimes {
         return None;
     }
     let state_columns: Vec<String> = table
         .headers
         .iter()
-        .filter(|header| {
+        .enumerate()
+        .filter(|(index, header)| {
             Some(header.as_str()) != cluster_column
                 && !interferometer
                     .context_columns
@@ -933,8 +954,9 @@ fn suggested_four_law_manifest(
                     .any(|col| col == *header)
                 && *header != "included"
                 && *header != "row_id"
+                && column_is_numeric(&unique_values(table, *index))
         })
-        .cloned()
+        .map(|(_, header)| header.clone())
         .collect();
     if state_columns.is_empty() {
         return None;
@@ -963,11 +985,7 @@ fn suggested_four_law_manifest(
         inference_track: mic_data::InferenceTrack::FourLaw,
         selection: mic_data::SelectionContract::Unknown,
         cluster_column: cluster_column.unwrap_or("row").to_string(),
-        regime_column: interferometer
-            .context_columns
-            .first()
-            .cloned()
-            .unwrap_or_else(|| "regime".into()),
+        regime_column: regime_column.clone(),
         state_columns,
         candidate_state_blocks: Vec::new(),
         regimes,
@@ -998,7 +1016,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.authority, SurveyAuthority::ProposalOnly);
-        assert_eq!(report.schema_version, "1.4.0");
+        assert_eq!(report.schema_version, "1.5.0");
         assert!(
             report
                 .interferometers
@@ -1176,6 +1194,14 @@ mod tests {
         assert_eq!(
             square.recommended_next_corner_kind,
             Some(NextCornerKind::NeverSeen)
+        );
+        assert_eq!(
+            square.recommended_next_corner_purpose,
+            Some(NextQueryPurpose::CloseDesignContrast)
+        );
+        assert_eq!(
+            report.information_content.recommended_next_corner_purpose,
+            Some(NextQueryPurpose::CloseDesignContrast)
         );
         assert!(report.next_step.contains("never seen"));
         assert!(
@@ -1364,6 +1390,10 @@ mod tests {
             report.information_content.recommended_next_corner_kind,
             Some(NextCornerKind::UnderSupported)
         );
+        assert_eq!(
+            square.recommended_next_corner_purpose,
+            Some(NextQueryPurpose::ReplicateUnderSupportedCell)
+        );
         assert!(report.next_step.contains("under-supported"));
         assert!(
             report
@@ -1404,11 +1434,20 @@ mod tests {
             square.recommended_next_corner.as_deref(),
             Some("01" | "10")
         ));
+        assert_eq!(
+            square.recommended_next_corner_purpose,
+            Some(NextQueryPurpose::TestKernelReuse)
+        );
         assert_eq!(square.recommended_next_corner_cost, Some(1000));
         assert_eq!(report.information_content.n_distinct_supported_regimes, 2);
         assert_eq!(square.ranked_next_corners.len(), 2);
         assert!(report.next_step.contains("Ranked list ["));
-        assert!(report.next_step.contains("collect an unseen primitive arm"));
+        assert!(
+            report
+                .next_step
+                .contains("repeat already-observed levels in a new background to audit reuse")
+        );
+        assert!(!report.next_step.contains("collect an unseen primitive arm"));
         assert!(
             !report
                 .next_step
@@ -1510,6 +1549,10 @@ mod tests {
         assert_eq!(
             square.completion_evaluation,
             CausalCompletionEvaluation::NotEvaluated
+        );
+        assert!(
+            report.suggested_manifest.is_none(),
+            "two-column squares require an explicitly encoded regime view before a manifest is executable"
         );
         let wire = serde_json::to_value(report).expect("survey report must serialize");
         let actual: BTreeSet<&str> = wire

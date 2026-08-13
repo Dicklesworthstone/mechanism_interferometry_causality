@@ -107,6 +107,22 @@ pub struct FourLawFaceAudit {
     pub clusters_per_corner: [usize; 4],
 }
 
+/// One overlap audit tied to an exact square face and density ratio.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct FaceRatioOverlapAudit {
+    /// Face base corner.
+    base: String,
+    /// First varying design coordinate.
+    first: usize,
+    /// Second varying design coordinate.
+    second: usize,
+    /// Ratio name: `r_A`, `r_B`, or `r_AB`.
+    ratio: String,
+    /// Cluster-level overlap summary for this exact ratio.
+    audit: OverlapAudit,
+}
+
 /// Rows-versus-candidate-groups header for a four-law tabular run.
 ///
 /// These are grouping-label counts under the declared column, not established
@@ -153,8 +169,8 @@ pub struct TabularAuditReport {
     information_content: TabularInformationContent,
     /// Four-law faces. Empty when ingest or preflight blocked the projection.
     four_law: Vec<FourLawFaceAudit>,
-    /// Overlap audit on baseline ratio weights, if they could be formed.
-    overlap: Option<OverlapAudit>,
+    /// Every available face-by-ratio overlap audit.
+    overlap: Vec<FaceRatioOverlapAudit>,
     /// Binning description recorded for reproducibility.
     projection: ProjectionSpec,
     /// Evidence ledger for the whole tabular run.
@@ -216,10 +232,10 @@ impl TabularAuditReport {
         &self.four_law
     }
 
-    /// Returns the overlap summary when ratio weights were available.
+    /// Returns every face-by-ratio overlap summary.
     #[must_use]
-    pub const fn overlap(&self) -> Option<&OverlapAudit> {
-        self.overlap.as_ref()
+    pub fn overlap(&self) -> &[FaceRatioOverlapAudit] {
+        &self.overlap
     }
 
     /// Returns the recorded projection definition.
@@ -250,11 +266,15 @@ impl TabularAuditReport {
             extra.push((
                 "Histogram four-law projection",
                 format!(
-                    "common-support cells={}, max_|κ|={:.6}, E_0[r_A]={:.6} (raw residual {:.6}), scalar moment={:.6}, signed moment={:.6}. The scalar moment can be exactly blind to curvature.",
+                    "common-support cells={}, max_|κ|={:.6}, raw normalizers/residuals: E_0[r_A]={:.6}/{:.6}, E_0[r_B]={:.6}/{:.6}, E_0[r_AB]={:.6}/{:.6}; scalar moment={:.6}, signed moment={:.6}. The scalar moment can be exactly blind to curvature.",
                     face.cells.len(),
                     face.max_abs_kappa,
                     face.normalizer_a,
                     face.normalizer_a - 1.0,
+                    face.normalizer_b,
+                    face.normalizer_b - 1.0,
+                    face.normalizer_ab,
+                    face.normalizer_ab - 1.0,
                     face.scalar_moment,
                     face.signed_moment
                 ),
@@ -374,6 +394,14 @@ fn run_tabular_audit_inner(
     ledger.provenance("seed", manifest.seed.to_string());
 
     let ingest = load_csv_table(manifest, base_dir, four_law.n_folds)?;
+    if let Some(evidence) = selection_evidence
+        && evidence.data_content_sha256 != ingest.fingerprint.content_sha256
+    {
+        return Err(EngineError::InvalidSelectionEvidence(
+            "selection provenance is not bound to the exact table bytes consumed by tabular ingest"
+                .into(),
+        ));
+    }
     record_ingest(manifest, &ingest, four_law.quota_gap_warning, &mut ledger);
 
     let ingest_summary = TabularIngestSummary {
@@ -396,7 +424,7 @@ fn run_tabular_audit_inner(
             preflight_report,
             ingest_summary,
             Vec::new(),
-            None,
+            Vec::new(),
             ProjectionSpec {
                 columns: Vec::new(),
                 policy: four_law,
@@ -407,7 +435,7 @@ fn run_tabular_audit_inner(
 
     let (projection, labeled) = project_state(manifest, &ingest, four_law);
     let mut faces = Vec::new();
-    let mut overlap = None;
+    let mut overlap = Vec::new();
     for face in &preflight_report.design.square_faces {
         let corners = face.corners();
         let audit = match audit_face(manifest, &ingest, &labeled, &corners, four_law) {
@@ -456,7 +484,7 @@ fn finish(
     preflight: PreflightReport,
     ingest: TabularIngestSummary,
     four_law: Vec<FourLawFaceAudit>,
-    overlap: Option<OverlapAudit>,
+    overlap: Vec<FaceRatioOverlapAudit>,
     projection: ProjectionSpec,
     mut ledger: EvidenceLedger,
 ) -> TabularAuditReport {
@@ -474,7 +502,7 @@ fn finish(
     let gates = CertificateGates::unresolved();
     let status = ledger.status(&gates);
     TabularAuditReport {
-        schema_version: "2.2.0".into(),
+        schema_version: "2.3.0".into(),
         experiment_id: manifest.experiment_id.clone(),
         status,
         gates,
@@ -951,7 +979,7 @@ fn audit_face_overlap(
     face: &SquareFace,
     corners: &[DesignPoint; 4],
     preflight: &PreflightPolicy,
-    stored: &mut Option<OverlapAudit>,
+    stored: &mut Vec<FaceRatioOverlapAudit>,
     ledger: &mut EvidenceLedger,
 ) -> Result<(), EngineError> {
     for (name, pick) in [
@@ -965,9 +993,13 @@ fn audit_face_overlap(
         if let Some(weights) = primitive_ratio_weights(labeled, audit, &corners[0], pick) {
             let face_overlap =
                 audit_overlap(&weights, preflight, &overlap_stage(name, face), ledger)?;
-            if stored.is_none() {
-                *stored = Some(face_overlap);
-            }
+            stored.push(FaceRatioOverlapAudit {
+                base: face.base.bit_string(),
+                first: face.first,
+                second: face.second,
+                ratio: name.into(),
+                audit: face_overlap,
+            });
         }
     }
     Ok(())
@@ -1031,6 +1063,16 @@ fn record_face(face: &FourLawFaceAudit, ledger: &mut EvidenceLedger) {
         "normalizer_residual_a".into(),
         format!("{:.6}", face.normalizer_a - 1.0),
     );
+    context.insert("normalizer_b".into(), format!("{:.6}", face.normalizer_b));
+    context.insert(
+        "normalizer_residual_b".into(),
+        format!("{:.6}", face.normalizer_b - 1.0),
+    );
+    context.insert("normalizer_ab".into(), format!("{:.6}", face.normalizer_ab));
+    context.insert(
+        "normalizer_residual_ab".into(),
+        format!("{:.6}", face.normalizer_ab - 1.0),
+    );
     context.insert("scalar_moment".into(), format!("{:.6}", face.scalar_moment));
     context.insert("incomplete_cells".into(), face.incomplete_cells.to_string());
     context.insert(
@@ -1066,14 +1108,21 @@ fn record_face(face: &FourLawFaceAudit, ledger: &mut EvidenceLedger) {
         "cluster-weighted histogram four-law projection computed; this is a diagnostic, not a certificate",
         context,
     ));
-    ledger.provenance(
-        "ratio_a_raw_normalizer",
-        format!("{:.6}", face.normalizer_a),
-    );
-    ledger.provenance(
-        "ratio_a_normalizer_residual",
-        format!("{:.6}", face.normalizer_a - 1.0),
-    );
+    let face_id = face.corners.join("_");
+    for (ratio, normalizer) in [
+        ("a", face.normalizer_a),
+        ("b", face.normalizer_b),
+        ("ab", face.normalizer_ab),
+    ] {
+        ledger.provenance(
+            format!("ratio_{ratio}_raw_normalizer@{face_id}"),
+            format!("{normalizer:.6}"),
+        );
+        ledger.provenance(
+            format!("ratio_{ratio}_normalizer_residual@{face_id}"),
+            format!("{:.6}", normalizer - 1.0),
+        );
+    }
 }
 
 fn corner_regime_ids(
@@ -1256,6 +1305,22 @@ mod tests {
         assert!(face.max_abs_delta.abs() < 1e-12);
         assert!(face.scalar_moment.abs() < 1e-12);
         assert!((face.normalizer_a - 1.0).abs() < 1e-12);
+        for ratio in ["a", "b", "ab"] {
+            assert!(
+                report
+                    .ledger()
+                    .provenance_fields()
+                    .keys()
+                    .any(|key| { key.starts_with(&format!("ratio_{ratio}_raw_normalizer@")) })
+            );
+            assert!(
+                report
+                    .ledger()
+                    .provenance_fields()
+                    .keys()
+                    .any(|key| { key.starts_with(&format!("ratio_{ratio}_normalizer_residual@")) })
+            );
+        }
         assert_eq!(report.status(), CertificateStatus::Abstained);
         assert_eq!(report.information_content().n_rows, 80);
         assert_eq!(report.information_content().n_candidate_group_labels, 80);
@@ -1525,6 +1590,15 @@ mod tests {
             Some(&workspace_root()),
         )
         .unwrap();
+        assert_eq!(report.overlap().len(), 3);
+        assert_eq!(
+            report
+                .overlap()
+                .iter()
+                .map(|entry| entry.ratio.as_str())
+                .collect::<BTreeSet<_>>(),
+            BTreeSet::from(["r_A", "r_AB", "r_B"])
+        );
         for stage in ["overlap_r_A@", "overlap_r_B@", "overlap_r_AB@"] {
             assert!(
                 report
@@ -1617,5 +1691,73 @@ mod tests {
             "a later face must be able to fail overlap after the first face passed"
         );
         assert_eq!(report.status(), CertificateStatus::Abstained);
+    }
+
+    #[test]
+    fn selection_provenance_is_rechecked_against_consumed_table_bytes() {
+        let dir = std::env::temp_dir().join(format!(
+            "mic-engine-selection-byte-binding-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let csv = dir.join("table.csv");
+        let original =
+            b"cluster_id,regime,x,included\nc00,00,0,1\nc10,10,0,1\nc01,01,0,1\nc11,11,0,1\n";
+        std::fs::write(&csv, original).unwrap();
+        let manifest = ExperimentManifest {
+            schema_version: "1.0.0".into(),
+            experiment_id: "selection-byte-binding".into(),
+            strict: true,
+            inference_track: InferenceTrack::FourLaw,
+            selection: SelectionContract::StateIndependentWithinRegime,
+            cluster_column: "cluster_id".into(),
+            regime_column: "regime".into(),
+            state_columns: vec!["x".into()],
+            candidate_state_blocks: Vec::new(),
+            regimes: ["00", "10", "01", "11"]
+                .iter()
+                .map(|label| RegimeSpec {
+                    id: (*label).into(),
+                    design: DesignPoint::parse(label).unwrap(),
+                    sampling_proportion: 0.25,
+                    perturbations: Vec::new(),
+                })
+                .collect(),
+            data: DataSource {
+                format: "csv".into(),
+                path: csv.clone(),
+            },
+            seed: 19,
+        };
+        let authority = b"caller supplied selection narrative";
+        let receipt = serde_json::to_vec(&serde_json::json!({
+            "schema_version": "1.0.0",
+            "receipt_id": "selection-byte-binding-receipt",
+            "experiment_id": manifest.experiment_id.clone(),
+            "manifest_canonical_sha256": crate::canonical_manifest_sha256(&manifest).unwrap(),
+            "data_content_sha256": crate::hex_sha256(original),
+            "declaration": "state_independent_within_regime",
+            "evidence_class": "external_sampling_record",
+            "authority_source_sha256": crate::hex_sha256(authority),
+        }))
+        .unwrap();
+        let evidence =
+            crate::resolve_selection_evidence(&manifest, &receipt, original, authority).unwrap();
+
+        std::fs::write(
+            &csv,
+            b"cluster_id,regime,x,included\nc00,00,1,1\nc10,10,0,1\nc01,01,0,1\nc11,11,0,1\n",
+        )
+        .unwrap();
+        let error = run_tabular_audit_with_selection_evidence(
+            &manifest,
+            FourLawPolicy::default(),
+            PreflightPolicy::default(),
+            None,
+            &evidence,
+        )
+        .unwrap_err();
+        assert!(matches!(error, EngineError::InvalidSelectionEvidence(_)));
+        assert!(error.to_string().contains("exact table bytes consumed"));
     }
 }
