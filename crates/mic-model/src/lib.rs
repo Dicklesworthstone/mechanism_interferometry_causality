@@ -1,6 +1,13 @@
 #![forbid(unsafe_code)]
 //! Model-independent posterior-odds reconstruction and hierarchical contracts.
 
+pub mod multinomial;
+
+pub use multinomial::{
+    FitConfig, FitSummary, MultinomialFitError, MultinomialLinearModel, MultinomialSample,
+    posterior_log_density_ratios,
+};
+
 use mic_design::audit_sampling_odds;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
