@@ -88,8 +88,10 @@ pub struct InterferometerProposal {
     pub min_corner_count: usize,
     /// Pointwise lack-of-fit dimension of the retained corners, when defined.
     pub lack_of_fit_dimension: Option<usize>,
-    /// Additive identified-set dimension on the retained corners.
-    pub identified_set_dimension: Option<usize>,
+    /// Nullity of the unrestricted pointwise main-effects parameterization.
+    ///
+    /// This is not the dimension of a fixed-DAG causal completion fiber.
+    pub main_effect_alias_dimension: Option<usize>,
     /// Highest-ranked unobserved corner for shrinking that set, if any.
     pub recommended_next_corner: Option<String>,
     /// Integer cost of that recommended corner (default 1000).
@@ -108,39 +110,38 @@ pub struct InterferometerProposal {
     pub note: String,
 }
 
-/// Rows-versus-units header. A million cells with three replicates is three units.
+/// Design-support header over declared or inferred candidate grouping labels.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CausalInformationContent {
+pub struct SurveyDesignInformationContent {
     /// Raw table rows.
     pub n_rows: usize,
-    /// Distinct declared/inferred unit labels, or `n_rows` for row fallback.
-    /// This count does not establish that the labels are independent units.
-    pub n_unit_labels: usize,
-    /// How the independent unit was chosen.
+    /// Distinct declared/inferred candidate labels, or `n_rows` for row fallback.
+    pub n_candidate_group_labels: usize,
+    /// How the candidate grouping basis was chosen.
     pub unit_basis: ClusterUnitBasis,
     /// Retained corners on the highest-priority interferometer.
     pub n_distinct_supported_regimes: usize,
     /// Number of complete two-factor squares in the atlas.
-    pub n_complete_testable_squares: usize,
+    pub n_complete_design_squares: usize,
     /// Smallest retained corner count on the headline interferometer.
-    pub units_per_corner_min: Option<usize>,
+    pub candidate_group_labels_per_corner_min: Option<usize>,
     /// Largest retained corner count on the headline interferometer.
-    pub units_per_corner_max: Option<usize>,
+    pub candidate_group_labels_per_corner_max: Option<usize>,
     /// Whether a complete square meets the prespecified per-corner count floor.
     /// This does not establish unit authority or an untouched confirmation split.
-    pub confirmation_count_ready: bool,
+    pub candidate_group_count_floor_met: bool,
     /// Ranked next cell on the highest-priority incomplete design, if any.
     pub recommended_next_corner: Option<String>,
-    /// Identified-set dimension of that incomplete design.
-    pub identified_set_dimension: Option<usize>,
+    /// Main-effect alias dimension of that incomplete design.
+    pub main_effect_alias_dimension: Option<usize>,
     /// Integer cost of the recommended cell (default 1000).
     pub recommended_next_corner_cost: Option<u32>,
     /// Never-seen versus under-supported for that cell.
     pub recommended_next_corner_kind: Option<NextCornerKind>,
     /// Top ranked cells from the headline incomplete design, at most three.
     pub ranked_next_corners: Vec<NextCornerCandidate>,
-    /// True when the independent unit collapsed to a row.
-    pub units_are_rows: bool,
+    /// True when candidate grouping collapsed to rows.
+    pub candidate_groups_are_rows: bool,
     /// Reminder that this header is not an arrow.
     pub note: String,
 }
@@ -160,8 +161,8 @@ pub struct SurveyReport {
     pub path: String,
     /// Row count.
     pub n_rows: usize,
-    /// Rows, independent units, regimes, and complete squares.
-    pub information_content: CausalInformationContent,
+    /// Rows, candidate grouping labels, regimes, and complete squares.
+    pub information_content: SurveyDesignInformationContent,
     /// Column triage.
     pub columns: Vec<ColumnTriage>,
     /// Coarsest cluster-candidate column, if any.
@@ -236,7 +237,7 @@ pub fn run_unsupervised_survey(
     )?;
     let next_step = survey_next_step(&interferometers, &information_content);
     Ok(SurveyReport {
-        schema_version: "1.2.0".into(),
+        schema_version: "1.4.0".into(),
         authority: SurveyAuthority::ProposalOnly,
         wall: "State-independent within-regime selection cannot be established from observed rows. This survey cannot issue a certificate.".into(),
         table_sha256: table.content_sha256,
@@ -497,7 +498,8 @@ fn propose(
         CausalCompletionEvaluation::NotEvaluated
     );
     debug_assert_eq!(orientation, OrientationTestability::Untestable);
-    let identified_set_dimension = family.as_ref().map(|item| item.identified_set_dimension);
+    // Geometric nullity of the pointwise main-effects matrix, not a causal fiber.
+    let main_effect_alias_dimension = family.as_ref().map(|item| item.main_effect_alias_dimension);
     let ranked_next_corners = rank_missing_boolean_corners_from_observed(
         &design,
         &std::collections::BTreeMap::new(),
@@ -533,7 +535,7 @@ fn propose(
         empirically_product,
         min_corner_count,
         lack_of_fit_dimension,
-        identified_set_dimension,
+        main_effect_alias_dimension,
         recommended_next_corner,
         recommended_next_corner_cost,
         recommended_next_corner_kind,
@@ -550,9 +552,9 @@ fn information_content(
     cluster_column: Option<&str>,
     unit_basis: ClusterUnitBasis,
     interferometers: &[InterferometerProposal],
-) -> Result<CausalInformationContent, EngineError> {
+) -> Result<SurveyDesignInformationContent, EngineError> {
     let n_rows = table.rows.len();
-    let n_unit_labels = match cluster_column {
+    let n_candidate_group_labels = match cluster_column {
         Some(name) => unique_values(table, header_index(table, name)?).len(),
         None => n_rows,
     };
@@ -561,64 +563,71 @@ fn information_content(
         .find(|item| item.complete_square)
         .or_else(|| interferometers.first());
     let n_distinct_supported_regimes = headline.map_or(0, |item| item.design.points.len());
-    let n_complete_testable_squares = interferometers
+    let n_complete_design_squares = interferometers
         .iter()
         .filter(|item| item.complete_square)
         .count();
-    let (units_per_corner_min, units_per_corner_max) = headline.map_or((None, None), |item| {
-        (
-            item.design.counts.iter().copied().min(),
-            item.design.counts.iter().copied().max(),
-        )
-    });
+    let (candidate_group_labels_per_corner_min, candidate_group_labels_per_corner_max) = headline
+        .map_or((None, None), |item| {
+            (
+                item.design.counts.iter().copied().min(),
+                item.design.counts.iter().copied().max(),
+            )
+        });
     let incomplete = interferometers
         .iter()
         .find(|item| item.recommended_next_corner.is_some());
-    let units_are_rows = unit_basis == ClusterUnitBasis::Row || n_unit_labels == n_rows;
-    let confirmation_count_ready =
-        is_confirmation_count_ready(n_complete_testable_squares, units_per_corner_min);
-    Ok(CausalInformationContent {
+    let candidate_groups_are_rows =
+        unit_basis == ClusterUnitBasis::Row || n_candidate_group_labels == n_rows;
+    let candidate_group_count_floor_met = meets_candidate_group_count_floor(
+        n_complete_design_squares,
+        candidate_group_labels_per_corner_min,
+    );
+    Ok(SurveyDesignInformationContent {
         n_rows,
-        n_unit_labels,
+        n_candidate_group_labels,
         unit_basis,
         n_distinct_supported_regimes,
-        n_complete_testable_squares,
-        units_per_corner_min,
-        units_per_corner_max,
-        confirmation_count_ready,
+        n_complete_design_squares,
+        candidate_group_labels_per_corner_min,
+        candidate_group_labels_per_corner_max,
+        candidate_group_count_floor_met,
         recommended_next_corner: incomplete.and_then(|item| item.recommended_next_corner.clone()),
-        identified_set_dimension: incomplete.and_then(|item| item.identified_set_dimension),
+        main_effect_alias_dimension: incomplete.and_then(|item| item.main_effect_alias_dimension),
         recommended_next_corner_cost: incomplete.and_then(|item| item.recommended_next_corner_cost),
         recommended_next_corner_kind: incomplete.and_then(|item| item.recommended_next_corner_kind),
         ranked_next_corners: incomplete
             .map(|item| item.ranked_next_corners.clone())
             .unwrap_or_default(),
-        units_are_rows,
-        note: information_content_note(unit_basis, units_are_rows),
+        candidate_groups_are_rows,
+        note: information_content_note(unit_basis, candidate_groups_are_rows),
     })
 }
 
-fn information_content_note(unit_basis: ClusterUnitBasis, units_are_rows: bool) -> String {
-    if !units_are_rows {
-        return "Rows are grouped by the declared or inferred unit-label column. Independence still requires an external unit contract. Complete squares are design facts, not arrows.".into();
+fn information_content_note(
+    unit_basis: ClusterUnitBasis,
+    candidate_groups_are_rows: bool,
+) -> String {
+    if !candidate_groups_are_rows {
+        return "Rows are grouped by the declared or inferred candidate-label column. Independence still requires an external assignment-unit contract. Complete squares are design facts, not arrows.".into();
     }
     if unit_basis == ClusterUnitBasis::Row {
-        "No unit column; independent units fell back to rows. More rows are not more experimental units. Complete squares are design facts, not arrows.".into()
+        "No grouping column was established; candidate groups fell back to rows. More rows are not more experimental units. Complete squares are design facts, not arrows.".into()
     } else {
-        "Cluster column is one-to-one with rows. Unit-label count equals row count; that does not establish independent experimental units. Complete squares are design facts, not arrows.".into()
+        "Candidate grouping column is one-to-one with rows. The label count does not establish independent experimental units. Complete squares are design facts, not arrows.".into()
     }
 }
 
 fn survey_next_step(
     interferometers: &[InterferometerProposal],
-    info: &CausalInformationContent,
+    info: &SurveyDesignInformationContent,
 ) -> String {
     let header = format_information_header(info);
     let action = if interferometers.iter().any(|item| item.complete_square) {
         format!(
-            "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Orientation is untestable: this atlas has no same-target tilt family. Do not treat this atlas as orientation.{}{}",
+            "Freeze a complete square as a four_law manifest, resolve selection and assignment-unit evidence, and run mic-tabular four-law only on an untouched confirmation partition. Orientation is untestable: this atlas has no same-target tilt family. Do not treat this atlas as orientation.{}{}",
             row_unit_clause(info),
-            confirmatory_clause(info)
+            candidate_count_clause(info)
         )
     } else if let Some(item) = interferometers
         .iter()
@@ -627,18 +636,22 @@ fn survey_next_step(
         let next = match (
             item.recommended_next_corner.as_deref(),
             item.recommended_next_corner_kind,
-            item.identified_set_dimension,
+            item.main_effect_alias_dimension,
         ) {
-            (Some(corner), Some(NextCornerKind::UnderSupported), Some(idim)) => format!(
-                " Ranked next corner `{corner}` is under-supported (identified-set dimension {idim}); collect more units, do not invent the arm."
-            ),
-            (Some(corner), Some(NextCornerKind::NeverSeen), Some(idim)) => format!(
-                " Ranked next corner `{corner}` was never seen (identified-set dimension {idim})."
-            ),
-            (Some(corner), Some(NextCornerKind::UnderSupported), None) => {
-                format!(" Ranked next corner `{corner}` is under-supported; collect more units.")
+            (Some(corner), Some(kind), idim) => {
+                let purpose = next_query_purpose(item, kind, corner);
+                match idim {
+                    Some(dim) => format!(
+                        " Ranked next corner `{corner}` is {kind_label} (main-effect alias dimension {dim}); purpose: {purpose}. Ranking is algebraic alias reduction, not causal-completion identification.",
+                        kind_label = next_corner_kind_label(kind),
+                    ),
+                    None => format!(
+                        " Ranked next corner `{corner}` is {kind_label}; purpose: {purpose}.",
+                        kind_label = next_corner_kind_label(kind),
+                    ),
+                }
             }
-            (Some(corner), _, _) => format!(" Ranked next corner `{corner}`."),
+            (Some(corner), None, _) => format!(" Ranked next corner `{corner}`."),
             _ => String::new(),
         };
         let ranked = format_ranked_list(&item.ranked_next_corners);
@@ -660,25 +673,74 @@ fn survey_next_step(
     format!("{header}{action}")
 }
 
-fn format_information_header(info: &CausalInformationContent) -> String {
-    let units_per_corner = match (info.units_per_corner_min, info.units_per_corner_max) {
+fn format_information_header(info: &SurveyDesignInformationContent) -> String {
+    let candidate_groups_per_corner = match (
+        info.candidate_group_labels_per_corner_min,
+        info.candidate_group_labels_per_corner_max,
+    ) {
         (Some(min), Some(max)) if min == max => min.to_string(),
         (Some(min), Some(max)) => format!("{min}–{max}"),
         _ => "none".into(),
     };
     format!(
-        "Rows: {}. Declared/inferred unit labels: {}. Distinct supported regimes: {}. Complete testable squares: {}. Units per corner: {}. Confirmation count floor met: {} (unit authority and an untouched confirmation split are separate requirements). ",
+        "Rows: {}. Distinct candidate group labels under {:?}: {}. Distinct supported regimes: {}. Complete design squares: {}. Candidate group labels per corner: {}. Candidate group count floor met: {} (this is design support only; unit authority and confirmation remain unresolved). ",
         info.n_rows,
-        info.n_unit_labels,
+        info.unit_basis,
+        info.n_candidate_group_labels,
         info.n_distinct_supported_regimes,
-        info.n_complete_testable_squares,
-        units_per_corner,
-        if info.confirmation_count_ready {
+        info.n_complete_design_squares,
+        candidate_groups_per_corner,
+        if info.candidate_group_count_floor_met {
             "yes"
         } else {
             "no"
         }
     )
+}
+
+fn next_corner_kind_label(kind: NextCornerKind) -> &'static str {
+    match kind {
+        NextCornerKind::NeverSeen => "never seen",
+        NextCornerKind::UnderSupported => "under-supported",
+    }
+}
+
+fn next_query_purpose(
+    item: &InterferometerProposal,
+    kind: NextCornerKind,
+    corner: &str,
+) -> &'static str {
+    match kind {
+        NextCornerKind::UnderSupported => {
+            "replicate an under-supported cell, do not invent the arm"
+        }
+        NextCornerKind::NeverSeen => {
+            if never_seen_cell_closes_observed_primitives(item, corner) {
+                "close a design contrast / test reuse of already-observed family-levels"
+            } else if is_primitive_arm(corner) {
+                "collect an unseen primitive arm"
+            } else {
+                "collect a never-seen cell; that is not by itself a causal completion"
+            }
+        }
+    }
+}
+
+fn never_seen_cell_closes_observed_primitives(item: &InterferometerProposal, corner: &str) -> bool {
+    if corner != "11" {
+        return false;
+    }
+    let retained: BTreeSet<String> = item
+        .design
+        .points
+        .iter()
+        .map(DesignPoint::bit_string)
+        .collect();
+    retained.contains("10") && retained.contains("01")
+}
+
+fn is_primitive_arm(corner: &str) -> bool {
+    matches!(corner, "10" | "01")
 }
 
 fn format_ranked_list(ranked: &[NextCornerCandidate]) -> String {
@@ -698,27 +760,28 @@ fn format_ranked_list(ranked: &[NextCornerCandidate]) -> String {
     format!(" Ranked list [{}].", items.join(", "))
 }
 
-fn row_unit_clause(info: &CausalInformationContent) -> String {
-    if info.units_are_rows {
-        " Independent unit is a row: more rows are not more experimental units.".into()
+fn row_unit_clause(info: &SurveyDesignInformationContent) -> String {
+    if info.candidate_groups_are_rows {
+        " Candidate grouping is row-level: more rows are not more experimental units.".into()
     } else {
         String::new()
     }
 }
 
-fn confirmatory_clause(info: &CausalInformationContent) -> String {
-    if info.n_complete_testable_squares > 0 && !info.confirmation_count_ready {
-        " This square is complete as a design but has fewer than two declared/inferred unit labels in at least one corner. Collect more units before four-law.".into()
+fn candidate_count_clause(info: &SurveyDesignInformationContent) -> String {
+    if info.n_complete_design_squares > 0 && !info.candidate_group_count_floor_met {
+        " This square is complete as a design but has fewer than two candidate group labels in at least one corner. Establish the assignment unit and collect more independent units before four-law.".into()
     } else {
         String::new()
     }
 }
 
-fn is_confirmation_count_ready(
-    n_complete_testable_squares: usize,
-    units_per_corner_min: Option<usize>,
+fn meets_candidate_group_count_floor(
+    n_complete_design_squares: usize,
+    candidate_group_labels_per_corner_min: Option<usize>,
 ) -> bool {
-    n_complete_testable_squares > 0 && units_per_corner_min.is_some_and(|count| count >= 2)
+    n_complete_design_squares > 0
+        && candidate_group_labels_per_corner_min.is_some_and(|count| count >= 2)
 }
 
 fn extension_note(base: &str, missing: &[String], dropped: &[String]) -> String {
@@ -935,7 +998,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.authority, SurveyAuthority::ProposalOnly);
-        assert_eq!(report.schema_version, "1.2.0");
+        assert_eq!(report.schema_version, "1.4.0");
         assert!(
             report
                 .interferometers
@@ -945,21 +1008,21 @@ mod tests {
         assert!(report.wall.contains("cannot issue a certificate"));
         assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Declared);
         assert_eq!(report.information_content.n_rows, report.n_rows);
-        assert!(report.information_content.n_unit_labels > 0);
-        assert!(report.information_content.n_unit_labels <= report.n_rows);
-        assert!(report.information_content.n_complete_testable_squares >= 1);
+        assert!(report.information_content.n_candidate_group_labels > 0);
+        assert!(report.information_content.n_candidate_group_labels <= report.n_rows);
+        assert!(report.information_content.n_complete_design_squares >= 1);
         assert_eq!(report.information_content.n_distinct_supported_regimes, 4);
-        assert!(report.information_content.units_are_rows);
-        assert!(report.information_content.confirmation_count_ready);
+        assert!(report.information_content.candidate_groups_are_rows);
+        assert!(report.information_content.candidate_group_count_floor_met);
         assert!(
             report
                 .next_step
-                .contains("Confirmation count floor met: yes")
+                .contains("Candidate group count floor met: yes")
         );
         assert!(
             report
                 .next_step
-                .contains("unit authority and an untouched confirmation split")
+                .contains("unit authority and confirmation remain unresolved")
         );
         assert!(
             report
@@ -972,9 +1035,9 @@ mod tests {
         assert!(
             report
                 .next_step
-                .contains("Declared/inferred unit labels: 80.")
+                .contains("Distinct candidate group labels under Declared: 80.")
         );
-        assert!(report.next_step.contains("Complete testable squares:"));
+        assert!(report.next_step.contains("Complete design squares:"));
         assert!(
             report
                 .next_step
@@ -1115,6 +1178,19 @@ mod tests {
             Some(NextCornerKind::NeverSeen)
         );
         assert!(report.next_step.contains("never seen"));
+        assert!(
+            report
+                .next_step
+                .contains("close a design contrast / test reuse of already-observed family-levels")
+        );
+        assert!(!report.next_step.contains("identify an unseen family-level"));
+        assert!(!report.next_step.contains("collect an unseen primitive arm"));
+        assert!(report.next_step.contains("main-effect alias dimension"));
+        assert!(
+            report
+                .next_step
+                .contains("algebraic alias reduction, not causal-completion identification")
+        );
         assert_eq!(
             report
                 .information_content
@@ -1132,12 +1208,12 @@ mod tests {
         );
         assert_eq!(report.information_content.ranked_next_corners.len(), 1);
         assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Declared);
-        assert!(report.information_content.units_are_rows);
+        assert!(report.information_content.candidate_groups_are_rows);
         assert!(report.next_step.contains("Rows: 6."));
         assert!(
             report
                 .next_step
-                .contains("Declared/inferred unit labels: 6.")
+                .contains("Distinct candidate group labels under Declared: 6.")
         );
     }
 
@@ -1156,9 +1232,9 @@ mod tests {
         .unwrap();
         let report = run_unsupervised_survey(&path, None, None, SurveyPolicy::default()).unwrap();
         assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Row);
-        assert!(report.information_content.units_are_rows);
+        assert!(report.information_content.candidate_groups_are_rows);
         assert_eq!(
-            report.information_content.n_unit_labels,
+            report.information_content.n_candidate_group_labels,
             report.information_content.n_rows
         );
         assert!(
@@ -1187,27 +1263,25 @@ mod tests {
                 .unwrap();
         assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Declared);
         assert_eq!(report.information_content.n_rows, 8);
-        assert_eq!(report.information_content.n_unit_labels, 4);
-        assert!(!report.information_content.units_are_rows);
+        assert_eq!(report.information_content.n_candidate_group_labels, 4);
+        assert!(!report.information_content.candidate_groups_are_rows);
         assert!(
             report
                 .information_content
                 .note
-                .contains("grouped by the declared or inferred unit-label column")
+                .contains("grouped by the declared or inferred candidate-label column")
         );
         assert!(report.next_step.contains("Rows: 8."));
         assert!(
             report
                 .next_step
-                .contains("Declared/inferred unit labels: 4.")
+                .contains("Distinct candidate group labels under Declared: 4.")
         );
-        assert!(
-            !report
-                .next_step
-                .contains("Independent unit is a row: more rows are not more experimental units")
-        );
-        assert!(!report.information_content.confirmation_count_ready);
-        assert_eq!(report.information_content.n_complete_testable_squares, 0);
+        assert!(!report.next_step.contains(
+            "Candidate grouping is row-level: more rows are not more experimental units"
+        ));
+        assert!(!report.information_content.candidate_group_count_floor_met);
+        assert_eq!(report.information_content.n_complete_design_squares, 0);
     }
 
     #[test]
@@ -1235,18 +1309,23 @@ mod tests {
                 .iter()
                 .any(|item| item.complete_square)
         );
-        assert_eq!(report.information_content.n_unit_labels, 4);
-        assert_eq!(report.information_content.units_per_corner_min, Some(1));
-        assert!(!report.information_content.confirmation_count_ready);
+        assert_eq!(report.information_content.n_candidate_group_labels, 4);
+        assert_eq!(
+            report
+                .information_content
+                .candidate_group_labels_per_corner_min,
+            Some(1)
+        );
+        assert!(!report.information_content.candidate_group_count_floor_met);
         assert!(
             report
                 .next_step
-                .contains("fewer than two declared/inferred unit labels")
+                .contains("fewer than two candidate group labels")
         );
         assert!(
             report
                 .next_step
-                .contains("Confirmation count floor met: no")
+                .contains("Candidate group count floor met: no")
         );
     }
 
@@ -1286,6 +1365,11 @@ mod tests {
             Some(NextCornerKind::UnderSupported)
         );
         assert!(report.next_step.contains("under-supported"));
+        assert!(
+            report
+                .next_step
+                .contains("replicate an under-supported cell")
+        );
         assert!(report.suggested_manifest.is_none());
     }
 
@@ -1305,8 +1389,8 @@ mod tests {
             run_unsupervised_survey(&path, None, Some("cluster_id"), SurveyPolicy::default())
                 .unwrap();
         assert_eq!(report.authority, SurveyAuthority::ProposalOnly);
-        assert_eq!(report.information_content.n_unit_labels, 4);
-        assert_eq!(report.information_content.n_complete_testable_squares, 0);
+        assert_eq!(report.information_content.n_candidate_group_labels, 4);
+        assert_eq!(report.information_content.n_complete_design_squares, 0);
         let square = report
             .interferometers
             .iter()
@@ -1315,7 +1399,7 @@ mod tests {
         assert!(!square.complete_square);
         assert_eq!(square.missing_corners, ["10", "01"]);
         assert_eq!(square.lack_of_fit_dimension, Some(0));
-        assert_eq!(square.identified_set_dimension, Some(1));
+        assert_eq!(square.main_effect_alias_dimension, Some(1));
         assert!(matches!(
             square.recommended_next_corner.as_deref(),
             Some("01" | "10")
@@ -1324,8 +1408,14 @@ mod tests {
         assert_eq!(report.information_content.n_distinct_supported_regimes, 2);
         assert_eq!(square.ranked_next_corners.len(), 2);
         assert!(report.next_step.contains("Ranked list ["));
+        assert!(report.next_step.contains("collect an unseen primitive arm"));
+        assert!(
+            !report
+                .next_step
+                .contains("close a design contrast / test reuse")
+        );
         assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Declared);
-        assert!(report.information_content.units_are_rows);
+        assert!(report.information_content.candidate_groups_are_rows);
         assert!(report.next_step.contains("Rows: 4."));
     }
 

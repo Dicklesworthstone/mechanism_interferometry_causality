@@ -4,7 +4,8 @@
 use mic_audit::CertificateStatus;
 use mic_data::ExperimentManifest;
 use mic_engine::{
-    FourLawPolicy, PreflightPolicy, SurveyPolicy, run_tabular_audit, run_unsupervised_survey,
+    FourLawPolicy, PreflightPolicy, SurveyPolicy, resolve_selection_evidence_from_files,
+    run_tabular_audit, run_tabular_audit_with_selection_evidence, run_unsupervised_survey,
 };
 use std::env;
 use std::fs;
@@ -24,62 +25,7 @@ fn run(args: &[String]) -> Result<(), String> {
         return Ok(());
     };
     match command {
-        "ingest" | "four-law" | "report" => {
-            let path = args.get(1).ok_or_else(|| {
-                format!(
-                    "usage: mic-tabular {command} MANIFEST.json [--output PATH] [--base-dir DIR]"
-                )
-            })?;
-            let manifest =
-                ExperimentManifest::from_json_path(path).map_err(|error| error.to_string())?;
-            let base = option_value(args, "--base-dir")
-                .map(PathBuf::from)
-                .or_else(|| Path::new(path).parent().map(Path::to_path_buf));
-            let report = run_tabular_audit(
-                &manifest,
-                FourLawPolicy::default(),
-                PreflightPolicy::default(),
-                base.as_deref(),
-            )
-            .map_err(|error| error.to_string())?;
-            let value = match command {
-                "ingest" => {
-                    serde_json::to_value(report.ingest()).map_err(|error| error.to_string())?
-                }
-                "four-law" => serde_json::to_value(&report).map_err(|error| error.to_string())?,
-                "report" => {
-                    let narrative = report.narrative();
-                    serde_json::json!({
-                        "status": report.status(),
-                        "preflight_status": report.preflight().status(),
-                        "narrative": narrative,
-                        "audit": report,
-                    })
-                }
-                _ => unreachable!(),
-            };
-            if command == "report" {
-                println!("{}", report.narrative().markdown());
-            }
-            if let Some(output) = option_value(args, "--output") {
-                let pretty =
-                    serde_json::to_string_pretty(&value).map_err(|error| error.to_string())?;
-                fs::write(output, pretty).map_err(|error| error.to_string())?;
-            } else if command != "report" {
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&value).map_err(|error| error.to_string())?
-                );
-            }
-            if matches!(
-                report.status(),
-                CertificateStatus::Abstained | CertificateStatus::DiagnosticOnly
-            ) && command != "ingest"
-            {
-                // Abstention is the honest default, not a process failure.
-            }
-            Ok(())
-        }
+        "ingest" | "four-law" | "report" => run_audit_command(command, args),
         "survey" => {
             let path = args
                 .get(1)
@@ -112,6 +58,84 @@ fn run(args: &[String]) -> Result<(), String> {
     }
 }
 
+fn run_audit_command(command: &str, args: &[String]) -> Result<(), String> {
+    let path = args.get(1).ok_or_else(|| {
+        format!(
+            "usage: mic-tabular {command} MANIFEST.json [--output PATH] [--base-dir DIR] [--allow-unvalidated-selection-model]"
+        )
+    })?;
+    let manifest = ExperimentManifest::from_json_path(path).map_err(|error| error.to_string())?;
+    let base = option_value(args, "--base-dir")
+        .map(PathBuf::from)
+        .or_else(|| Path::new(path).parent().map(Path::to_path_buf));
+    let policy = PreflightPolicy {
+        accept_unvalidated_selection_model: has_flag(args, "--allow-unvalidated-selection-model"),
+        ..PreflightPolicy::default()
+    };
+    let report = match (
+        option_value(args, "--selection-receipt"),
+        option_value(args, "--selection-authority-source"),
+    ) {
+        (None, None) => {
+            run_tabular_audit(&manifest, FourLawPolicy::default(), policy, base.as_deref())
+        }
+        (Some(receipt), Some(authority)) => {
+            let evidence = resolve_selection_evidence_from_files(
+                &manifest,
+                receipt,
+                authority,
+                base.as_deref(),
+            )
+            .map_err(|error| error.to_string())?;
+            run_tabular_audit_with_selection_evidence(
+                &manifest,
+                FourLawPolicy::default(),
+                policy,
+                base.as_deref(),
+                &evidence,
+            )
+        }
+        _ => {
+            return Err(
+                "--selection-receipt and --selection-authority-source must be supplied together"
+                    .into(),
+            );
+        }
+    }
+    .map_err(|error| error.to_string())?;
+    let value = match command {
+        "ingest" => serde_json::to_value(report.ingest()).map_err(|error| error.to_string())?,
+        "four-law" => serde_json::to_value(&report).map_err(|error| error.to_string())?,
+        "report" => serde_json::json!({
+            "status": report.status(),
+            "preflight_status": report.preflight().status(),
+            "narrative": report.narrative(),
+            "audit": report,
+        }),
+        _ => unreachable!(),
+    };
+    if command == "report" {
+        println!("{}", report.narrative().markdown());
+    }
+    if let Some(output) = option_value(args, "--output") {
+        let pretty = serde_json::to_string_pretty(&value).map_err(|error| error.to_string())?;
+        fs::write(output, pretty).map_err(|error| error.to_string())?;
+    } else if command != "report" {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&value).map_err(|error| error.to_string())?
+        );
+    }
+    if matches!(
+        report.status(),
+        CertificateStatus::Abstained | CertificateStatus::DiagnosticOnly
+    ) && command != "ingest"
+    {
+        // Abstention is the honest default, not a process failure.
+    }
+    Ok(())
+}
+
 fn option_value<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
     args.windows(2).find_map(|window| {
         if window[0] == name {
@@ -122,15 +146,19 @@ fn option_value<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
     })
 }
 
+fn has_flag(args: &[String], flag: &str) -> bool {
+    args.iter().any(|argument| argument == flag)
+}
+
 fn print_help() {
     println!(
         "Mechanism Interferometry tabular four-law surface\n\n\
          This binary exists because `mic` CLI wiring is reserved by another agent.\n\
          It is the std-CSV reader, not the FrankenPandas Packet 1 adapter.\n\n\
          Usage:\n\
-           mic-tabular ingest MANIFEST.json [--output PATH] [--base-dir DIR]\n\
-           mic-tabular four-law MANIFEST.json [--output PATH] [--base-dir DIR]\n\
-           mic-tabular report MANIFEST.json [--output PATH] [--base-dir DIR]\n\
+           mic-tabular ingest MANIFEST.json [--output PATH] [--base-dir DIR] [--allow-unvalidated-selection-model | --selection-receipt PATH --selection-authority-source PATH]\n\
+           mic-tabular four-law MANIFEST.json [--output PATH] [--base-dir DIR] [--allow-unvalidated-selection-model | --selection-receipt PATH --selection-authority-source PATH]\n\
+           mic-tabular report MANIFEST.json [--output PATH] [--base-dir DIR] [--allow-unvalidated-selection-model | --selection-receipt PATH --selection-authority-source PATH]\n\
            mic-tabular survey TABLE.csv [--cluster COL] [--output PATH] [--base-dir DIR]\n\
            mic-tabular help"
     );

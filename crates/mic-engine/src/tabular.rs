@@ -6,8 +6,8 @@
 //! established here.
 
 use crate::{
-    EngineError, OverlapAudit, PreflightPolicy, PreflightReport, audit_overlap,
-    finding_with_context, run_preflight,
+    EngineError, OverlapAudit, PreflightPolicy, PreflightReport, ValidatedSelectionEvidence,
+    audit_overlap, finding_with_context, run_preflight, run_preflight_with_selection_evidence,
 };
 use mic_audit::{
     CertificateGates, CertificateStatus, EvidenceLedger, ExecutionMode, NarrativeReport, Severity,
@@ -107,30 +107,29 @@ pub struct FourLawFaceAudit {
     pub clusters_per_corner: [usize; 4],
 }
 
-/// Rows-versus-units header for a four-law tabular run.
+/// Rows-versus-candidate-groups header for a four-law tabular run.
 ///
-/// A million cells with three replicates is three units. This header is a
-/// design-support count, not an arrow.
+/// These are grouping-label counts under the declared column, not established
+/// assignment units and not an arrow.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TabularInformationContent {
     /// Raw table rows, including excluded ones.
     pub n_rows: usize,
-    /// Distinct included values of the declared cluster column. This count does
-    /// not itself establish that the labels are independent assignment units.
-    pub n_unit_labels: usize,
-    /// True when each included row is its own cluster.
-    pub units_are_rows: bool,
+    /// Distinct included values of the declared grouping column.
+    pub n_candidate_group_labels: usize,
+    /// True when each included row is its own candidate group.
+    pub candidate_groups_are_rows: bool,
     /// Declared regimes with at least one included cluster.
     pub n_distinct_supported_regimes: usize,
-    /// Complete square faces that were actually projected.
-    pub n_complete_testable_squares: usize,
-    /// Smallest included-cluster count among the headline face corners.
-    pub units_per_corner_min: Option<usize>,
-    /// Largest included-cluster count among the headline face corners.
-    pub units_per_corner_max: Option<usize>,
-    /// Whether the complete square meets the prespecified per-corner count floor.
-    /// This does not establish unit authority or an untouched confirmation split.
-    pub confirmation_count_ready: bool,
+    /// Complete square faces that were actually projected as design geometry.
+    pub n_complete_design_squares: usize,
+    /// Smallest candidate-group-label count among the headline face corners.
+    pub candidate_group_labels_per_corner_min: Option<usize>,
+    /// Largest candidate-group-label count among the headline face corners.
+    pub candidate_group_labels_per_corner_max: Option<usize>,
+    /// Whether candidate grouping labels meet the per-corner count floor.
+    /// This does not establish unit authority, independence, or confirmation.
+    pub candidate_group_count_floor_met: bool,
     /// Reminder that this header is not an arrow.
     pub note: String,
 }
@@ -150,7 +149,7 @@ pub struct TabularAuditReport {
     preflight: PreflightReport,
     /// Table fingerprints and realized quotas.
     ingest: TabularIngestSummary,
-    /// Rows, independent units, regimes, and complete squares.
+    /// Rows, candidate grouping labels, regimes, and complete squares.
     information_content: TabularInformationContent,
     /// Four-law faces. Empty when ingest or preflight blocked the projection.
     four_law: Vec<FourLawFaceAudit>,
@@ -234,7 +233,7 @@ impl TabularAuditReport {
     pub fn narrative(&self) -> NarrativeReport {
         let mut extra = Vec::new();
         extra.push((
-            "Causal information content",
+            "Design information content",
             render_information_content(&self.information_content),
         ));
         extra.push((
@@ -328,6 +327,33 @@ pub fn run_tabular_audit(
     preflight: PreflightPolicy,
     base_dir: Option<&Path>,
 ) -> Result<TabularAuditReport, EngineError> {
+    run_tabular_audit_inner(manifest, four_law, preflight, base_dir, None)
+}
+
+/// Runs the tabular audit with separately resolved selection evidence.
+pub fn run_tabular_audit_with_selection_evidence(
+    manifest: &ExperimentManifest,
+    four_law: FourLawPolicy,
+    preflight: PreflightPolicy,
+    base_dir: Option<&Path>,
+    selection_evidence: &ValidatedSelectionEvidence,
+) -> Result<TabularAuditReport, EngineError> {
+    run_tabular_audit_inner(
+        manifest,
+        four_law,
+        preflight,
+        base_dir,
+        Some(selection_evidence),
+    )
+}
+
+fn run_tabular_audit_inner(
+    manifest: &ExperimentManifest,
+    four_law: FourLawPolicy,
+    preflight: PreflightPolicy,
+    base_dir: Option<&Path>,
+    selection_evidence: Option<&ValidatedSelectionEvidence>,
+) -> Result<TabularAuditReport, EngineError> {
     if four_law.bins_per_column < 2 {
         return Err(EngineError::InvalidTabular(
             "bins_per_column must be at least 2".into(),
@@ -338,7 +364,11 @@ pub fn run_tabular_audit(
             "n_folds must be positive".into(),
         ));
     }
-    let preflight_report = run_preflight(manifest, preflight)?;
+    let preflight_report = if let Some(evidence) = selection_evidence {
+        run_preflight_with_selection_evidence(manifest, preflight, evidence)?
+    } else {
+        run_preflight(manifest, preflight)?
+    };
     let mut ledger = preflight_report.ledger.clone();
     ledger.provenance("tabular_reader", "std_csv");
     ledger.provenance("seed", manifest.seed.to_string());
@@ -444,7 +474,7 @@ fn finish(
     let gates = CertificateGates::unresolved();
     let status = ledger.status(&gates);
     TabularAuditReport {
-        schema_version: "2.1.0".into(),
+        schema_version: "2.2.0".into(),
         experiment_id: manifest.experiment_id.clone(),
         status,
         gates,
@@ -463,15 +493,15 @@ fn tabular_information_content(
     four_law: &[FourLawFaceAudit],
 ) -> TabularInformationContent {
     let n_rows = ingest.fingerprint.n_rows;
-    let n_unit_labels = ingest.fingerprint.n_included_clusters;
-    let units_are_rows = ingest.fingerprint.n_included_rows > 0
-        && n_unit_labels == ingest.fingerprint.n_included_rows;
+    let n_candidate_group_labels = ingest.fingerprint.n_included_clusters;
+    let candidate_groups_are_rows = ingest.fingerprint.n_included_rows > 0
+        && n_candidate_group_labels == ingest.fingerprint.n_included_rows;
     let n_distinct_supported_regimes = ingest
         .regime_counts
         .iter()
         .filter(|regime| regime.n_included_clusters > 0)
         .count();
-    let n_complete_testable_squares = four_law.len();
+    let n_complete_design_squares = four_law.len();
     let corner_counts: Vec<usize> = if let Some(face) = four_law.first() {
         face.clusters_per_corner.to_vec()
     } else {
@@ -482,43 +512,49 @@ fn tabular_information_content(
             .map(|regime| regime.n_included_clusters)
             .collect()
     };
-    let units_per_corner_min = corner_counts.iter().copied().min();
-    let units_per_corner_max = corner_counts.iter().copied().max();
-    let confirmation_count_ready =
-        n_complete_testable_squares > 0 && units_per_corner_min.is_some_and(|count| count >= 2);
-    let note = if n_complete_testable_squares > 0 && !confirmation_count_ready {
-        "Complete as a design, but the per-corner unit-count floor is not met. Collect more units before a confirmation split. Complete squares are design facts, not arrows.".into()
-    } else if units_are_rows {
+    let candidate_group_labels_per_corner_min = corner_counts.iter().copied().min();
+    let candidate_group_labels_per_corner_max = corner_counts.iter().copied().max();
+    let candidate_group_count_floor_met = n_complete_design_squares > 0
+        && candidate_group_labels_per_corner_min.is_some_and(|count| count >= 2);
+    let note = if n_complete_design_squares > 0 && !candidate_group_count_floor_met {
+        "Complete as a design, but the per-corner candidate-group count floor is not met. Establish the assignment unit and collect more independent units before confirmation. Complete squares are design facts, not arrows.".into()
+    } else if candidate_groups_are_rows {
         "Declared cluster is one-to-one with included rows. The count floor may be met, but assignment-unit authority and an untouched confirmation split are not established by counts. Complete squares are design facts, not arrows.".into()
     } else {
-        "Rows are grouped by included cluster labels. Independence still requires an external assignment-unit contract. Complete squares are design facts, not arrows.".into()
+        "Rows are grouped by declared candidate labels. Independence still requires an external assignment-unit contract. Complete squares are design facts, not arrows.".into()
     };
     TabularInformationContent {
         n_rows,
-        n_unit_labels,
-        units_are_rows,
+        n_candidate_group_labels,
+        candidate_groups_are_rows,
         n_distinct_supported_regimes,
-        n_complete_testable_squares,
-        units_per_corner_min,
-        units_per_corner_max,
-        confirmation_count_ready,
+        n_complete_design_squares,
+        candidate_group_labels_per_corner_min,
+        candidate_group_labels_per_corner_max,
+        candidate_group_count_floor_met,
         note,
     }
 }
 
 fn record_information_content(info: &TabularInformationContent, ledger: &mut EvidenceLedger) {
     ledger.provenance("n_rows", info.n_rows.to_string());
-    ledger.provenance("n_unit_labels", info.n_unit_labels.to_string());
-    ledger.provenance("units_are_rows", info.units_are_rows.to_string());
+    ledger.provenance(
+        "n_candidate_group_labels",
+        info.n_candidate_group_labels.to_string(),
+    );
+    ledger.provenance(
+        "candidate_groups_are_rows",
+        info.candidate_groups_are_rows.to_string(),
+    );
     ledger.provenance(
         "n_distinct_supported_regimes",
         info.n_distinct_supported_regimes.to_string(),
     );
     ledger.provenance(
-        "n_complete_testable_squares",
-        info.n_complete_testable_squares.to_string(),
+        "n_complete_design_squares",
+        info.n_complete_design_squares.to_string(),
     );
-    if info.units_are_rows {
+    if info.candidate_groups_are_rows {
         ledger.note(
             Severity::Warning,
             "ingest",
@@ -526,46 +562,49 @@ fn record_information_content(info: &TabularInformationContent, ledger: &mut Evi
             "declared cluster is one-to-one with included rows; more rows are not more experimental units unless that column is the randomization unit",
         );
     }
-    if info.n_complete_testable_squares > 0 && !info.confirmation_count_ready {
+    if info.n_complete_design_squares > 0 && !info.candidate_group_count_floor_met {
         ledger.note(
             Severity::Warning,
             "four_law",
             code::NOT_CONFIRMATORY,
-            "complete as a design, but the prespecified per-corner unit-count floor is not met",
+            "complete as a design, but the prespecified per-corner candidate-group count floor is not met",
         );
     }
 }
 
 fn render_information_content(info: &TabularInformationContent) -> String {
-    let confirmatory = match (info.units_per_corner_min, info.units_per_corner_max) {
+    let groups_per_corner = match (
+        info.candidate_group_labels_per_corner_min,
+        info.candidate_group_labels_per_corner_max,
+    ) {
         (Some(min), Some(max)) if min == max => min.to_string(),
         (Some(min), Some(max)) => format!("{min}–{max}"),
         _ => "none".into(),
     };
-    let unit_line = if info.units_are_rows {
+    let unit_line = if info.candidate_groups_are_rows {
         format!(
-            "Declared unit labels: {} (one-to-one with included rows; independence is not established by this count).",
-            info.n_unit_labels
+            "Candidate group labels: {} (one-to-one with included rows; independence is not established by this count).",
+            info.n_candidate_group_labels
         )
     } else {
         format!(
-            "Declared unit labels: {} (included clusters, not rows; independence requires an external unit contract).",
-            info.n_unit_labels
+            "Candidate group labels: {} (included declared clusters, not rows; independence requires an external unit contract).",
+            info.n_candidate_group_labels
         )
     };
-    let count_status = if info.confirmation_count_ready {
-        "yes — unit authority and an untouched confirmation split remain separate requirements"
-    } else if info.n_complete_testable_squares > 0 {
+    let count_status = if info.candidate_group_count_floor_met {
+        "yes — this is only a candidate-group count; unit authority and confirmation remain unresolved"
+    } else if info.n_complete_design_squares > 0 {
         "no — complete as a design, but below the per-corner count floor"
     } else {
         "no complete square"
     };
     format!(
-        "Rows: {}.\n{unit_line}\nDistinct supported regimes: {}.\nComplete testable squares: {}.\nUnits per corner: {}.\nConfirmation count floor met: {count_status}.\n{}",
+        "Rows: {}.\n{unit_line}\nDistinct supported regimes: {}.\nComplete design squares: {}.\nCandidate group labels per corner: {}.\nCandidate group count floor met: {count_status}.\n{}",
         info.n_rows,
         info.n_distinct_supported_regimes,
-        info.n_complete_testable_squares,
-        confirmatory,
+        info.n_complete_design_squares,
+        groups_per_corner,
         info.note
     )
 }
@@ -1106,16 +1145,23 @@ mod tests {
         ExperimentManifest::from_json_path(workspace_root().join(path)).unwrap()
     }
 
+    fn diagnostic_preflight_policy() -> PreflightPolicy {
+        PreflightPolicy {
+            accept_unvalidated_selection_model: true,
+            ..PreflightPolicy::default()
+        }
+    }
+
     #[test]
     fn curved_fixture_has_nonzero_kappa_and_abstains() {
         let report = run_tabular_audit(
             &load("examples/configs/four_law_discrete.json"),
             FourLawPolicy::default(),
-            PreflightPolicy::default(),
+            diagnostic_preflight_policy(),
             Some(&workspace_root()),
         )
         .unwrap();
-        assert_eq!(report.preflight.status, PreflightStatus::Ready);
+        assert_eq!(report.preflight.status, PreflightStatus::DiagnosticOnly);
         assert_eq!(report.status(), CertificateStatus::Abstained);
         let face = &report.four_law[0];
         assert_eq!(face.cells.len(), 2);
@@ -1154,23 +1200,33 @@ mod tests {
                     .unwrap()
         );
         assert_eq!(report.information_content().n_rows, 80);
-        assert_eq!(report.information_content().n_unit_labels, 80);
-        assert!(report.information_content().units_are_rows);
+        assert_eq!(report.information_content().n_candidate_group_labels, 80);
+        assert!(report.information_content().candidate_groups_are_rows);
         assert_eq!(report.information_content().n_distinct_supported_regimes, 4);
-        assert_eq!(report.information_content().n_complete_testable_squares, 1);
-        assert_eq!(report.information_content().units_per_corner_min, Some(20));
-        assert_eq!(report.information_content().units_per_corner_max, Some(20));
+        assert_eq!(report.information_content().n_complete_design_squares, 1);
+        assert_eq!(
+            report
+                .information_content()
+                .candidate_group_labels_per_corner_min,
+            Some(20)
+        );
+        assert_eq!(
+            report
+                .information_content()
+                .candidate_group_labels_per_corner_max,
+            Some(20)
+        );
         assert_eq!(report.four_law[0].clusters_per_corner, [20, 20, 20, 20]);
-        assert!(report.information_content().confirmation_count_ready);
+        assert!(report.information_content().candidate_group_count_floor_met);
         assert!(
             narrative
                 .markdown()
-                .contains("Confirmation count floor met: yes")
+                .contains("Candidate group count floor met: yes")
         );
         assert!(
             narrative
                 .markdown()
-                .contains("## Causal information content")
+                .contains("## Design information content")
         );
         assert!(
             narrative
@@ -1180,7 +1236,7 @@ mod tests {
         assert!(
             narrative
                 .markdown()
-                .find("## Causal information content")
+                .find("## Design information content")
                 .unwrap()
                 < narrative.markdown().find("## Ingest").unwrap()
         );
@@ -1191,7 +1247,7 @@ mod tests {
         let report = run_tabular_audit(
             &load("examples/configs/four_law_flat.json"),
             FourLawPolicy::default(),
-            PreflightPolicy::default(),
+            diagnostic_preflight_policy(),
             Some(&workspace_root()),
         )
         .unwrap();
@@ -1202,9 +1258,9 @@ mod tests {
         assert!((face.normalizer_a - 1.0).abs() < 1e-12);
         assert_eq!(report.status(), CertificateStatus::Abstained);
         assert_eq!(report.information_content().n_rows, 80);
-        assert_eq!(report.information_content().n_unit_labels, 80);
-        assert!(report.information_content().units_are_rows);
-        assert_eq!(report.information_content().n_complete_testable_squares, 1);
+        assert_eq!(report.information_content().n_candidate_group_labels, 80);
+        assert!(report.information_content().candidate_groups_are_rows);
+        assert_eq!(report.information_content().n_complete_design_squares, 1);
         assert_eq!(face.clusters_per_corner, [20, 20, 20, 20]);
     }
 
@@ -1250,19 +1306,19 @@ mod tests {
         let report = run_tabular_audit(
             &manifest,
             FourLawPolicy::default(),
-            PreflightPolicy::default(),
+            diagnostic_preflight_policy(),
             None,
         )
         .unwrap();
         let info = report.information_content();
         assert_eq!(info.n_rows, 16);
-        assert_eq!(info.n_unit_labels, 4);
-        assert!(!info.units_are_rows);
+        assert_eq!(info.n_candidate_group_labels, 4);
+        assert!(!info.candidate_groups_are_rows);
         assert_eq!(info.n_distinct_supported_regimes, 4);
-        assert_eq!(info.n_complete_testable_squares, 1);
-        assert_eq!(info.units_per_corner_min, Some(1));
-        assert_eq!(info.units_per_corner_max, Some(1));
-        assert!(!info.confirmation_count_ready);
+        assert_eq!(info.n_complete_design_squares, 1);
+        assert_eq!(info.candidate_group_labels_per_corner_min, Some(1));
+        assert_eq!(info.candidate_group_labels_per_corner_max, Some(1));
+        assert!(!info.candidate_group_count_floor_met);
         assert_eq!(report.four_law[0].clusters_per_corner, [1, 1, 1, 1]);
         assert!(
             report
@@ -1274,16 +1330,18 @@ mod tests {
         let narrative = report.narrative();
         let markdown = narrative.markdown();
         assert!(markdown.contains("below the per-corner count floor"));
-        assert!(markdown.contains("## Causal information content"));
+        assert!(markdown.contains("## Design information content"));
         assert!(markdown.contains("Rows: 16."));
-        assert!(markdown.contains("Declared unit labels: 4 (included clusters, not rows"));
-        assert!(markdown.contains("Complete testable squares: 1."));
+        assert!(
+            markdown.contains("Candidate group labels: 4 (included declared clusters, not rows")
+        );
+        assert!(markdown.contains("Complete design squares: 1."));
         assert!(
             !report
                 .ledger()
                 .findings()
                 .iter()
-                .any(|finding| finding.code == "units_are_rows")
+                .any(|finding| finding.code == code::UNITS_ARE_ROWS)
         );
     }
 
@@ -1292,11 +1350,11 @@ mod tests {
         let report = run_tabular_audit(
             &load("examples/configs/four_law_nonproduct.json"),
             FourLawPolicy::default(),
-            PreflightPolicy::default(),
+            diagnostic_preflight_policy(),
             Some(&workspace_root()),
         )
         .unwrap();
-        assert_eq!(report.preflight.status, PreflightStatus::Ready);
+        assert_eq!(report.preflight.status, PreflightStatus::DiagnosticOnly);
         assert!(report.preflight.four_law_eligible);
         assert!(!report.preflight.product_factorial_eligible);
         assert!(!report.four_law.is_empty());
@@ -1307,7 +1365,7 @@ mod tests {
         let report = run_tabular_audit(
             &load("examples/configs/selection_dependent.json"),
             FourLawPolicy::default(),
-            PreflightPolicy::default(),
+            diagnostic_preflight_policy(),
             Some(&workspace_root()),
         )
         .unwrap();
@@ -1315,8 +1373,8 @@ mod tests {
         assert!(!report.preflight.four_law_eligible);
         assert!(report.four_law.is_empty());
         assert_eq!(report.status(), CertificateStatus::Abstained);
-        assert_eq!(report.information_content().n_complete_testable_squares, 0);
-        assert!(!report.information_content().confirmation_count_ready);
+        assert_eq!(report.information_content().n_complete_design_squares, 0);
+        assert!(!report.information_content().candidate_group_count_floor_met);
         assert!(
             !report
                 .ledger()
@@ -1329,7 +1387,7 @@ mod tests {
             report
                 .narrative()
                 .markdown()
-                .contains("Complete testable squares: 0.")
+                .contains("Complete design squares: 0.")
         );
     }
 
@@ -1340,7 +1398,7 @@ mod tests {
         let report = run_tabular_audit(
             &manifest,
             FourLawPolicy::default(),
-            PreflightPolicy::default(),
+            diagnostic_preflight_policy(),
             Some(&workspace_root()),
         )
         .unwrap();
@@ -1387,7 +1445,7 @@ mod tests {
         let report = run_tabular_audit(
             &manifest,
             FourLawPolicy::default(),
-            PreflightPolicy::default(),
+            diagnostic_preflight_policy(),
             None,
         )
         .unwrap();
@@ -1443,7 +1501,7 @@ mod tests {
         let report = run_tabular_audit(
             &manifest,
             FourLawPolicy::default(),
-            PreflightPolicy::default(),
+            diagnostic_preflight_policy(),
             None,
         )
         .unwrap();
@@ -1463,7 +1521,7 @@ mod tests {
         let report = run_tabular_audit(
             &load("examples/configs/four_law_discrete.json"),
             FourLawPolicy::default(),
-            PreflightPolicy::default(),
+            diagnostic_preflight_policy(),
             Some(&workspace_root()),
         )
         .unwrap();
@@ -1530,7 +1588,7 @@ mod tests {
         let report = run_tabular_audit(
             &manifest,
             FourLawPolicy::default(),
-            PreflightPolicy::default(),
+            diagnostic_preflight_policy(),
             None,
         )
         .unwrap();
