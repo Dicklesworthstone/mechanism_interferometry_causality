@@ -141,16 +141,38 @@ pub struct SelectionTransport {
 impl SelectionTransport {
     /// Selected densities `p π / Z`.
     pub fn selected(self) -> Result<DensitySquare, CoreError> {
-        positive("Z0", self.normalizers.p0)?;
-        positive("Za", self.normalizers.pa)?;
-        positive("Zb", self.normalizers.pb)?;
-        positive("Zab", self.normalizers.pab)?;
-        Ok(DensitySquare {
+        // Every factor is validated, not only the divisor. `DensitySquare` has public
+        // fields, so a caller can supply a negative source and a negative inclusion; the
+        // product of two invalid values is positive, and the resulting square would pass
+        // every downstream positivity check while describing nothing. Validating only the
+        // normalizers catches division by zero and misses that entirely.
+        positive("source p0", self.source.p0)?;
+        positive("source pa", self.source.pa)?;
+        positive("source pb", self.source.pb)?;
+        positive("source pab", self.source.pab)?;
+        // Inclusion is a probability: positive, and never above one. A value above one
+        // would silently manufacture selected mass that no sampling process can produce.
+        inclusion_probability("inclusion p0", self.inclusion.p0)?;
+        inclusion_probability("inclusion pa", self.inclusion.pa)?;
+        inclusion_probability("inclusion pb", self.inclusion.pb)?;
+        inclusion_probability("inclusion pab", self.inclusion.pab)?;
+        // Z_s = integral of p_s pi_s is an inclusion rate under a probability pi, so it
+        // obeys the same bound.
+        inclusion_probability("Z0", self.normalizers.p0)?;
+        inclusion_probability("Za", self.normalizers.pa)?;
+        inclusion_probability("Zb", self.normalizers.pb)?;
+        inclusion_probability("Zab", self.normalizers.pab)?;
+        let selected = DensitySquare {
             p0: self.source.p0 * self.inclusion.p0 / self.normalizers.p0,
             pa: self.source.pa * self.inclusion.pa / self.normalizers.pa,
             pb: self.source.pb * self.inclusion.pb / self.normalizers.pb,
             pab: self.source.pab * self.inclusion.pab / self.normalizers.pab,
-        })
+        };
+        positive("selected p0", selected.p0)?;
+        positive("selected pa", selected.pa)?;
+        positive("selected pb", selected.pb)?;
+        positive("selected pab", selected.pab)?;
+        Ok(selected)
     }
 
     /// Residual of `κ̃ - (κ + Δ_AB log π - Δ_AB log Z)`.
@@ -390,6 +412,20 @@ pub fn compensated_sum(values: &[f64]) -> f64 {
     sum
 }
 
+/// Validates an inclusion probability or inclusion rate in `(0, 1]`.
+///
+/// Kept distinct from `positive` because the upper bound is the part that carries
+/// meaning here: `pi > 1` is not a large probability, it is not a probability, and a
+/// selected law built from one reports mass that no sampling process could have
+/// produced.
+fn inclusion_probability(name: &'static str, value: f64) -> Result<(), CoreError> {
+    positive(name, value)?;
+    if value > 1.0 {
+        return Err(CoreError::InvalidNormalizer(value));
+    }
+    Ok(())
+}
+
 fn finite(name: &'static str, value: f64) -> Result<(), CoreError> {
     if value.is_finite() {
         Ok(())
@@ -428,6 +464,89 @@ fn equal_len(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn two_invalid_factors_cannot_produce_a_valid_selected_law() {
+        // `DensitySquare` has public fields, so nothing stops a caller supplying a
+        // negative source and a negative inclusion. Their product is positive, so before
+        // the factors were validated the resulting square passed every downstream
+        // positivity check while describing nothing at all.
+        let transport = SelectionTransport {
+            source: DensitySquare {
+                p0: -0.5,
+                pa: -0.5,
+                pb: -0.5,
+                pab: -0.5,
+            },
+            inclusion: DensitySquare {
+                p0: -0.4,
+                pa: -0.4,
+                pb: -0.4,
+                pab: -0.4,
+            },
+            normalizers: DensitySquare {
+                p0: 0.25,
+                pa: 0.25,
+                pb: 0.25,
+                pab: 0.25,
+            },
+        };
+        let error = transport.selected().unwrap_err();
+        assert!(matches!(error, CoreError::NonPositive { .. }));
+    }
+
+    #[test]
+    fn an_inclusion_probability_above_one_is_refused() {
+        // pi > 1 is not a large probability; a selected law built from one reports mass
+        // no sampling process could have produced.
+        let transport = SelectionTransport {
+            source: DensitySquare {
+                p0: 0.25,
+                pa: 0.25,
+                pb: 0.25,
+                pab: 0.25,
+            },
+            inclusion: DensitySquare {
+                p0: 1.5,
+                pa: 0.5,
+                pb: 0.5,
+                pab: 0.5,
+            },
+            normalizers: DensitySquare {
+                p0: 0.25,
+                pa: 0.25,
+                pb: 0.25,
+                pab: 0.25,
+            },
+        };
+        assert!(transport.selected().is_err());
+    }
+
+    #[test]
+    fn a_valid_selection_transport_still_succeeds() {
+        let transport = SelectionTransport {
+            source: DensitySquare {
+                p0: 0.25,
+                pa: 0.25,
+                pb: 0.25,
+                pab: 0.25,
+            },
+            inclusion: DensitySquare {
+                p0: 0.5,
+                pa: 0.5,
+                pb: 0.5,
+                pab: 0.5,
+            },
+            normalizers: DensitySquare {
+                p0: 0.5,
+                pa: 0.5,
+                pb: 0.5,
+                pab: 0.5,
+            },
+        };
+        let selected = transport.selected().expect("valid inputs must still pass");
+        assert!((selected.p0 - 0.25).abs() < 1e-12);
+    }
 
     #[test]
     fn closure_residual_vanishes_iff_curvature_vanishes() {
@@ -484,6 +603,75 @@ mod tests {
         assert!(interval.source_kappa_low <= 0.0);
         assert!(interval.source_kappa_high >= 0.0);
         assert!(needed > 0.0);
+    }
+
+    #[test]
+    fn selection_transport_rejects_invalid_factors_and_overflow() {
+        let negative_pair = SelectionTransport {
+            source: DensitySquare {
+                p0: -1.0,
+                pa: -1.0,
+                pb: -1.0,
+                pab: -1.0,
+            },
+            inclusion: DensitySquare {
+                p0: -1.0,
+                pa: -1.0,
+                pb: -1.0,
+                pab: -1.0,
+            },
+            normalizers: DensitySquare {
+                p0: 1.0,
+                pa: 1.0,
+                pb: 1.0,
+                pab: 1.0,
+            },
+        };
+        assert!(negative_pair.selected().is_err());
+
+        let invalid_probability = SelectionTransport {
+            source: DensitySquare {
+                p0: 1.0,
+                pa: 1.0,
+                pb: 1.0,
+                pab: 1.0,
+            },
+            inclusion: DensitySquare {
+                p0: 2.0,
+                pa: 1.0,
+                pb: 1.0,
+                pab: 1.0,
+            },
+            normalizers: DensitySquare {
+                p0: 1.0,
+                pa: 1.0,
+                pb: 1.0,
+                pab: 1.0,
+            },
+        };
+        assert!(invalid_probability.selected().is_err());
+
+        let overflow = SelectionTransport {
+            source: DensitySquare {
+                p0: f64::MAX,
+                pa: 1.0,
+                pb: 1.0,
+                pab: 1.0,
+            },
+            inclusion: DensitySquare {
+                p0: 1.0,
+                pa: 1.0,
+                pb: 1.0,
+                pab: 1.0,
+            },
+            normalizers: DensitySquare {
+                p0: f64::MIN_POSITIVE,
+                pa: 1.0,
+                pb: 1.0,
+                pab: 1.0,
+            },
+        };
+        assert!(overflow.selected().is_err());
     }
 
     #[test]

@@ -60,6 +60,24 @@ pub fn multilevel_main_effects_matrix(
             return Err(DesignError::InvalidCardinality { factor, levels });
         }
     }
+    // Reject repeated design cells, matching the Boolean audit's `DuplicateCorner`.
+    // A repeated cell is a second measurement of one law, not a second law. Left in, it
+    // adds a linearly dependent row that raises the row count without raising the rank,
+    // so the reported lack-of-fit dimension grows and the design appears to carry
+    // testable closure content it does not have.
+    let mut seen = std::collections::BTreeSet::new();
+    for point in points {
+        if !seen.insert(point.levels.clone()) {
+            return Err(DesignError::DuplicateCorner(
+                point
+                    .levels
+                    .iter()
+                    .map(u32::to_string)
+                    .collect::<Vec<_>>()
+                    .join("-"),
+            ));
+        }
+    }
     let mut matrix = Vec::with_capacity(points.len());
     for point in points {
         if point.dimension() != cardinalities.len() {
@@ -705,6 +723,20 @@ fn missing_two_factor_primitives(points: &[DesignPoint]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_repeated_design_cell_is_refused_rather_than_inflating_lack_of_fit() {
+        // A repeated cell is a second measurement of one law, not a second law. Admitted,
+        // it contributes a linearly dependent row that raises the row count without
+        // raising the rank, so the design reports testable closure content it lacks.
+        let points = vec![
+            MultiLevelPoint { levels: vec![0, 0] },
+            MultiLevelPoint { levels: vec![1, 0] },
+            MultiLevelPoint { levels: vec![1, 0] },
+        ];
+        let error = multilevel_main_effects_matrix(&points, &[2, 2]).unwrap_err();
+        assert!(matches!(error, DesignError::DuplicateCorner(_)));
+    }
     use std::collections::BTreeMap;
 
     fn bool_point(bits: &str) -> DesignPoint {
