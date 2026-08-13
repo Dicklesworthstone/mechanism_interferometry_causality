@@ -62,6 +62,49 @@ fn encode<T: Serialize>(stage: &'static str, value: &T) -> BoundaryResult {
         .map_err(|error| BoundaryError::new(stage, error.to_string()).to_json())
 }
 
+/// Decodes a preflight policy, filling omitted settings from the defaults.
+///
+/// The browser is a client of this boundary, not a co-maintainer of the struct, so a
+/// caller that omits a setting gets the conservative default rather than a
+/// deserialization failure. Without this the coupling is silent and brittle: the page
+/// sends a hand-written policy object, `PreflightPolicy` derives `Deserialize` with
+/// every field required, and adding one field to the struct breaks the deployed design
+/// auditor with "missing field". Nothing would catch that — the two sides are a Rust
+/// struct and a JavaScript object literal, so no compiler and no test spans them.
+///
+/// Unknown keys are still refused, and refused by name. Tolerating them would trade one
+/// silent failure for a worse one: a misspelled `min_ess_ration` would be dropped and
+/// the run would proceed under a default the caller believed they had overridden, which
+/// is precisely the kind of unnoticed assumption this system exists to refuse.
+fn decode_policy(policy_json: &str) -> Result<PreflightPolicy, String> {
+    if policy_json.trim().is_empty() {
+        return Ok(PreflightPolicy::default());
+    }
+    let supplied: serde_json::Map<String, serde_json::Value> = decode("policy", policy_json)?;
+    let mut merged = match serde_json::to_value(PreflightPolicy::default()) {
+        Ok(serde_json::Value::Object(map)) => map,
+        _ => {
+            return Err(BoundaryError::new(
+                "policy",
+                "the default preflight policy did not serialize as an object",
+            )
+            .to_json());
+        }
+    };
+    for (key, value) in supplied {
+        if !merged.contains_key(&key) {
+            return Err(BoundaryError::new(
+                "policy",
+                format!("unknown preflight policy setting {key:?}"),
+            )
+            .to_json());
+        }
+        merged.insert(key, value);
+    }
+    serde_json::from_value(serde_json::Value::Object(merged))
+        .map_err(|error| BoundaryError::new("policy", error.to_string()).to_json())
+}
+
 fn decode<'a, T: Deserialize<'a>>(stage: &'static str, json: &'a str) -> Result<T, String> {
     serde_json::from_str(json)
         .map_err(|error| BoundaryError::new(stage, error.to_string()).to_json())
@@ -135,11 +178,7 @@ pub fn audit_sampling_odds_impl(probabilities: &[f64], tolerance: f64) -> Bounda
 /// evidence ledger and every finding the engine raises.
 pub fn preflight_impl(manifest_json: &str, policy_json: &str) -> BoundaryResult {
     let manifest: ExperimentManifest = decode("manifest", manifest_json)?;
-    let policy: PreflightPolicy = if policy_json.trim().is_empty() {
-        PreflightPolicy::default()
-    } else {
-        decode("policy", policy_json)?
-    };
+    let policy = decode_policy(policy_json)?;
     let report = run_preflight(&manifest, policy)
         .map_err(|error| BoundaryError::new("preflight", error.to_string()).to_json())?;
     encode("preflight", &report)
@@ -288,6 +327,32 @@ pub fn square_faces(corners: Vec<String>) -> Result<String, String> {
 mod tests {
     use super::*;
 
+    /// A minimal product-odds manifest, mirroring the shape the page builds.
+    fn product_manifest() -> String {
+        let regimes: Vec<String> = ["00", "10", "01", "11"]
+            .iter()
+            .map(|label| {
+                format!(
+                    r#"{{"id":"{label}","design":{{"bits":[{bits}]}},"sampling_proportion":0.25,"perturbations":[]}}"#,
+                    label = label,
+                    bits = label
+                        .chars()
+                        .map(|c| if c == '1' { "true" } else { "false" })
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )
+            })
+            .collect();
+        format!(
+            r#"{{"schema_version":"1.0.0","experiment_id":"wasm-policy","strict":true,
+                 "inference_track":"four_law","selection":"state_independent_within_regime",
+                 "cluster_column":"cluster_id","regime_column":"regime","state_columns":["x"],
+                 "candidate_state_blocks":[],"regimes":[{}],
+                 "data":{{"format":"synthetic","path":"none"}},"seed":20260812}}"#,
+            regimes.join(",")
+        )
+    }
+
     fn corners(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_string()).collect()
     }
@@ -351,6 +416,69 @@ mod tests {
             error.contains("\"stage\":\"lens\""),
             "error names its stage: {error}"
         );
+    }
+
+    #[test]
+    fn an_omitted_policy_setting_falls_back_to_its_default() {
+        // The page is a client of this boundary, not a co-maintainer of the struct.
+        // Adding a field to PreflightPolicy must not break a caller that predates it.
+        let manifest = product_manifest();
+        let full = preflight_impl(&manifest, "").expect("empty policy uses defaults");
+        let partial = preflight_impl(&manifest, r#"{"min_ess_ratio":0.1}"#)
+            .expect("a partial policy is completed from the defaults");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&full).unwrap(),
+            serde_json::from_str::<serde_json::Value>(&partial).unwrap(),
+            "supplying a setting equal to its default must not change the report"
+        );
+    }
+
+    #[test]
+    fn a_supplied_policy_setting_actually_takes_effect() {
+        // The completion must not quietly discard what the caller did send. With a
+        // declared-but-unvalidated selection model the accept flag decides whether the
+        // run is blocked, so the status is a behavioural witness that the value arrived.
+        let manifest = product_manifest().replace(
+            r#""selection":"state_independent_within_regime""#,
+            r#""selection":"modeled""#,
+        );
+        let refused: serde_json::Value = serde_json::from_str(
+            &preflight_impl(&manifest, r#"{"accept_unvalidated_selection_model":false}"#).unwrap(),
+        )
+        .unwrap();
+        let accepted: serde_json::Value = serde_json::from_str(
+            &preflight_impl(&manifest, r#"{"accept_unvalidated_selection_model":true}"#).unwrap(),
+        )
+        .unwrap();
+        assert_ne!(
+            refused["status"], accepted["status"],
+            "the supplied policy flag must change the preflight status"
+        );
+    }
+
+    #[test]
+    fn a_misspelled_policy_setting_is_refused_by_name() {
+        // Tolerating unknown keys would be the worse failure: the run would proceed
+        // under a default the caller believed they had overridden.
+        let error = preflight_impl(&product_manifest(), r#"{"min_ess_ration":0.5}"#)
+            .expect_err("a misspelled setting must not be silently ignored");
+        assert!(error.contains("min_ess_ration"), "got {error}");
+        assert!(error.contains("\"stage\":\"policy\""), "got {error}");
+    }
+
+    #[test]
+    fn the_deployed_page_policy_object_still_decodes() {
+        // Mirrors the object site/app.js sends. If a field is renamed in the engine,
+        // this fails here rather than in the browser.
+        let page_policy = r#"{
+            "rank_tolerance": 1e-10,
+            "product_odds_tolerance": 1e-10,
+            "accept_unvalidated_selection_model": false,
+            "lens_gap_tolerance": 3.0,
+            "min_ess_ratio": 0.1
+        }"#;
+        preflight_impl(&product_manifest(), page_policy)
+            .expect("the policy object the deployed page sends must decode");
     }
 
     #[test]
