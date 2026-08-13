@@ -65,6 +65,14 @@ Owns learned nuisance and diagnostic models:
 - a four-corner hierarchical classifier whose restricted `11` logit is tied to
   the two primitive fields and whose saturated alternative adds one explicit
   curvature field;
+- deterministic outer cross-fitting by declared cluster with equal total
+  cluster weight, serialized seed/fold-plan provenance, and fail-closed
+  four-corner coverage on every training and confirmation slice;
+- exact finite-state held-out combination prediction with raw normalizer,
+  overlap/ESS diagnostics, and nonnegative law discrepancies;
+- a full-rank finite-state fixed-DAG completion solver that separates design
+  inconsistency, Markov failure, nonlocality, conditional-normalization failure,
+  and conservative rank-deficient set identification;
 - calibrated flexible binary and multinomial regime prediction (roadmap);
 - hierarchical main-effect and interaction fields;
 - primitive ratio extraction and normalization;
@@ -73,11 +81,13 @@ Owns learned nuisance and diagnostic models:
 - optional FrankenTorch CPU/Metal backends.
 
 The reference optimizers consume an already frozen training slice and are
-deliberately ignorant of causal status. Cluster-level fold construction,
-confirmation isolation, and validation of the sampling/selection contract stay
-outside `mic-model`; a posterior ratio is a nuisance estimate, not evidence that
-the contract authorizing it is true. A held-out proper-loss advantage of the
-saturated model is serialized as diagnostic only; flexible-learner advantage is
+deliberately ignorant of causal status. The reference model can deterministically
+construct folds from caller-supplied cluster identifiers, but validation that
+those identifiers are the physical assignment unit, confirmation-mount isolation,
+and the sampling/selection contract stay outside `mic-model`; a posterior ratio
+is a nuisance estimate, not evidence that the contract authorizing it is true.
+A held-out proper-loss advantage of the saturated model is serialized as
+diagnostic only; flexible-learner advantage is
 not a calibrated hypothesis test.
 
 Proposal adapters may order candidate tests but never implement certificate policy. Their serialized outputs use explicit score semantics and flow through the discovery/confirmation boundary in [`PROPOSAL_ADAPTERS.md`](PROPOSAL_ADAPTERS.md). External passive-discovery or residual-asymmetry code cannot become a dependency of `mic-core`.

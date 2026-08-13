@@ -105,6 +105,16 @@ Record that the scalar pair moment measures a signed tilted mean of curvature an
 
 For held-out combination `T`, form `w_T=prod_j r_hat_j`. Estimate the normalizer `Z_T=E_0[w_T]`, report `Z_T-1`, and evaluate the valid predicted law using `w_T/Z_T`. Compare with held-out combination data using proper scores and two-sample discrepancies.
 
+The implemented finite-state reference path performs this construction in the
+log domain from complete `00`, `10`, and `01` probability tables and never uses
+`11` to form the prediction. It reports raw `Z`, `Z-1`, maximum log normalized
+importance ratio, asymptotic ESS fraction, and held-out total variation and
+Hellinger distance. This exact oracle is a conformance target for the future
+fitted ratio path; it is not a calibrated finite-sample test. The implemented
+linear joint-regime path also provides deterministic outer cluster folds and
+held-out proper-loss comparison, but adaptive witness selection and
+cluster-resampled calibration remain outstanding.
+
 ## 10. State expansion
 
 For each candidate measurement block `W`:

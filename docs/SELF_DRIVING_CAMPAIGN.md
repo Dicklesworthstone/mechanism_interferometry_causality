@@ -310,8 +310,14 @@ qualification.
 - [x] State the complete finite categorical mechanism-family certificate in the paper and formal spec.
 - [x] Define the nonlinear partial-design causal-completion fiber and exact empty/singleton/multiple classification.
 - [x] Record counterexamples separating rank, flatness testability, causal feasibility, and uniqueness.
-- [ ] Implement a finite-state nonlinear completion solver for a fixed graph and target assignment.
-- [ ] Prove only solver properties actually supported by the finite-state parameterization; keep nonparametric sample classification unresolved.
+- [x] Implement the full-rank finite-state completion reference for a fixed DAG
+  and distinct target assignment: observed-law Markov checks, exact design-image
+  feasibility, identified locality, and conditional normalization.
+- [ ] Extend the finite-state solver across rank-deficient nonlinear fibers;
+  current output conservatively reports algebraic set identification except
+  where a Markov or design-image necessary condition already refutes it.
+- [x] State only solver properties supported by the finite-state parameterization;
+  keep nonparametric finite-sample classification unresolved.
 - [ ] Specify interventional mechanism dictionary learning with sparse environment codes, anchors, local support, normalization, and label/gauge ambiguity.
 - [ ] Prove or delimit dictionary identifiability under sparse combinations and repeated backgrounds.
 - [ ] Specify curvature tomography only under an infinitesimal or explicit latent-score factor model.

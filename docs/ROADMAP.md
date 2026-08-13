@@ -82,17 +82,27 @@ also in place. The remaining work is the authority-bearing integration below.
 - restricted-versus-saturated four-corner hierarchical design head with known
   sampling offsets, explicit curvature field, and diagnostic held-out
   proper-loss comparison (implemented; not a calibrated test);
-- cluster-fold orchestration and untouched witness confirmation (not yet wired);
+- deterministic cluster-fold orchestration, equal total weight per declared
+  unit, and untouched proper-loss comparison for the linear reference model
+  (implemented; the seed and fold-plan fingerprint are serialized);
+- adaptive witness confirmation and calibrated cluster-level inference (not yet wired);
 - FrankenTorch main-effect and interaction models;
 - sampling-offset and intercept contract;
 - posterior calibration;
 - curvature-field export;
 - held-out proper-loss diagnostics.
+- full-rank finite-state fixed-DAG/target completion feasibility (implemented);
+- rank-deficient nonlinear completion-fiber solving (outstanding).
 
 ## Packet 5: compositional prediction
 
 - primitive ratio normalization;
 - raw and self-normalized products;
+- exact finite-state `00/10/01 -> 11` prediction with mandatory raw normalizer
+  residual, log overlap concentration, asymptotic ESS fraction, and held-out
+  total-variation/Hellinger discrepancies (implemented reference path);
+- fitted cross-fold ratio prediction and cluster-resampled weighted-law
+  discrepancy (not yet wired);
 - held-out combination scoring;
 - effective sample-size and truncation sensitivity.
 

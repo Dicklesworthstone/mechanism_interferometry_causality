@@ -100,6 +100,16 @@ observed cross-family rectangle, reports algebraic identified-set and lack-of-fi
 dimensions separately, and never promotes geometry alone to a unique causal
 completion.
 
+For fixed finite-state DAGs and distinct declared targets, the reference model
+now goes one step beyond rank geometry when the observed treatment design has
+full column rank: it solves the statewise log potentials, rejects observed laws
+outside the design image, verifies baseline and regime Markov factorization,
+then checks locality and conditional normalization. Rank-deficient nonlinear
+fibers remain explicitly set identified unless a necessary Markov or algebraic
+condition already refutes them. The report keeps causal feasibility separate
+from additive testability: an identified completion from primitive arms can
+still have no observed combination contrast with which to test closure.
+
 The repository includes the complete mathematical paper, website, exact simulation generators, schemas, runnable example datasets, architectural contracts, and a safe-Rust reference core implementing the exact population algebra, partial-design geometry, fail-closed preflight, and deterministic audit primitives. A standard-library CSV path now produces cluster-weighted histogram four-law diagnostics, and a proposal-only survey inventories candidate squares without claiming selection, assignment, or orientation. Neither is the production FrankenPandas estimator stack: the histogram path never issues a passed certificate, and an autonomous survey can only recommend the next declared audit. Final status is derived from an opaque typed gate summary rather than a caller Boolean; only the deliberately unresolved constructor is public until content-bound locality, normalization, flatness, and orientation producers exist. The production estimators that depend on the evolving Franken* numerical APIs remain isolated behind feature-gated adapters and specified packet-by-packet in the roadmap. This keeps the mathematical contracts stable while allowing the four sibling projects to advance without contaminating the causal API.
 
 The first fitted reference diagnostic is also executable. `mic
