@@ -18,6 +18,7 @@ use thiserror::Error;
 const MAX_NUMERICAL_TOLERANCE: f64 = 1e-6;
 const SIMPLEX_TOLERANCE: f64 = 1e-12;
 const MAX_POTENTIALS: usize = 4_096;
+const MAX_DESIGN_CELLS: usize = 4_194_304;
 
 /// Provenance class of the supplied finite probability tables.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -271,6 +272,9 @@ pub enum FiniteCompletionError {
     /// Declared family levels would exceed the bounded reference-solver budget.
     #[error("finite completion exceeds the {MAX_POTENTIALS}-potential reference budget")]
     PotentialBudgetExceeded,
+    /// Regime-by-potential design would exceed the bounded reference-solver budget.
+    #[error("finite completion exceeds the {MAX_DESIGN_CELLS}-cell design budget")]
+    DesignBudgetExceeded,
     /// A regime code was malformed, duplicated, or all baseline.
     #[error("regime levels must be unique, in range, nonbaseline family codes")]
     InvalidRegimes,
@@ -487,6 +491,17 @@ fn validate_input(input: &FiniteCompletionInput) -> Result<(), FiniteCompletionE
     if input.regimes.is_empty() {
         return Err(FiniteCompletionError::InvalidRegimes);
     }
+    let n_potentials = input.families.iter().try_fold(0_usize, |total, family| {
+        usize::try_from(family.cardinality - 1)
+            .ok()
+            .and_then(|levels| total.checked_add(levels))
+    });
+    if n_potentials
+        .and_then(|potentials| input.regimes.len().checked_mul(potentials))
+        .is_none_or(|cells| cells > MAX_DESIGN_CELLS)
+    {
+        return Err(FiniteCompletionError::DesignBudgetExceeded);
+    }
     Ok(())
 }
 
@@ -622,19 +637,19 @@ fn fingerprint_input(input: &FiniteCompletionInput) -> String {
     hash_u32_slice(&mut digest, &input.state_cardinalities);
     hash_nested_u32(&mut digest, &input.states);
     hash_f64_slice(&mut digest, &input.baseline_probabilities);
-    digest.update(input.parents_by_node.len().to_le_bytes());
+    hash_usize(&mut digest, input.parents_by_node.len());
     for parents in &input.parents_by_node {
-        digest.update(parents.len().to_le_bytes());
+        hash_usize(&mut digest, parents.len());
         for parent in parents {
-            digest.update(parent.to_le_bytes());
+            hash_usize(&mut digest, *parent);
         }
     }
-    digest.update(input.families.len().to_le_bytes());
+    hash_usize(&mut digest, input.families.len());
     for family in &input.families {
         digest.update(family.cardinality.to_le_bytes());
-        digest.update(family.target.to_le_bytes());
+        hash_usize(&mut digest, family.target);
     }
-    digest.update(input.regimes.len().to_le_bytes());
+    hash_usize(&mut digest, input.regimes.len());
     for regime in &input.regimes {
         hash_u32_slice(&mut digest, &regime.levels);
         hash_f64_slice(&mut digest, &regime.probabilities);
@@ -650,24 +665,29 @@ fn fingerprint_input(input: &FiniteCompletionInput) -> String {
 }
 
 fn hash_nested_u32(digest: &mut Sha256, values: &[Vec<u32>]) {
-    digest.update(values.len().to_le_bytes());
+    hash_usize(digest, values.len());
     for row in values {
         hash_u32_slice(digest, row);
     }
 }
 
 fn hash_u32_slice(digest: &mut Sha256, values: &[u32]) {
-    digest.update(values.len().to_le_bytes());
+    hash_usize(digest, values.len());
     for value in values {
         digest.update(value.to_le_bytes());
     }
 }
 
 fn hash_f64_slice(digest: &mut Sha256, values: &[f64]) {
-    digest.update(values.len().to_le_bytes());
+    hash_usize(digest, values.len());
     for value in values {
         digest.update(value.to_bits().to_le_bytes());
     }
+}
+
+fn hash_usize(digest: &mut Sha256, value: usize) {
+    let encoded = u64::try_from(value).expect("Rust usize always fits in u64 on supported targets");
+    digest.update(encoded.to_le_bytes());
 }
 
 fn potential_columns(families: &[FiniteMechanismFamily]) -> Vec<(usize, u32)> {
@@ -1121,6 +1141,33 @@ mod tests {
         assert_eq!(
             solve_finite_modular_completion(&input),
             Err(FiniteCompletionError::PotentialBudgetExceeded)
+        );
+    }
+
+    #[test]
+    fn regime_by_potential_design_budget_is_checked_before_allocation() {
+        let regimes = (1..=1_025)
+            .map(|level| FiniteObservedRegime {
+                levels: vec![level],
+                probabilities: vec![0.5, 0.5],
+            })
+            .collect();
+        let input = FiniteCompletionInput {
+            law_semantics: FiniteLawSemantics::ExactOrSimulatedPopulation,
+            state_cardinalities: vec![2],
+            states: vec![vec![0], vec![1]],
+            baseline_probabilities: vec![0.5, 0.5],
+            parents_by_node: vec![vec![]],
+            families: vec![FiniteMechanismFamily {
+                cardinality: 4_097,
+                target: 0,
+            }],
+            regimes,
+            tolerance: 1e-10,
+        };
+        assert_eq!(
+            solve_finite_modular_completion(&input),
+            Err(FiniteCompletionError::DesignBudgetExceeded)
         );
     }
 }
