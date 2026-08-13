@@ -21,7 +21,7 @@ use std::fs::{self, File};
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
-const MAX_FITTED_TRANSPORT_REQUEST_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_JSON_REQUEST_BYTES: u64 = 64 * 1024 * 1024;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -38,6 +38,9 @@ fn run(args: &[String]) -> Result<(), String> {
     };
     match command {
         "version" | "--version" | "-V" => {
+            if args.len() != 1 {
+                return Err("version accepts no arguments".into());
+            }
             println!("mic {}", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
@@ -55,6 +58,9 @@ fn run(args: &[String]) -> Result<(), String> {
         "freeze-scout" => freeze_scout(&args[1..]),
         "freeze-dictionary" => freeze_dictionary(&args[1..]),
         "help" | "--help" | "-h" => {
+            if args.len() != 1 {
+                return Err("help accepts no arguments".into());
+            }
             print_help();
             Ok(())
         }
@@ -63,8 +69,17 @@ fn run(args: &[String]) -> Result<(), String> {
 }
 
 fn simulate(args: &[String]) -> Result<(), String> {
-    let scenario = args.first().map_or("all", String::as_str);
-    let output = option_value(args, "--output").map(PathBuf::from);
+    let (scenario, output) = match args {
+        [] => ("all", None),
+        [scenario] => (scenario.as_str(), None),
+        [flag, output] if flag == "--output" && !output.trim().is_empty() => {
+            ("all", Some(PathBuf::from(output)))
+        }
+        [scenario, flag, output] if flag == "--output" && !output.trim().is_empty() => {
+            (scenario.as_str(), Some(PathBuf::from(output)))
+        }
+        _ => return Err("usage: mic simulate [SCENARIO] [--output PATH]".into()),
+    };
     let value = match scenario {
         "all" => serde_json::to_value(exact_suite()),
         "running" => serde_json::to_value(running_example(0.6, 0.5, 0.8)),
@@ -106,8 +121,7 @@ fn design(args: &[String]) -> Result<(), String> {
                 return Err("usage: mic design audit CORNER... | MANIFEST.json".into());
             }
             let points = if labels.len() == 1 && looks_like_json_path(&labels[0]) {
-                ExperimentManifest::from_json_path(&labels[0])
-                    .map_err(|error| error.to_string())?
+                read_manifest_bounded(&labels[0])?
                     .regimes
                     .into_iter()
                     .map(|regime| regime.design)
@@ -127,8 +141,10 @@ fn design(args: &[String]) -> Result<(), String> {
 }
 
 fn validate_manifest(args: &[String]) -> Result<(), String> {
-    let path = args.first().ok_or("usage: mic validate-manifest PATH")?;
-    let manifest = ExperimentManifest::from_json_path(path).map_err(|error| error.to_string())?;
+    let [path] = args else {
+        return Err("usage: mic validate-manifest PATH".into());
+    };
+    let manifest = read_manifest_bounded(path)?;
     println!(
         "validated experiment {} with {} regimes and {} state columns",
         manifest.experiment_id,
@@ -139,20 +155,19 @@ fn validate_manifest(args: &[String]) -> Result<(), String> {
 }
 
 fn preflight(args: &[String]) -> Result<(), String> {
-    let path = args
-        .first()
-        .ok_or("usage: mic preflight MANIFEST.json [--output PATH] [--base-dir DIR] [--allow-unvalidated-selection-model | --selection-receipt PATH --selection-authority-source PATH]")?;
-    let manifest = ExperimentManifest::from_json_path(path).map_err(|error| error.to_string())?;
+    let parsed = parse_preflight_args(args)?;
+    let path = parsed.path;
+    let manifest = read_manifest_bounded(path)?;
     let policy = PreflightPolicy {
-        accept_unvalidated_selection_model: has_flag(args, "--allow-unvalidated-selection-model"),
+        accept_unvalidated_selection_model: parsed.allow_unvalidated_selection_model,
         ..PreflightPolicy::default()
     };
-    let receipt = option_value(args, "--selection-receipt");
-    let authority = option_value(args, "--selection-authority-source");
+    let receipt = parsed.selection_receipt;
+    let authority = parsed.selection_authority_source;
     let report = match (receipt, authority) {
         (None, None) => run_preflight(&manifest, policy),
         (Some(receipt), Some(authority)) => {
-            let explicit_base = option_value(args, "--base-dir").map(PathBuf::from);
+            let explicit_base = parsed.base_dir.map(PathBuf::from);
             let base_dir = explicit_base
                 .as_deref()
                 .or_else(|| Path::new(path).parent());
@@ -170,8 +185,65 @@ fn preflight(args: &[String]) -> Result<(), String> {
     }
     .map_err(|error| error.to_string())?;
     let value = serde_json::to_value(report).map_err(|error| error.to_string())?;
-    let output = option_value(args, "--output").map(PathBuf::from);
+    let output = parsed.output.map(PathBuf::from);
     write_json_value(&value, output.as_deref())
+}
+
+struct ParsedPreflightArgs<'a> {
+    path: &'a str,
+    output: Option<&'a str>,
+    base_dir: Option<&'a str>,
+    allow_unvalidated_selection_model: bool,
+    selection_receipt: Option<&'a str>,
+    selection_authority_source: Option<&'a str>,
+}
+
+fn parse_preflight_args(args: &[String]) -> Result<ParsedPreflightArgs<'_>, String> {
+    let Some(path) = args.first().map(String::as_str) else {
+        return Err("usage: mic preflight MANIFEST.json [OPTIONS]".into());
+    };
+    let mut parsed = ParsedPreflightArgs {
+        path,
+        output: None,
+        base_dir: None,
+        allow_unvalidated_selection_model: false,
+        selection_receipt: None,
+        selection_authority_source: None,
+    };
+    let mut index = 1;
+    while index < args.len() {
+        let flag = args[index].as_str();
+        if flag == "--allow-unvalidated-selection-model" {
+            if parsed.allow_unvalidated_selection_model {
+                return Err(format!("duplicate option {flag}"));
+            }
+            parsed.allow_unvalidated_selection_model = true;
+            index += 1;
+            continue;
+        }
+        let slot = match flag {
+            "--output" => &mut parsed.output,
+            "--base-dir" => &mut parsed.base_dir,
+            "--selection-receipt" => &mut parsed.selection_receipt,
+            "--selection-authority-source" => &mut parsed.selection_authority_source,
+            _ => return Err(format!("unknown preflight option {flag:?}")),
+        };
+        if slot.is_some() {
+            return Err(format!("duplicate option {flag}"));
+        }
+        let value = args
+            .get(index + 1)
+            .filter(|value| !value.trim().is_empty() && !value.starts_with("--"))
+            .ok_or_else(|| format!("{flag} requires a nonempty value"))?;
+        *slot = Some(value);
+        index += 2;
+    }
+    if parsed.allow_unvalidated_selection_model
+        && (parsed.selection_receipt.is_some() || parsed.selection_authority_source.is_some())
+    {
+        return Err("--allow-unvalidated-selection-model cannot be combined with selection provenance files".into());
+    }
+    Ok(parsed)
 }
 
 /// Input contract for the diagnostic reference closure model.
@@ -196,7 +268,7 @@ fn closure_crossfit(args: &[String]) -> Result<(), String> {
             return Err("usage: mic closure-crossfit INPUT.json [--output PATH]".into());
         }
     };
-    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let bytes = read_bounded_request(path, MAX_JSON_REQUEST_BYTES, "closure cross-fit request")?;
     let input_sha256 = sha256_bytes(&bytes);
     let input: ClosureCrossFitInput =
         serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
@@ -290,7 +362,7 @@ fn predict_combination(args: &[String]) -> Result<(), String> {
 
     let primitive_bytes = read_bounded_request(
         primitive_path,
-        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        MAX_JSON_REQUEST_BYTES,
         "primitive transport",
     )?;
     let primitive_request_sha256 = sha256_bytes(&primitive_bytes);
@@ -312,7 +384,7 @@ fn predict_combination(args: &[String]) -> Result<(), String> {
     // Deliberately open Stage B only after Stage A has been fully frozen.
     let confirmation_bytes = read_bounded_request(
         confirmation_path,
-        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        MAX_JSON_REQUEST_BYTES,
         "combination confirmation",
     )?;
     let confirmation_request_sha256 = sha256_bytes(&confirmation_bytes);
@@ -381,7 +453,12 @@ fn validate_transport_schema_version(version: &str) -> Result<(), String> {
     }
 }
 
-fn read_bounded_request(path: &str, limit: u64, label: &str) -> Result<Vec<u8>, String> {
+fn read_bounded_request(
+    path: impl AsRef<Path>,
+    limit: u64,
+    label: &str,
+) -> Result<Vec<u8>, String> {
+    let path = path.as_ref();
     let metadata = fs::metadata(path).map_err(|error| error.to_string())?;
     if metadata.len() > limit {
         return Err(format!(
@@ -418,11 +495,7 @@ fn predict_combination_refits(args: &[String]) -> Result<(), String> {
             return Err("usage: mic predict-combination-refits PRIMITIVES.json CONFIRMATION.json REFITS.json [--output PATH]".into());
         }
     };
-    let refit_bytes = read_bounded_request(
-        refit_path,
-        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
-        "transport refit",
-    )?;
+    let refit_bytes = read_bounded_request(refit_path, MAX_JSON_REQUEST_BYTES, "transport refit")?;
     let refit_request_sha256 = sha256_bytes(&refit_bytes);
     let refit: TransportRefitRequest =
         serde_json::from_slice(&refit_bytes).map_err(|error| error.to_string())?;
@@ -430,7 +503,7 @@ fn predict_combination_refits(args: &[String]) -> Result<(), String> {
 
     let primitive_bytes = read_bounded_request(
         primitive_path,
-        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        MAX_JSON_REQUEST_BYTES,
         "primitive transport",
     )?;
     let primitive_request_sha256 = sha256_bytes(&primitive_bytes);
@@ -459,7 +532,7 @@ fn predict_combination_refits(args: &[String]) -> Result<(), String> {
 
     let confirmation_bytes = read_bounded_request(
         confirmation_path,
-        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        MAX_JSON_REQUEST_BYTES,
         "combination confirmation",
     )?;
     let confirmation_request_sha256 = sha256_bytes(&confirmation_bytes);
@@ -552,7 +625,7 @@ fn completion_command(args: &[String], use_kernel_solver: bool) -> Result<(), St
             return Err(format!("usage: mic {command} INPUT.json [--output PATH]"));
         }
     };
-    let bytes = read_bounded_request(path, MAX_FITTED_TRANSPORT_REQUEST_BYTES, "completion")?;
+    let bytes = read_bounded_request(path, MAX_JSON_REQUEST_BYTES, "completion")?;
     let input_sha256 = sha256_bytes(&bytes);
     let request: FiniteCompletionRequest =
         serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
@@ -585,6 +658,7 @@ fn completion_command(args: &[String], use_kernel_solver: bool) -> Result<(), St
 
 /// One raw deletion bound row supplied by the orientation input file.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OrientDeletionInput {
     variable: String,
     relative_discrepancy: f64,
@@ -594,6 +668,7 @@ struct OrientDeletionInput {
 
 /// Provenance required for externally supplied simultaneous orientation bounds.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OrientCalibrationInput {
     /// Stable name of the joint interval construction.
     interval_method: String,
@@ -611,6 +686,7 @@ struct OrientCalibrationInput {
 
 /// Input contract for `mic orient`.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OrientInput {
     epsilon: f64,
     full_discrepancy: f64,
@@ -626,10 +702,14 @@ fn default_strict() -> bool {
 }
 
 fn orient(args: &[String]) -> Result<(), String> {
-    let path = args
-        .first()
-        .ok_or("usage: mic orient INPUT.json [--output PATH]")?;
-    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let (path, output) = match args {
+        [path] => (path, None),
+        [path, flag, output] if flag == "--output" && !output.trim().is_empty() => {
+            (path, Some(PathBuf::from(output)))
+        }
+        _ => return Err("usage: mic orient INPUT.json [--output PATH]".into()),
+    };
+    let bytes = read_bounded_request(path, MAX_JSON_REQUEST_BYTES, "orientation request")?;
     let input_fingerprint = sha256_bytes(&bytes);
     let input: OrientInput = serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
     validate_orientation_calibration(&input.calibration)?;
@@ -675,8 +755,15 @@ fn orient(args: &[String]) -> Result<(), String> {
         &mut ledger,
     )
     .map_err(|error| error.to_string())?;
-    let value = serde_json::json!({ "audit": audit, "ledger": ledger });
-    let output = option_value(args, "--output").map(PathBuf::from);
+    let value = serde_json::json!({
+        "schema_version": "1.1.0",
+        "authority": "diagnostic_only",
+        "certificate_eligible": false,
+        "causal_orientation": "unresolved",
+        "required_premises": ["single_target_semantics", "deletion_faithfulness"],
+        "audit": audit,
+        "ledger": ledger
+    });
     write_json_value(&value, output.as_deref())
 }
 
@@ -731,22 +818,26 @@ fn sha256_bytes(bytes: &[u8]) -> String {
 
 /// Input contract for `mic propose-tilt`.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ProposeTiltInput {
     request: mic_proposal::ActiveTiltRequest,
     candidates: Vec<mic_proposal::ActiveTiltCandidate>,
 }
 
 fn propose_tilt(args: &[String]) -> Result<(), String> {
-    let path = args
-        .first()
-        .ok_or("usage: mic propose-tilt INPUT.json [--output PATH]")?;
-    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let (path, output) = match args {
+        [path] => (path, None),
+        [path, flag, output] if flag == "--output" && !output.trim().is_empty() => {
+            (path, Some(PathBuf::from(output)))
+        }
+        _ => return Err("usage: mic propose-tilt INPUT.json [--output PATH]".into()),
+    };
+    let bytes = read_bounded_request(path, MAX_JSON_REQUEST_BYTES, "tilt proposal request")?;
     let input: ProposeTiltInput =
         serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
     let proposal = mic_proposal::rank_active_tilts(&input.request, &input.candidates)
         .map_err(|error| error.to_string())?;
     let value = serde_json::to_value(proposal).map_err(|error| error.to_string())?;
-    let output = option_value(args, "--output").map(PathBuf::from);
     write_json_value(&value, output.as_deref())
 }
 
@@ -766,8 +857,13 @@ fn freeze_scout(args: &[String]) -> Result<(), String> {
     let draft_path = args
         .get(1)
         .ok_or("usage: mic freeze-scout REQUEST.json DRAFT.json [--output PATH]")?;
-    let request_bytes = fs::read(request_path).map_err(|error| error.to_string())?;
-    let draft_bytes = fs::read(draft_path).map_err(|error| error.to_string())?;
+    let request_bytes =
+        read_bounded_request(request_path, MAX_JSON_REQUEST_BYTES, "self-driving request")?;
+    let draft_bytes = read_bounded_request(
+        draft_path,
+        MAX_JSON_REQUEST_BYTES,
+        "shift-factorization draft",
+    )?;
     let request: mic_proposal::SelfDrivingRequest =
         serde_json::from_slice(&request_bytes).map_err(|error| error.to_string())?;
     let draft: mic_proposal::ShiftFactorizationDraft =
@@ -796,24 +892,18 @@ fn freeze_dictionary(args: &[String]) -> Result<(), String> {
             return Err("usage: mic freeze-dictionary REQUEST.json SHIFT_DRAFT.json PLAN.json DICTIONARY_DRAFT.json [--output PATH]".into());
         }
     };
-    let request_bytes = read_bounded_request(
-        request_path,
-        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
-        "self-driving request",
-    )?;
+    let request_bytes =
+        read_bounded_request(request_path, MAX_JSON_REQUEST_BYTES, "self-driving request")?;
     let shift_bytes = read_bounded_request(
         shift_path,
-        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        MAX_JSON_REQUEST_BYTES,
         "shift-factorization draft",
     )?;
-    let plan_bytes = read_bounded_request(
-        plan_path,
-        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
-        "dictionary search plan",
-    )?;
+    let plan_bytes =
+        read_bounded_request(plan_path, MAX_JSON_REQUEST_BYTES, "dictionary search plan")?;
     let dictionary_bytes = read_bounded_request(
         dictionary_path,
-        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        MAX_JSON_REQUEST_BYTES,
         "transport-dictionary draft",
     )?;
     let request: mic_proposal::SelfDrivingRequest =
@@ -829,6 +919,14 @@ fn freeze_dictionary(args: &[String]) -> Result<(), String> {
             .map_err(|error| error.to_string())?;
     let value = serde_json::to_value(proposal).map_err(|error| error.to_string())?;
     write_json_value(&value, output.as_deref())
+}
+
+fn read_manifest_bounded(path: impl AsRef<Path>) -> Result<ExperimentManifest, String> {
+    let bytes = read_bounded_request(path, MAX_JSON_REQUEST_BYTES, "experiment manifest")?;
+    let manifest: ExperimentManifest =
+        serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    manifest.validate().map_err(|error| error.to_string())?;
+    Ok(manifest)
 }
 
 fn print_json(value: &impl serde::Serialize) -> Result<(), String> {
@@ -853,16 +951,6 @@ fn write_json_value(value: &serde_json::Value, output: Option<&Path>) -> Result<
         print!("{text}");
     }
     Ok(())
-}
-
-fn option_value<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
-    args.windows(2)
-        .find(|window| window[0] == name)
-        .map(|window| window[1].as_str())
-}
-
-fn has_flag(args: &[String], name: &str) -> bool {
-    args.iter().any(|argument| argument == name)
 }
 
 fn looks_like_json_path(value: &str) -> bool {
@@ -1010,6 +1098,27 @@ mod tests {
             closure_crossfit(&missing_output).unwrap_err(),
             "usage: mic closure-crossfit INPUT.json [--output PATH]"
         );
+    }
+
+    #[test]
+    fn manifest_runtime_rejects_unknown_fields_at_every_closed_layer() {
+        let source: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../examples/configs/feature_flag_pilot.json"
+        ))
+        .unwrap();
+        let mut root = source.clone();
+        root.as_object_mut()
+            .unwrap()
+            .insert("future_authority".into(), serde_json::json!(true));
+        assert!(serde_json::from_value::<ExperimentManifest>(root).is_err());
+
+        let mut data = source.clone();
+        data["data"]["future_path_semantics"] = serde_json::json!("trusted");
+        assert!(serde_json::from_value::<ExperimentManifest>(data).is_err());
+
+        let mut regime = source;
+        regime["regimes"][0]["future_assignment_claim"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<ExperimentManifest>(regime).is_err());
     }
 
     #[test]
