@@ -39,6 +39,7 @@ fn run(args: &[String]) -> Result<(), String> {
         "design" => design(&args[1..]),
         "validate-manifest" => validate_manifest(&args[1..]),
         "preflight" => preflight(&args[1..]),
+        "closure-crossfit" => closure_crossfit(&args[1..]),
         "orient" => orient(&args[1..]),
         "propose-tilt" => propose_tilt(&args[1..]),
         "freeze-scout" => freeze_scout(&args[1..]),
@@ -138,6 +139,66 @@ fn preflight(args: &[String]) -> Result<(), String> {
     let report = run_preflight(&manifest, policy).map_err(|error| error.to_string())?;
     let value = serde_json::to_value(report).map_err(|error| error.to_string())?;
     let output = option_value(args, "--output").map(PathBuf::from);
+    write_json_value(&value, output.as_deref())
+}
+
+/// Input contract for the diagnostic reference closure model.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ClosureCrossFitInput {
+    schema_version: String,
+    declared_independent_unit: String,
+    sampling_proportions: [f64; 4],
+    config: mic_model::ClosureCrossFitConfig,
+    samples: Vec<mic_model::ClusteredMultinomialSample>,
+}
+
+fn closure_crossfit(args: &[String]) -> Result<(), String> {
+    let (path, output) = match args {
+        [path] => (path, None),
+        [path, flag, output] if flag == "--output" && !output.trim().is_empty() => {
+            (path, Some(PathBuf::from(output)))
+        }
+        _ => {
+            return Err("usage: mic closure-crossfit INPUT.json [--output PATH]".into());
+        }
+    };
+    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let input_sha256 = sha256_bytes(&bytes);
+    let input: ClosureCrossFitInput =
+        serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    if input.schema_version != "1.0.0" {
+        return Err("closure-crossfit schema_version must be 1.0.0".into());
+    }
+    if input.declared_independent_unit.trim().is_empty() {
+        return Err("declared_independent_unit must not be empty".into());
+    }
+    let diagnostic = mic_model::cross_fit_closure_models(
+        &input.samples,
+        input.sampling_proportions,
+        input.config,
+    )
+    .map_err(|error| error.to_string())?;
+    let mut ledger = EvidenceLedger::new(ExecutionMode::Exploratory);
+    ledger.provenance("closure_crossfit_input_sha256", &input_sha256);
+    ledger.provenance("closure_crossfit_seed", diagnostic.seed.to_string());
+    ledger.provenance(
+        "closure_crossfit_fold_plan_sha256",
+        &diagnostic.fold_plan_sha256,
+    );
+    ledger.provenance(
+        "declared_independent_unit",
+        &input.declared_independent_unit,
+    );
+    let value = serde_json::json!({
+        "schema_version": "1.0.0",
+        "authority": "diagnostic_only",
+        "certificate_eligible": false,
+        "input_sha256": input_sha256,
+        "declared_independent_unit": input.declared_independent_unit,
+        "diagnostic": diagnostic,
+        "ledger": ledger,
+    });
     write_json_value(&value, output.as_deref())
 }
 
@@ -387,6 +448,7 @@ fn print_help() {
            mic design audit MANIFEST.json\n\
            mic validate-manifest MANIFEST.json\n\
            mic preflight MANIFEST.json [--output PATH]\n\
+           mic closure-crossfit INPUT.json [--output PATH]\n\
            mic orient INPUT.json [--output PATH]\n\
            mic propose-tilt INPUT.json [--output PATH]\n\
            mic freeze-scout REQUEST.json DRAFT.json [--output PATH]\n\
@@ -437,5 +499,26 @@ mod tests {
             .map(str::to_owned)
             .collect::<Vec<_>>();
         assert!(freeze_scout(&missing).is_err());
+    }
+
+    #[test]
+    fn closure_crossfit_example_is_closed_and_unknown_options_fail_before_io() {
+        let input: ClosureCrossFitInput = serde_json::from_str(include_str!(
+            "../../../examples/closure_crossfit_request.json"
+        ))
+        .unwrap();
+        assert_eq!(input.schema_version, "1.0.0");
+        assert_eq!(input.samples.len(), 8);
+
+        let unknown = vec!["request.json".into(), "--bogus".into(), "out.json".into()];
+        assert_eq!(
+            closure_crossfit(&unknown).unwrap_err(),
+            "usage: mic closure-crossfit INPUT.json [--output PATH]"
+        );
+        let missing_output = vec!["request.json".into(), "--output".into()];
+        assert_eq!(
+            closure_crossfit(&missing_output).unwrap_err(),
+            "usage: mic closure-crossfit INPUT.json [--output PATH]"
+        );
     }
 }

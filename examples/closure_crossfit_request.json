@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "declared_independent_unit": "synthetic_cluster",
+  "sampling_proportions": [0.25, 0.25, 0.25, 0.25],
+  "config": {
+    "seed": 29,
+    "n_folds": 2,
+    "fit": {
+      "l2_penalty": 0.1,
+      "max_iterations": 5000,
+      "gradient_tolerance": 0.000001,
+      "initial_step": 1.0
+    }
+  },
+  "samples": [
+    {"features": [0.0], "class": 0, "cluster_id": "class-0-candidate-4"},
+    {"features": [0.0], "class": 0, "cluster_id": "class-0-candidate-0"},
+    {"features": [0.0], "class": 1, "cluster_id": "class-1-candidate-0"},
+    {"features": [0.0], "class": 1, "cluster_id": "class-1-candidate-5"},
+    {"features": [0.0], "class": 2, "cluster_id": "class-2-candidate-1"},
+    {"features": [0.0], "class": 2, "cluster_id": "class-2-candidate-0"},
+    {"features": [1.0], "class": 3, "cluster_id": "class-3-candidate-1"},
+    {"features": [1.0], "class": 3, "cluster_id": "class-3-candidate-0"}
+  ]
+}

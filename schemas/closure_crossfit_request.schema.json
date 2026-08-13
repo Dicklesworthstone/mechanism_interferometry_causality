@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mechanism-interferometry.invalid/schemas/closure_crossfit_request.schema.json",
+  "title": "Cluster-honest closure cross-fit request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "declared_independent_unit",
+    "sampling_proportions",
+    "config",
+    "samples"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "declared_independent_unit": {"type": "string", "minLength": 1},
+    "sampling_proportions": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"type": "number", "exclusiveMinimum": 0}
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "n_folds", "fit"],
+      "properties": {
+        "seed": {"type": "integer", "minimum": 0},
+        "n_folds": {"type": "integer", "minimum": 2},
+        "fit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "l2_penalty",
+            "max_iterations",
+            "gradient_tolerance",
+            "initial_step"
+          ],
+          "properties": {
+            "l2_penalty": {"type": "number", "exclusiveMinimum": 0},
+            "max_iterations": {"type": "integer", "minimum": 1},
+            "gradient_tolerance": {"type": "number", "exclusiveMinimum": 0},
+            "initial_step": {"type": "number", "exclusiveMinimum": 0}
+          }
+        }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["features", "class", "cluster_id"],
+        "properties": {
+          "features": {
+            "type": "array",
+            "items": {"type": "number"}
+          },
+          "class": {"type": "integer", "minimum": 0, "maximum": 3},
+          "cluster_id": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

@@ -737,6 +737,7 @@ def required_files() -> None:
         "schemas/audit_report.schema.json",
         "schemas/active_tilt_input.schema.json",
         "schemas/orientation_input.schema.json",
+        "schemas/closure_crossfit_request.schema.json",
         "schemas/proposal_batch.schema.json",
         "schemas/self_driving_request.schema.json",
         "schemas/shift_factorization_draft.schema.json",
@@ -747,6 +748,7 @@ def required_files() -> None:
         "schemas/design_diagnostic_receipt.schema.json",
         "schemas/scalar_response_contract.schema.json",
         "examples/orientation/parity_demo.json",
+        "examples/closure_crossfit_request.json",
         "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
         "examples/scout_inputs/self_driving_request.json",
@@ -800,6 +802,7 @@ def validate_schemas_and_manifests() -> None:
 
     manifest_schema = schemas.get("experiment_manifest.schema.json")
     orientation_schema = schemas.get("orientation_input.schema.json")
+    closure_crossfit_schema = schemas.get("closure_crossfit_request.schema.json")
     proposal_input_schema = schemas.get("active_tilt_input.schema.json")
     proposal_schema = schemas.get("proposal_batch.schema.json")
     scout_request_schema = schemas.get("self_driving_request.schema.json")
@@ -813,6 +816,47 @@ def validate_schemas_and_manifests() -> None:
     benchmark_oracle_schema = schemas.get("benchmark_oracle.schema.json")
     design_diagnostic_schema = schemas.get("design_diagnostic_receipt.schema.json")
     scalar_response_schema = schemas.get("scalar_response_contract.schema.json")
+
+    check(closure_crossfit_schema is not None, "closure-crossfit schema was not loaded")
+    if closure_crossfit_schema is not None:
+        closure_request = load_json(ROOT / "examples" / "closure_crossfit_request.json")
+        closure_validator = Draft202012Validator(closure_crossfit_schema)
+        errors = sorted(
+            closure_validator.iter_errors(closure_request), key=lambda item: list(item.path)
+        )
+        for error in errors:
+            location = ".".join(str(part) for part in error.path) or "<root>"
+            fail(f"closure-crossfit request schema violation at {location}: {error.message}")
+        if isinstance(closure_request, dict):
+            proportions = closure_request.get("sampling_proportions", [])
+            check(
+                len(proportions) == 4
+                and all(isinstance(value, (int, float)) and math.isfinite(value) for value in proportions)
+                and math.isclose(sum(proportions), 1.0, abs_tol=1e-10),
+                "closure-crossfit sampling proportions must form a finite simplex",
+            )
+            samples = closure_request.get("samples", [])
+            feature_widths = {
+                len(sample.get("features", []))
+                for sample in samples
+                if isinstance(sample, dict)
+            }
+            check(len(feature_widths) == 1, "closure-crossfit feature dimensions differ")
+            check(
+                all(
+                    math.isfinite(value)
+                    for sample in samples
+                    if isinstance(sample, dict)
+                    for value in sample.get("features", [])
+                ),
+                "closure-crossfit features must be finite",
+            )
+            unknown = copy.deepcopy(closure_request)
+            unknown["certificate_eligible"] = True
+            check(
+                bool(list(closure_validator.iter_errors(unknown))),
+                "closure-crossfit schema accepts an authority-bearing unknown field",
+            )
 
     check(scalar_response_schema is not None, "scalar-response contract schema was not loaded")
     if scalar_response_schema is not None:

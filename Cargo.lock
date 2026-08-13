@@ -1317,6 +1317,7 @@ dependencies = [
  "mic-data",
  "mic-design",
  "mic-engine",
+ "mic-model",
  "mic-proposal",
  "mic-sim",
  "mic-stats",

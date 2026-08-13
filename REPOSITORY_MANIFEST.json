@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-13T02:36:18Z",
+  "generated_at_utc": "2026-08-13T02:42:06Z",
   "hash_algorithm": "sha256",
-  "file_count": 179,
-  "aggregate_sha256": "a9db8e2ef12eb53451b5fe9ee7cfe7ced152a66ac73a151fbab74f7a97979278",
+  "file_count": 180,
+  "aggregate_sha256": "14c1c359173e789a9be1b622eab4bc369a7c7ff773716efef9f6a9a6a2d41faa",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -43,8 +43,8 @@
     },
     {
       "path": "Cargo.lock",
-      "bytes": 59035,
-      "sha256": "a929897634baf9d318477b56d6546d5025fc792eb64dbe0a40c31fa00dd9c98b"
+      "bytes": 59049,
+      "sha256": "d6eb2e7ff3bf777bc0adb2c65e26717eec4d337b45cb7cb28c81fcde17cd33fe"
     },
     {
       "path": "Cargo.toml",
@@ -63,8 +63,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 10509,
-      "sha256": "f140716c12908422fedac9818dc2ec98696c03296d9a65a40d818144333f65a6"
+      "bytes": 11150,
+      "sha256": "de63b4148a99cc12798940bd211027c0d330d71e68b605d771dbc3c32b7e72cb"
     },
     {
       "path": "artifacts/simulations/exact_results.json",
@@ -98,13 +98,13 @@
     },
     {
       "path": "crates/mic-cli/Cargo.toml",
-      "bytes": 695,
-      "sha256": "f9f6b65161ab75ff969812b16cfab69938fc7b212124f22a60397a78c87d538b"
+      "bytes": 733,
+      "sha256": "a493014a2958e54763257ac52daf8be534d89f2bbdc22e356fb1d7c145060a43"
     },
     {
       "path": "crates/mic-cli/src/main.rs",
-      "bytes": 16319,
-      "sha256": "5529bb6daecc46ced8c5dabb51bac85bc3e0490ee8063c46d00c37259cbf6b64"
+      "bytes": 19535,
+      "sha256": "352c38f739d564a98f785f3d3c58db37df50cadda083ea037c69a12c42342136"
     },
     {
       "path": "crates/mic-conformance/Cargo.toml",
@@ -195,6 +195,11 @@
       "path": "crates/mic-model/src/closure.rs",
       "bytes": 24314,
       "sha256": "b3fe4da7617485ac7b2132b5870cd12eeeb196bb2d0cbbba42b6459f7f92b424"
+    },
+    {
+      "path": "crates/mic-model/src/crossfit.rs",
+      "bytes": 17337,
+      "sha256": "37c8492cf5e5a97818e5a3a82f2a7914c1fcfcc2b9dfee6b85f5b76cc9dfdb0f"
     },
     {
       "path": "crates/mic-model/src/lib.rs",
@@ -743,8 +748,8 @@
     },
     {
       "path": "scripts/check_repo.py",
-      "bytes": 102418,
-      "sha256": "bdc313c21b02f61b957b806fd30d960530d0b85d074d0e656618b82063efd6cb"
+      "bytes": 104623,
+      "sha256": "23ce7d06ffcf77f3467bae02594019e063a12e5202e8dbd7584ae56d2da42671"
     },
     {
       "path": "scripts/generate_example_data.py",

@@ -66,6 +66,7 @@ cargo run -p mic-cli -- simulate all --output artifacts/simulations/rust_exact_r
 cargo run -p mic-cli -- simulate hidden-sensor
 cargo run -p mic-cli -- design audit examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- preflight examples/configs/feature_flag_pilot.json
+cargo run -p mic-cli -- closure-crossfit examples/closure_crossfit_request.json
 cargo run -p mic-cli -- orient examples/orientation/parity_demo.json
 cargo run -p mic-cli -- propose-tilt examples/proposal_inputs/parity_active_tilt.json
 cargo run -p mic-cli -- freeze-scout examples/scout_inputs/self_driving_request.json examples/scout_inputs/shift_factorization_draft.json
@@ -100,6 +101,15 @@ dimensions separately, and never promotes geometry alone to a unique causal
 completion.
 
 The repository includes the complete mathematical paper, website, exact simulation generators, schemas, runnable example datasets, architectural contracts, and a safe-Rust reference core implementing the exact population algebra, partial-design geometry, fail-closed preflight, and deterministic audit primitives. A standard-library CSV path now produces cluster-weighted histogram four-law diagnostics, and a proposal-only survey inventories candidate squares without claiming selection, assignment, or orientation. Neither is the production FrankenPandas estimator stack: the histogram path never issues a passed certificate, and an autonomous survey can only recommend the next declared audit. Final status is derived from an opaque typed gate summary rather than a caller Boolean; only the deliberately unresolved constructor is public until content-bound locality, normalization, flatness, and orientation producers exist. The production estimators that depend on the evolving Franken* numerical APIs remain isolated behind feature-gated adapters and specified packet-by-packet in the roadmap. This keeps the mathematical contracts stable while allowing the four sibling projects to advance without contaminating the causal API.
+
+The first fitted reference diagnostic is also executable. `mic
+closure-crossfit` fits the tied-main-effect and interaction-augmented joint
+regime models out of deterministic cluster folds, gives every declared unit
+equal total weight, records the seed and fold-plan fingerprint, and compares
+held-out logarithmic loss. Its output is always `diagnostic_only` and
+`certificate_eligible: false`: a learner's proper-loss advantage is not a
+calibrated closure test, and the command cannot verify that a caller's declared
+identifier is the physical assignment unit.
 
 Passive DAG learners, parsimony searches, residual heuristics, and previous audit runs may be connected only as proposal adapters. They can prioritize candidate supports, measurements, or follow-up interventions, but their scores never count as certificate evidence and data-adaptive proposals require independent confirmation.
 
