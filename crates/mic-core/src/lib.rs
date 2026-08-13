@@ -100,6 +100,114 @@ impl DensitySquare {
         positive("pab", self.pab)?;
         Ok((self.pab.ln() - self.pa.ln()) + (self.p0.ln() - self.pb.ln()))
     }
+
+    /// Signed product-law residual `p_AB - p_A p_B / p_0`.
+    ///
+    /// For positive masses this is zero if and only if [`Self::curvature`] is zero.
+    pub fn closure_residual(self) -> Result<f64, CoreError> {
+        positive("p0", self.p0)?;
+        positive("pa", self.pa)?;
+        positive("pb", self.pb)?;
+        positive("pab", self.pab)?;
+        Ok(self.pab - self.pa * self.pb / self.p0)
+    }
+}
+
+/// Authority of an algebraic selection-sensitivity interval.
+///
+/// Γ-bounds are intervals under a declared inclusion-interaction budget.
+/// They do not identify `π` from selected rows and never become Ready.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SensitivityAuthority {
+    /// Declared-bound algebra only.
+    DiagnosticOnly,
+}
+
+/// Source law, inclusion, and regime normalizers at one state.
+///
+/// Selected densities are `p_s π_s / Z_s`. The identity is
+/// `κ̃ = κ + Δ_AB log π - Δ_AB log Z`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct SelectionTransport {
+    /// Unselected source densities.
+    pub source: DensitySquare,
+    /// Inclusion probabilities `π`.
+    pub inclusion: DensitySquare,
+    /// Regime normalizers `Z_s = ∫ p_s π_s`.
+    pub normalizers: DensitySquare,
+}
+
+impl SelectionTransport {
+    /// Selected densities `p π / Z`.
+    pub fn selected(self) -> Result<DensitySquare, CoreError> {
+        positive("Z0", self.normalizers.p0)?;
+        positive("Za", self.normalizers.pa)?;
+        positive("Zb", self.normalizers.pb)?;
+        positive("Zab", self.normalizers.pab)?;
+        Ok(DensitySquare {
+            p0: self.source.p0 * self.inclusion.p0 / self.normalizers.p0,
+            pa: self.source.pa * self.inclusion.pa / self.normalizers.pa,
+            pb: self.source.pb * self.inclusion.pb / self.normalizers.pb,
+            pab: self.source.pab * self.inclusion.pab / self.normalizers.pab,
+        })
+    }
+
+    /// Residual of `κ̃ - (κ + Δ_AB log π - Δ_AB log Z)`.
+    pub fn identity_residual(self) -> Result<f64, CoreError> {
+        let observed = self.selected()?.curvature()?;
+        let source = self.source.curvature()?;
+        let delta_pi = self.inclusion.curvature()?;
+        let delta_z = self.normalizers.curvature()?;
+        Ok(observed - (source + delta_pi - delta_z))
+    }
+}
+
+/// Interval for source curvature under a declared `|Δ_AB log π| ≤ Γ`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct GammaSensitivity {
+    /// Observed selected-law curvature `κ̃`.
+    pub observed_kappa: f64,
+    /// Declared inclusion-interaction budget.
+    pub gamma: f64,
+    /// `Δ_AB log Z`, treated as known (cancels in x-contrasts).
+    pub delta_log_z: f64,
+    /// Lower endpoint of the source-κ interval.
+    pub source_kappa_low: f64,
+    /// Upper endpoint of the source-κ interval.
+    pub source_kappa_high: f64,
+    /// Smallest `|Δ_AB log π|` that would make source κ zero.
+    pub min_abs_selection_interaction_to_null: f64,
+    /// Always diagnostic. Never Ready.
+    pub authority: SensitivityAuthority,
+}
+
+/// Maps an observed selected curvature through a declared Γ budget.
+///
+/// `κ = κ̃ - Δ_AB log π + Δ_AB log Z` with `|Δ_AB log π| ≤ gamma`.
+pub fn gamma_sensitivity(
+    observed_kappa: f64,
+    gamma: f64,
+    delta_log_z: f64,
+) -> Result<GammaSensitivity, CoreError> {
+    finite("observed_kappa", observed_kappa)?;
+    finite("gamma", gamma)?;
+    finite("delta_log_z", delta_log_z)?;
+    if gamma < 0.0 {
+        return Err(CoreError::Negative {
+            name: "gamma",
+            value: gamma,
+        });
+    }
+    Ok(GammaSensitivity {
+        observed_kappa,
+        gamma,
+        delta_log_z,
+        source_kappa_low: observed_kappa - gamma + delta_log_z,
+        source_kappa_high: observed_kappa + gamma + delta_log_z,
+        min_abs_selection_interaction_to_null: (observed_kappa + delta_log_z).abs(),
+        authority: SensitivityAuthority::DiagnosticOnly,
+    })
 }
 
 /// Primitive and joint ratios at one state point.
@@ -320,6 +428,75 @@ fn equal_len(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn closure_residual_vanishes_iff_curvature_vanishes() {
+        let flat = DensitySquare {
+            p0: 0.25,
+            pa: 0.25,
+            pb: 0.25,
+            pab: 0.25,
+        };
+        assert_eq!(flat.curvature().unwrap(), 0.0);
+        assert!(flat.closure_residual().unwrap().abs() < 1e-15);
+
+        let curved = DensitySquare {
+            p0: 0.4,
+            pa: 0.1,
+            pb: 0.1,
+            pab: 0.4,
+        };
+        assert!(curved.curvature().unwrap().abs() > 1.0);
+        assert!(curved.closure_residual().unwrap() > 0.0);
+    }
+
+    #[test]
+    fn selection_identity_holds_to_machine_precision() {
+        let transport = SelectionTransport {
+            source: DensitySquare {
+                p0: 0.25,
+                pa: 0.25,
+                pb: 0.25,
+                pab: 0.25,
+            },
+            inclusion: DensitySquare {
+                p0: 0.8,
+                pa: 0.2,
+                pb: 0.2,
+                pab: 0.8,
+            },
+            normalizers: DensitySquare {
+                p0: 1.0,
+                pa: 1.0,
+                pb: 1.0,
+                pab: 1.0,
+            },
+        };
+        assert!(transport.identity_residual().unwrap().abs() < 1e-14);
+        let selected = transport.selected().unwrap();
+        assert!(selected.curvature().unwrap().abs() > 1.0);
+        let observed = selected.curvature().unwrap();
+        let needed = gamma_sensitivity(observed, 0.0, 0.0)
+            .unwrap()
+            .min_abs_selection_interaction_to_null;
+        let interval = gamma_sensitivity(observed, needed, 0.0).unwrap();
+        assert_eq!(interval.authority, SensitivityAuthority::DiagnosticOnly);
+        assert!(interval.source_kappa_low <= 0.0);
+        assert!(interval.source_kappa_high >= 0.0);
+        assert!(needed > 0.0);
+    }
+
+    #[test]
+    fn gamma_sensitivity_never_claims_ready_and_rejects_negative_budget() {
+        let interval = gamma_sensitivity(0.4, 0.1, 0.0).unwrap();
+        assert_eq!(interval.authority, SensitivityAuthority::DiagnosticOnly);
+        assert!((interval.source_kappa_low - 0.3).abs() < 1e-15);
+        assert!((interval.source_kappa_high - 0.5).abs() < 1e-15);
+        assert!(matches!(
+            gamma_sensitivity(0.1, -0.2, 0.0),
+            Err(CoreError::Negative { name: "gamma", .. })
+        ));
+    }
 
     #[test]
     fn density_and_ratio_curvature_agree() {
