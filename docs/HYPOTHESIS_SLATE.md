@@ -9,6 +9,15 @@ representation. Locality, conditional normalization, and square flatness do.
 
 **Authority of this file:** `proposal_only`. It may decide what to test next.
 
+**Positioning (owner-adopted, external review 2026-08-13).** Not general causal
+discovery from arbitrary tables. An auditable system for discovering, testing,
+and refining reusable causal mechanisms from families of perturbations and
+environment changes. Four-law \(\kappa\) is prior art (Xu et al.). The complete-cube
+biconditional is a packaged characterization, close to the definition of
+modularity. The live program is compositional closure, incomplete-design
+identified sets, and curvature-guided state completion. No new architecture
+documents. One stronger theorem, one estimator, one controlled-real demo.
+
 ## Question of record
 
 **Q-001.** Can mechanism interferometry recover *audited* causal structure from
@@ -26,7 +35,13 @@ observed on `examples/data/four_law_discrete.csv` or a later Norman extract:
 **Current status of the falsifier suite.** (1) failed to fire: survey finds
 `regime` as a complete square. (2) failed to fire: four-law reports `abstained`.
 (3)–(4) are enforced by `audit_orientation` and `cluster_spans_regimes`. So Q-001
-is **not confirmed**. It is only **not yet killed on the toy square**.
+is **not confirmed**. The adopted review plus the public-extract campaign kill
+the unsupervised-certification reading: a complete square is a design fact, not
+an arrow. Q-001 remains useful only as a *negative* control on the survey
+(proposal-only, never `passed`). The positive question of record is now: given
+a labeled or partially labeled family of perturbations, can MIC classify the
+observed design as unique / set-identified / infeasible / untestable, and
+refuse the complete squares that are catalogs rather than mechanisms?
 
 ## Hypotheses (including a third alternative)
 

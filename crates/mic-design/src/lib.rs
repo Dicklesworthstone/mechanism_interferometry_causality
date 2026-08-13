@@ -1,6 +1,14 @@
 #![forbid(unsafe_code)]
 //! Factorial design geometry, sampling-odds gates, and estimability audits.
 
+mod multilevel;
+
+pub use multilevel::{
+    FamilyClassificationInput, MultiLevelPoint, ObservedFamilyClassification,
+    OrientationTestability, RectangleFace, classify_observed_family, enumerate_rectangles,
+    multilevel_main_effects_matrix, orientation_testability,
+};
+
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
@@ -50,6 +58,24 @@ pub enum DesignError {
     /// A family set was empty or contained an empty node name.
     #[error("family sets must be nonempty and contain nonempty node names")]
     InvalidFamily,
+    /// A factor cardinality was less than 2.
+    #[error("factor {factor} must have at least two levels, got {levels}")]
+    InvalidCardinality {
+        /// Zero-based factor index.
+        factor: usize,
+        /// Rejected level count.
+        levels: u32,
+    },
+    /// A multi-level coordinate exceeded its declared cardinality.
+    #[error("factor {factor} level {level} is outside 0..{levels}")]
+    LevelOutOfRange {
+        /// Zero-based factor index.
+        factor: usize,
+        /// Observed level.
+        level: u32,
+        /// Declared number of levels.
+        levels: u32,
+    },
 }
 
 /// One Boolean factorial design corner.
@@ -895,6 +921,49 @@ fn validate_tolerance(tolerance: f64) -> Result<(), DesignError> {
     }
 }
 
+/// Four-way modular-completion class for an observed design and proposed local spaces.
+///
+/// Geometry alone never yields [`Self::Unique`]. That class requires identified
+/// local, conditionally normalized primitive potentials. This crate currently
+/// decides only the two-root diagonal witness from the paper.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ModularCompletionClass {
+    /// Every proposed local potential is identified.
+    Unique,
+    /// More than one local normalized system reproduces the observed regimes.
+    SetIdentified,
+    /// No modular local system can reproduce the observed regimes.
+    Infeasible,
+    /// The observed design imposes no meaningful modular restriction, or the
+    /// caller has not supplied the objects needed to decide.
+    Untestable,
+}
+
+/// Classifies the paper's two-root diagonal witness \(D=\{00,11\}\).
+///
+/// Distinct root-mechanism replacements on two binary factors preserve product
+/// form: the log-density ratio \(h_{11}-h_{00}\) must have vanishing four-corner
+/// interaction. The design does not identify the primitive potentials, so a
+/// product-form pair is at most [`ModularCompletionClass::SetIdentified`].
+/// This function never returns [`ModularCompletionClass::Unique`].
+///
+/// Masses are in order `00, 10, 01, 11` and must be finite and strictly positive.
+pub fn classify_two_root_diagonal(
+    baseline: [f64; 4],
+    combo: [f64; 4],
+    tolerance: f64,
+) -> Result<ModularCompletionClass, DesignError> {
+    let base_odds = audit_sampling_odds(baseline, tolerance)?;
+    let combo_odds = audit_sampling_odds(combo, tolerance)?;
+    let interaction_shift = combo_odds.log_odds_ratio - base_odds.log_odds_ratio;
+    if interaction_shift.abs() <= tolerance {
+        Ok(ModularCompletionClass::SetIdentified)
+    } else {
+        Ok(ModularCompletionClass::Infeasible)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1009,6 +1078,40 @@ mod tests {
             .collect();
         let audit = audit_interaction_aliasing(&points, 1e-12).unwrap();
         assert!(audit.untested_contrasts.is_empty());
+    }
+
+    #[test]
+    fn two_root_diagonal_correlated_combo_is_infeasible() {
+        let uniform = [0.25; 4];
+        let correlated = [0.4, 0.1, 0.1, 0.4];
+        let class = classify_two_root_diagonal(uniform, correlated, 1e-12).unwrap();
+        assert_eq!(class, ModularCompletionClass::Infeasible);
+    }
+
+    #[test]
+    fn two_root_diagonal_product_combo_is_set_identified_never_unique() {
+        let uniform = [0.25; 4];
+        let product = [0.36, 0.24, 0.24, 0.16];
+        let class = classify_two_root_diagonal(uniform, product, 1e-12).unwrap();
+        assert_eq!(class, ModularCompletionClass::SetIdentified);
+        assert_ne!(class, ModularCompletionClass::Unique);
+    }
+
+    #[test]
+    fn two_root_diagonal_rejects_nonpositive_mass() {
+        let error = classify_two_root_diagonal([0.25; 4], [0.5, 0.5, 0.0, 0.0], 1e-12).unwrap_err();
+        assert!(matches!(error, DesignError::InvalidProbability { .. }));
+    }
+
+    #[test]
+    fn diagonal_two_corner_design_has_vacuous_flatness() {
+        let points = vec![
+            DesignPoint::parse("00").unwrap(),
+            DesignPoint::parse("11").unwrap(),
+        ];
+        let audit = audit_design(&points, 1e-12).unwrap();
+        assert_eq!(audit.lack_of_fit_dimension, 0);
+        assert!(audit.square_faces.is_empty());
     }
 
     #[test]
