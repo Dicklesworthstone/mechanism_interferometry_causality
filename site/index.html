@@ -33,6 +33,7 @@
     <a href="#scenarios">Failures</a>
     <a href="#orientation">Orientation</a>
     <a href="#inference">Inference</a>
+    <a href="#direction">Direction</a>
     <a href="#eligible">Use it</a>
     <a href="#evidence">Evidence</a>
     <a href="#run">Run it</a>
@@ -1242,6 +1243,71 @@
   <!-- ==================================================================
        Eligibility / use it
        ================================================================== -->
+  <section id="direction" class="band">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">What causality means</p>
+        <h2>Causal structure is the coordinate system in which <em class="accent">change is sparse</em></h2>
+        <p class="lede">
+          A joint distribution admits many factorizations, and statistics alone cannot prefer one.
+          What distinguishes the causal factorization is physical, not statistical: its factors are
+          autonomous. Nature, drift, policy, and experiment change them <em>one at a time</em>. Write
+          the same shift in any other coordinate system and every factor moves together, in a
+          coordinated, fine-tuned way &#8212; epicycles. Finding causal structure is therefore not
+          metaphysics. It is compression: not of the data, but of the <em>changes</em> present in
+          the data. The factorization that describes each observed shift with the fewest moving
+          parts is the causal one, and every quantity on this page &#8212; locality, deletion
+          invariance, square flatness, the conservation ledger &#8212; is an exact measurement of
+          that sparsity.
+        </p>
+      </div>
+
+      <div class="grid grid-2">
+        <article class="card reveal">
+          <p class="label">The consequence</p>
+          <h3>Natural experiments are regimes</h3>
+          <p class="note">
+            The machinery on this page consumes regimes, and the world supplies them for free.
+            Seasons, regions, cohorts, versions, eras: any source of heterogeneity that shifts one
+            mechanism while leaving others alone is a soft intervention nobody had to run. Weather
+            stations do not move between January and July, so a season is a tilt of the temperature
+            mechanism with the elevation marginal untouched &#8212; and the deletion protocol above
+            then orients the pair from purely observational rows. Deleting temperature leaves the
+            elevation marginal invariant; deleting elevation leaves the temperature marginal
+            changed; pass count exactly one; the arrow points from elevation to temperature, which
+            is where physics put it.
+          </p>
+          <p class="note micro">
+            First executed result: 9,109 northern-hemisphere stations, one year, prediction
+            registered before the data were parsed. The context-shuffled control produced no
+            orientation &#8212; the apparatus that found the arrow demonstrably knows how to stay
+            silent.
+          </p>
+        </article>
+        <article class="card reveal delay-1">
+          <p class="label">The discipline</p>
+          <h3>Wrong arrows are the unforgivable output</h3>
+          <p class="note">
+            Reading direction from natural heterogeneity leans on stated assumptions: shifts hit
+            mechanisms sparsely, cancellations are not fine-tuned, and within-regime selection
+            remains undeclarable from rows alone. Every oriented edge therefore carries its
+            assumption ledger, its heterogeneity source, its cluster unit, and its equivalence
+            bounds &#8212; and the benchmark it lives in scores silence as carefully as arrows.
+            Datasets with genuinely ambiguous direction are registered in advance as abstentions,
+            where emitting an arrow counts as failure. A method that cannot report nothing has
+            never been shown able to report anything.
+          </p>
+          <p class="note micro">
+            The same five signatures &#8212; locality of change, asymmetric deletion invariance,
+            compositional flatness, conservation fingerprints, and change-description length
+            &#8212; overdetermine the structure. Overdetermination is what makes honest discovery
+            possible: a wrong coordinate system cannot satisfy all five at once.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
   <section id="eligible">
     <div class="wrap">
       <div class="section-head reveal">
@@ -1518,6 +1584,167 @@
         <li>Negative controls show implementation curvature above threshold.</li>
         <li>A data-adaptive proposal reuses its discovery observations as confirmatory evidence.</li>
       </ol>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Many-environment tomography
+       ================================================================== -->
+  <section id="tomography">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Beyond one factorial cube</p>
+        <h2>Many environments, and <em class="accent">three problems not to collapse</em></h2>
+        <p class="lede">
+          The certificate is local in intervention space, but its algebra scales. Index the observed
+          environments, fix a reference law, and each environment contributes a function-valued row
+          <code>H_e(x) = log[p_e(x) / p_0(x)]</code>. A fixed-primitive model factorizes those rows
+          as <code>H_e = sum_j A_ej phi_j</code>, and that display separates three questions that
+          are routinely run together.
+        </p>
+      </div>
+
+      <div class="grid grid-3">
+        <article class="card reveal">
+          <span class="card-num" aria-hidden="true">01</span>
+          <h3>Recover the factors</h3>
+          <p class="note">
+            With a known incidence or dosage matrix of column rank <var>K</var>, the factor vector is
+            unique almost everywhere. With unlabelled environments it is still identified, provided
+            every one of the <code>2^K</code> vertices is observed and the factors are linearly
+            independent, up to renaming an axis and choosing its opposite endpoint.
+          </p>
+          <p class="note micro">
+            The complete-vertex assumption carries weight. A partial unlabelled point cloud keeps the
+            usual factor-mixing ambiguity, and a learned low-rank representation does not define
+            intervention adjacency at all.
+          </p>
+        </article>
+        <article class="card reveal delay-1">
+          <span class="card-num" aria-hidden="true">02</span>
+          <h3>Show each is a replacement</h3>
+          <p class="note">
+            An identified factor is an algebraic object. Turning it into a mechanism replacement is
+            the nonlinear step, and it is conditional normalization that does the turning: the
+            candidate targets of a factor are the coordinates whose deletion leaves its conditional
+            expectation at one.
+          </p>
+        </article>
+        <article class="card reveal delay-2">
+          <span class="card-num" aria-hidden="true">03</span>
+          <h3>Assemble the graph</h3>
+          <p class="note">
+            Only once one exact rich family exists for every observed node does peeling reconstruct
+            the graph, and the reference law then has to be checked separately for factorizing over
+            it. Missing families, deterministic proxies, latent nodes, cycles or unverified grouping
+            of repeated tilts each justify a partial or stuck result and nothing more.
+          </p>
+        </article>
+      </div>
+
+      <div class="section-head reveal mt">
+        <h3>A flat, low-rank, perfectly normalized cube that is not causal</h3>
+        <p class="note">
+          It would be convenient if low rank plus global normalization plus flat composition added up
+          to a mechanism. This exact witness says they do not. Take <code>X</code> and <code>Y</code>
+          independent fair bits, order the states <code>00, 01, 10, 11</code>, and set two ratio
+          fields:
+        </p>
+      </div>
+
+      <div class="table-scroll reveal">
+        <table class="spec-table">
+          <caption>The witness of the tomography section, evaluated exactly</caption>
+          <thead>
+            <tr>
+              <th scope="col">Quantity</th><th scope="col">00</th><th scope="col">01</th>
+              <th scope="col">10</th><th scope="col">11</th><th scope="col">Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>r_1</code></td><td>3/2</td><td>1</td><td>1</td><td>1/2</td><td class="yes">mean exactly 1</td></tr>
+            <tr><td><code>r_2</code></td><td>1</td><td>3/2</td><td>1/2</td><td>1</td><td class="yes">mean exactly 1</td></tr>
+            <tr><td><code>r_1 r_2</code></td><td>3/2</td><td>3/2</td><td>1/2</td><td>1/2</td><td class="yes">mean exactly 1</td></tr>
+            <tr><td>square curvature</td><td>0</td><td>0</td><td>0</td><td>0</td><td class="yes">flat everywhere</td></tr>
+            <tr><td>conditional mean of either factor, on either coordinate</td><td colspan="4">5/4 and 3/4</td><td class="no">never 1</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout curve reveal mt">
+        <span class="callout-mark" aria-hidden="true">&#9670;</span>
+        <div>
+          <p>
+            Every ratio has baseline mean one, the environment transport has rank two, and every
+            square face closes exactly. Yet averaging either factor over either candidate target
+            returns <code>5/4</code> and <code>3/4</code> rather than one, so neither factor is a
+            normalized replacement on any two-node graph. The conditional-normalization condition of
+            the certificate is not a technical convenience that flatness would have implied anyway.
+            It is the step that does the causal work, and this cube passes everything else without it.
+          </p>
+        </div>
+      </div>
+
+      <div class="section-head reveal mt">
+        <h3>Direction arrives by a named route, or not at all</h3>
+        <p class="note">
+          There is no universal scalar arrow score to search for. Directional information enters
+          through typed routes, and the type is part of the answer.
+        </p>
+      </div>
+
+      <div class="grid grid-3">
+        <article class="card reveal"><p class="label">Route</p><p class="note">An externally documented action or natural experiment.</p></article>
+        <article class="card reveal delay-1"><p class="label">Route</p><p class="note">Recurrence and invariance of sparse mechanism changes across contexts.</p></article>
+        <article class="card reveal delay-2"><p class="label">Route</p><p class="note">A known source time and location with calibrated propagation.</p></article>
+        <article class="card reveal"><p class="label">Route</p><p class="note">The local normalization and deletion algebra this page is about.</p></article>
+        <article class="card reveal delay-1"><p class="label">Route</p><p class="note">Observational conditional-independence geometry, which identifies an equivalence class rather than a forced graph.</p></article>
+        <article class="card reveal delay-2"><p class="label">Route</p><p class="note">A deliberately restricted structural model, carrying its own falsifiers.</p></article>
+      </div>
+
+      <div class="callout info reveal mt">
+        <span class="callout-mark" aria-hidden="true">&#9670;</span>
+        <div>
+          <p>
+            <b>These are not interchangeable votes.</b> Every returned direction keeps the route that
+            licensed it and the assumption that would revoke it. When routes disagree, the
+            disagreement either narrows the surviving model class or falsifies the conjunction of
+            their premises and forces an abstention. It is never averaged into a confidence number.
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-2 reveal mt">
+        <article class="card">
+          <p class="label">Two ladders, not one</p>
+          <h3>A query is not a graph</h3>
+          <p class="note">
+            Many large tables hold a query-specific identification opportunity rather than a
+            recoverable mechanism family. A lottery, a threshold, a staggered adoption, a controller
+            action or a negative-control proxy can identify an effect without identifying a graph, so
+            the mechanism-family authority ladder and the effect-identification ladder are kept
+            apart.
+          </p>
+        </article>
+        <article class="card delay-1">
+          <p class="label">What rows cannot do</p>
+          <h3>The premise is never in the data</h3>
+          <p class="note">
+            Row structure can nominate a strategy and falsify its observable implications. It cannot
+            prove exclusion, counterfactual continuity, parallel trends or proxy completeness. Exact
+            observational twins can preserve every released row while reversing a discontinuity,
+            instrument or difference-in-differences effect, by changing only the unobserved premise.
+          </p>
+          <p class="note micro">
+            Which is why the autonomous router is handed a neutralized discovery view and a
+            separately content-bound design-authority receipt, with no study identity until scoring.
+            Withholding that receipt alone must remove causal authority while the bytes, and the
+            predictive performance, stay exactly as they were.
+          </p>
+        </article>
+      </div>
+
+      <p class="pullquote reveal mt">Discover the transports, test every observable implication, expose the premise the rows cannot establish, and recommend the cheapest perturbation that separates what is left.</p>
     </div>
   </section>
 
@@ -1845,6 +2072,7 @@ mic-tabular report examples/configs/four_law_discrete.json --base-dir .</code></
           <li><a href="#scenarios">Failure modes</a></li>
           <li><a href="#conservation">Conservation laws</a></li>
           <li><a href="#evidence">Evidence boundary</a></li>
+          <li><a href="#tomography">Many-environment tomography</a></li>
           <li><a href="#software">Rust workspace</a></li>
         </ul>
       </div>
