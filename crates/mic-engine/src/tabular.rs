@@ -68,6 +68,8 @@ pub struct CellCurvature {
     pub rab: f64,
     /// Gauge-invariant curvature at the cell.
     pub kappa: f64,
+    /// Signed product-law residual `p_AB - p_A p_B / p_0`.
+    pub closure_residual: f64,
 }
 
 /// Histogram four-law result for one observed square face.
@@ -97,6 +99,10 @@ pub struct FourLawFaceAudit {
     pub max_abs_kappa: f64,
     /// Mean `|kappa|` under empirical `P_0`.
     pub mean_abs_kappa: f64,
+    /// Maximum `|δ|` on common support.
+    pub max_abs_delta: f64,
+    /// Mean `|δ|` under empirical `P_0`.
+    pub mean_abs_delta: f64,
 }
 
 /// Complete tabular audit: preflight, ingest, four-law projection, overlap.
@@ -619,6 +625,12 @@ fn audit_face(
         let kappa = square.curvature().map_err(|error| {
             EngineError::InvalidTabular(format!("cell {} curvature: {error}", format_cell(&cell)))
         })?;
+        let closure_residual = square.closure_residual().map_err(|error| {
+            EngineError::InvalidTabular(format!(
+                "cell {} closure residual: {error}",
+                format_cell(&cell)
+            ))
+        })?;
         cells.push(CellCurvature {
             cell: format_cell(&cell),
             p0,
@@ -629,6 +641,7 @@ fn audit_face(
             rb: pb / p0,
             rab: pab / p0,
             kappa,
+            closure_residual,
         });
     }
     cells.sort_by(|left, right| left.cell.cmp(&right.cell));
@@ -670,6 +683,17 @@ fn audit_face(
             .collect::<Vec<_>>(),
         &p0,
     );
+    let max_abs_delta = cells
+        .iter()
+        .map(|cell| cell.closure_residual.abs())
+        .fold(0.0, f64::max);
+    let mean_abs_delta = weighted_mean(
+        &cells
+            .iter()
+            .map(|cell| cell.closure_residual.abs())
+            .collect::<Vec<_>>(),
+        &p0,
+    );
     let omitted_baseline_mass = (1.0 - p0.iter().sum::<f64>()).max(0.0);
     let _ = ingest;
     Ok(FourLawFaceAudit {
@@ -685,6 +709,8 @@ fn audit_face(
         signed_moment,
         max_abs_kappa,
         mean_abs_kappa,
+        max_abs_delta,
+        mean_abs_delta,
     })
 }
 
@@ -942,6 +968,12 @@ mod tests {
         assert!((kappa0 - 1.6_f64.ln()).abs() < 1e-12);
         assert!((kappa1 - 0.4_f64.ln()).abs() < 1e-12);
         assert!(face.max_abs_kappa > 0.8);
+        assert!(face.max_abs_delta > 0.0);
+        assert!(
+            face.cells
+                .iter()
+                .all(|cell| cell.closure_residual.abs() > 0.0)
+        );
         let narrative = report.narrative();
         assert!(
             narrative
@@ -968,6 +1000,7 @@ mod tests {
         .unwrap();
         let face = &report.four_law[0];
         assert!(face.max_abs_kappa.abs() < 1e-12);
+        assert!(face.max_abs_delta.abs() < 1e-12);
         assert!(face.scalar_moment.abs() < 1e-12);
         assert!((face.normalizer_a - 1.0).abs() < 1e-12);
         assert_eq!(report.status(), CertificateStatus::Abstained);

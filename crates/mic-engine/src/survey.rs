@@ -87,6 +87,10 @@ pub struct InterferometerProposal {
     pub min_corner_count: usize,
     /// Pointwise lack-of-fit dimension of the retained corners, when defined.
     pub lack_of_fit_dimension: Option<usize>,
+    /// Additive identified-set dimension on the retained corners.
+    pub identified_set_dimension: Option<usize>,
+    /// Highest-ranked unobserved corner for shrinking that set, if any.
+    pub recommended_next_corner: Option<String>,
     /// Modular-completion class. Survey never supplies laws, so this is untestable.
     pub modular_completion: ModularCompletionClass,
     /// Orientation testability. Catalog squares with no tilt family are untestable.
@@ -467,6 +471,10 @@ fn propose(
         .map_or_else(|| orientation_testability(0), |item| item.orientation);
     debug_assert_ne!(modular_completion, ModularCompletionClass::Unique);
     debug_assert_eq!(orientation, OrientationTestability::Untestable);
+    let identified_set_dimension = family.as_ref().map(|item| item.identified_set_dimension);
+    let recommended_next_corner = family
+        .as_ref()
+        .and_then(|item| item.recommended_next_corner.clone());
     let near_square = design
         .points
         .first()
@@ -490,6 +498,8 @@ fn propose(
         empirically_product,
         min_corner_count,
         lack_of_fit_dimension,
+        identified_set_dimension,
+        recommended_next_corner,
         modular_completion,
         orientation,
         priority,
@@ -544,11 +554,22 @@ fn survey_next_step(interferometers: &[InterferometerProposal]) -> String {
         .iter()
         .find(|item| !item.missing_corners.is_empty() || !item.dropped_corners.is_empty())
     {
+        let next = match (
+            item.recommended_next_corner.as_deref(),
+            item.identified_set_dimension,
+        ) {
+            (Some(corner), Some(idim)) => {
+                format!(" Ranked next corner `{corner}` (identified-set dimension {idim}).")
+            }
+            (Some(corner), None) => format!(" Ranked next corner `{corner}`."),
+            _ => String::new(),
+        };
         return format!(
-            "No complete square was observed. Highest-ranked incomplete design `{}` has never-seen corners [{}] and under-supported dropped corners [{}]. Collect the never-seen arms; do not impute either class. The atlas is a design proposal, not a graph.",
+            "No complete square was observed. Highest-ranked incomplete design `{}` has never-seen corners [{}] and under-supported dropped corners [{}]. Collect the never-seen arms; do not impute either class.{} The atlas is a design proposal, not a graph.",
             item.interferometer_id,
             item.missing_corners.join(","),
-            item.dropped_corners.join(",")
+            item.dropped_corners.join(","),
+            next
         );
     }
     "No complete square was observed. Add the missing corners or collect a factorial follow-up. The atlas is a design proposal, not a graph.".into()
@@ -912,6 +933,7 @@ mod tests {
         assert!(square.note.contains("never-seen corners [11]"));
         assert!(report.next_step.contains("11"));
         assert!(report.next_step.contains("do not impute"));
+        assert!(report.next_step.contains("Ranked next corner `11`"));
     }
 
     #[test]
@@ -970,6 +992,11 @@ mod tests {
         assert!(!square.complete_square);
         assert_eq!(square.missing_corners, ["10", "01"]);
         assert_eq!(square.lack_of_fit_dimension, Some(0));
+        assert_eq!(square.identified_set_dimension, Some(1));
+        assert!(matches!(
+            square.recommended_next_corner.as_deref(),
+            Some("01" | "10")
+        ));
         assert_eq!(report.information_content.n_distinct_supported_regimes, 2);
     }
 

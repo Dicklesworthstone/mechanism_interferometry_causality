@@ -343,6 +343,24 @@ pub mod code {
     pub const MISSING_REGIME_DATA: &str = "missing_regime_data";
     /// Histogram four-law common support is empty.
     pub const EMPTY_COMMON_SUPPORT: &str = "empty_common_support";
+    /// Declared sampling quotas disagree with the realized empirical quotas.
+    pub const DECLARED_EMPIRICAL_QUOTA_MISMATCH: &str = "declared_empirical_quota_mismatch";
+
+    /// Informational codes. These record what a run established, not why it refused.
+    ///
+    /// They are listed here for the same reason the blocking codes are: a reason code is
+    /// a machine-readable claim about a run, and a consumer cannot discover the
+    /// vocabulary if half of it exists only as string literals scattered across the
+    /// engine. Keeping both classes declared in one place is what makes the vocabulary
+    /// closed in the sense the paper claims — and it is why these are named separately
+    /// rather than folded in with the refusals, since an informational code must never
+    /// be mistaken for a gate.
+    pub mod info {
+        /// The estimator lens battery agreed within tolerance. Diagnostic, never certifying.
+        pub const ESTIMATOR_FAMILY_AGREEMENT: &str = "estimator_family_agreement";
+        /// The histogram four-law projection is a diagnostic and cannot issue a certificate.
+        pub const HISTOGRAM_NOT_A_CERTIFICATE: &str = "histogram_not_a_certificate";
+    }
 }
 
 #[cfg(test)]
