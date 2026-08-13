@@ -218,62 +218,26 @@ pub fn cross_fit_closure_models(
     let mut curvature_max_abs = 0.0_f64;
     let mut n_baseline_clusters = 0_u32;
     for fold in 0..config.n_folds {
-        let training = fold_slice(samples, &clusters, fold, false, sampling_proportions, None)?;
-        let confirmation = fold_slice(
+        let (diagnostic, fold_weight) = run_fold(
             samples,
             &clusters,
             fold,
-            true,
             sampling_proportions,
-            Some(total_class_clusters),
-        )?;
-        require_all_classes(&training.rows, fold, "training")?;
-        require_all_classes(&confirmation.rows, fold, "confirmation")?;
-
-        let restricted = FourCornerClosureModel::fit_weighted(
-            &training.rows,
-            &training.weights,
-            sampling_proportions,
-            ClosureModelKind::MainEffectsOnly,
+            total_class_clusters,
             config.fit,
         )?;
-        let saturated = FourCornerClosureModel::fit_weighted(
-            &training.rows,
-            &training.weights,
-            sampling_proportions,
-            ClosureModelKind::MainEffectsPlusInteraction,
-            config.fit,
-        )?;
-        let comparison = compare_held_out_closure_models_weighted(
-            &restricted,
-            &saturated,
-            &confirmation.rows,
-            &confirmation.weights,
-        )?;
-        let curvature = fold_curvature_summary(samples, &clusters, fold, &saturated)?;
-        let fold_weight = confirmation.total_mass;
-        restricted_loss_sum += fold_weight * comparison.restricted_log_loss;
-        saturated_loss_sum += fold_weight * comparison.saturated_log_loss;
+        restricted_loss_sum += fold_weight * diagnostic.restricted_log_loss;
+        saturated_loss_sum += fold_weight * diagnostic.saturated_log_loss;
         confirmation_mass_sum += fold_weight;
-        let baseline_weight = f64::from(curvature.n_baseline_clusters);
-        curvature_signed_sum += baseline_weight * curvature.baseline_mean;
-        curvature_abs_sum += baseline_weight * curvature.baseline_mean_abs;
-        curvature_square_sum += baseline_weight * curvature.baseline_rms.powi(2);
-        curvature_max_abs = curvature_max_abs.max(curvature.baseline_max_abs);
+        let baseline_weight = f64::from(diagnostic.curvature.n_baseline_clusters);
+        curvature_signed_sum += baseline_weight * diagnostic.curvature.baseline_mean;
+        curvature_abs_sum += baseline_weight * diagnostic.curvature.baseline_mean_abs;
+        curvature_square_sum += baseline_weight * diagnostic.curvature.baseline_rms.powi(2);
+        curvature_max_abs = curvature_max_abs.max(diagnostic.curvature.baseline_max_abs);
         n_baseline_clusters = n_baseline_clusters
-            .checked_add(curvature.n_baseline_clusters)
+            .checked_add(diagnostic.curvature.n_baseline_clusters)
             .ok_or(ClosureCrossFitError::InvalidFoldCount)?;
-        folds.push(FoldClosureDiagnostic {
-            fold,
-            n_training_clusters: training.n_clusters,
-            n_confirmation_clusters: confirmation.n_clusters,
-            training_class_mass: training.class_mass,
-            confirmation_class_mass: confirmation.class_mass,
-            restricted_log_loss: comparison.restricted_log_loss,
-            saturated_log_loss: comparison.saturated_log_loss,
-            saturated_advantage: comparison.saturated_advantage,
-            curvature,
-        });
+        folds.push(diagnostic);
     }
 
     let restricted_log_loss = restricted_loss_sum / confirmation_mass_sum;
@@ -300,6 +264,60 @@ pub fn cross_fit_closure_models(
         },
         calibrated_test: false,
     })
+}
+
+fn run_fold(
+    samples: &[ClusteredMultinomialSample],
+    clusters: &BTreeMap<String, ClusterMeta>,
+    fold: usize,
+    sampling_proportions: [f64; N_CLASSES],
+    total_class_clusters: [u32; N_CLASSES],
+    fit: ClosureFitConfig,
+) -> Result<(FoldClosureDiagnostic, f64), ClosureCrossFitError> {
+    let training = fold_slice(samples, clusters, fold, false, sampling_proportions, None)?;
+    let confirmation = fold_slice(
+        samples,
+        clusters,
+        fold,
+        true,
+        sampling_proportions,
+        Some(total_class_clusters),
+    )?;
+    require_all_classes(&training.rows, fold, "training")?;
+    require_all_classes(&confirmation.rows, fold, "confirmation")?;
+    let restricted = FourCornerClosureModel::fit_weighted(
+        &training.rows,
+        &training.weights,
+        sampling_proportions,
+        ClosureModelKind::MainEffectsOnly,
+        fit,
+    )?;
+    let saturated = FourCornerClosureModel::fit_weighted(
+        &training.rows,
+        &training.weights,
+        sampling_proportions,
+        ClosureModelKind::MainEffectsPlusInteraction,
+        fit,
+    )?;
+    let comparison = compare_held_out_closure_models_weighted(
+        &restricted,
+        &saturated,
+        &confirmation.rows,
+        &confirmation.weights,
+    )?;
+    let curvature = fold_curvature_summary(samples, clusters, fold, &saturated)?;
+    let diagnostic = FoldClosureDiagnostic {
+        fold,
+        n_training_clusters: training.n_clusters,
+        n_confirmation_clusters: confirmation.n_clusters,
+        training_class_mass: training.class_mass,
+        confirmation_class_mass: confirmation.class_mass,
+        restricted_log_loss: comparison.restricted_log_loss,
+        saturated_log_loss: comparison.saturated_log_loss,
+        saturated_advantage: comparison.saturated_advantage,
+        curvature,
+    };
+    Ok((diagnostic, confirmation.total_mass))
 }
 
 fn cluster_metadata(
@@ -412,19 +430,22 @@ fn fold_slice(
     let mut rows = Vec::new();
     let mut weights = Vec::new();
     let mut class_mass = [0.0; N_CLASSES];
-    for sample in samples {
+    let mut selected = samples
+        .iter()
+        .filter(|sample| (clusters[&sample.cluster_id].fold == fold) == held_out)
+        .collect::<Vec<_>>();
+    selected.sort_by(|left, right| canonical_sample_order(left, right));
+    for sample in selected {
         let meta = &clusters[&sample.cluster_id];
-        if (meta.fold == fold) == held_out {
-            rows.push(MultinomialSample {
-                features: sample.features.clone(),
-                class: sample.class,
-            });
-            let weight = sampling_proportions[meta.class]
-                / f64::from(denominators[meta.class])
-                / f64::from(meta.row_count);
-            weights.push(weight);
-            class_mass[meta.class] += weight;
-        }
+        rows.push(MultinomialSample {
+            features: sample.features.clone(),
+            class: sample.class,
+        });
+        let weight = sampling_proportions[meta.class]
+            / f64::from(denominators[meta.class])
+            / f64::from(meta.row_count);
+        weights.push(weight);
+        class_mass[meta.class] += weight;
     }
     let total_mass = class_mass.iter().sum();
     Ok(FoldSlice {
@@ -443,11 +464,15 @@ fn fold_curvature_summary(
     saturated: &FourCornerClosureModel,
 ) -> Result<CurvatureFieldSummary, ClosureCrossFitError> {
     let mut per_cluster = BTreeMap::<String, (f64, f64, f64, f64, u32)>::new();
-    for sample in samples {
-        let meta = &clusters[&sample.cluster_id];
-        if meta.fold != fold || meta.class != 0 {
-            continue;
-        }
+    let mut baseline_rows = samples
+        .iter()
+        .filter(|sample| {
+            let meta = &clusters[&sample.cluster_id];
+            meta.fold == fold && meta.class == 0
+        })
+        .collect::<Vec<_>>();
+    baseline_rows.sort_by(|left, right| canonical_sample_order(left, right));
+    for sample in baseline_rows {
         let curvature = saturated.curvature_field(&sample.features)?;
         let entry = per_cluster.entry(sample.cluster_id.clone()).or_default();
         entry.0 += curvature;
@@ -483,6 +508,23 @@ fn fold_curvature_summary(
         n_baseline_clusters,
         calibrated_test: false,
     })
+}
+
+fn canonical_sample_order(
+    left: &ClusteredMultinomialSample,
+    right: &ClusteredMultinomialSample,
+) -> std::cmp::Ordering {
+    left.cluster_id
+        .cmp(&right.cluster_id)
+        .then_with(|| left.class.cmp(&right.class))
+        .then_with(|| {
+            left.features
+                .iter()
+                .zip(&right.features)
+                .map(|(left, right)| left.total_cmp(right))
+                .find(|ordering| !ordering.is_eq())
+                .unwrap_or_else(|| left.features.len().cmp(&right.features.len()))
+        })
 }
 
 fn require_all_classes(
