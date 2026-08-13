@@ -315,7 +315,7 @@ def process_nhefs() -> None:
             "cluster_unit": "person (seqn)",
             "ground_truth_authority": "observational smoking cessation; no assignment",
             "note": "Not an Oregon replacement for ITT/LATE. Teaching observational table. Complete quit×sex square would be a trap. Abstain required.",
-            "first_falsifier": "qsmk→death as UNIQUE_TARGET",
+            "first_falsifier": "qsmk→death inferred from a UNIQUE_PASS_PATTERN",
             "replaces": "oregon_ohie (observational contrast only)",
         },
     )

@@ -1397,16 +1397,51 @@ def validate_schemas_and_manifests() -> None:
                 errors.append("dictionary proposal draft fingerprint is stale")
             if proposal.get("seed") != scout_request.get("seed"):
                 errors.append("dictionary proposal seed is detached from the discovery request")
-            incomplete = any(
-                isinstance(attempt, dict)
+            completed_cases = [
+                attempt["outcome"]["candidate"].get("algebraic_case", {})
+                for attempt in draft.get("attempts", [])
+                if isinstance(attempt, dict)
                 and isinstance(attempt.get("outcome"), dict)
                 and isinstance(attempt["outcome"].get("candidate"), dict)
-                and attempt["outcome"]["candidate"].get("algebraic_case", {}).get("case")
-                == "incomplete_unknown_codes"
-                for attempt in draft.get("attempts", [])
+            ]
+            incomplete = any(
+                case.get("case") == "incomplete_unknown_codes" for case in completed_cases
             )
             if incomplete and "general_linear_mixing" not in proposal.get("ambiguities", []):
                 errors.append("incomplete unknown codes dropped general-linear ambiguity")
+            marked_anchors = any(
+                case.get("case") == "marked_pure_anchors" for case in completed_cases
+            )
+            if marked_anchors:
+                for ambiguity in [
+                    "external_atom_independence_unverified",
+                    "conventional_scale",
+                    "coordinate_permutation",
+                ]:
+                    if ambiguity not in proposal.get("ambiguities", []):
+                        errors.append(f"marked anchors dropped {ambiguity}")
+            complete_cubes = [
+                case for case in completed_cases if case.get("case") == "complete_binary_cube"
+            ]
+            if complete_cubes:
+                for ambiguity in [
+                    "external_atom_independence_unverified",
+                    "coordinate_permutation",
+                    "bit_complement",
+                ]:
+                    if ambiguity not in proposal.get("ambiguities", []):
+                        errors.append(f"complete cube dropped {ambiguity}")
+            if any(case.get("marked_zero") is True for case in complete_cubes) and (
+                "reference_origin_unverified" not in proposal.get("ambiguities", [])
+            ):
+                errors.append("marked complete cube dropped unverified reference origin")
+            rank_degenerate = any(
+                case.get("case") == "rank_degenerate" for case in completed_cases
+            )
+            if rank_degenerate:
+                for ambiguity in ["general_linear_mixing", "rank_degeneracy"]:
+                    if ambiguity not in proposal.get("ambiguities", []):
+                        errors.append(f"rank-degenerate dictionary dropped {ambiguity}")
             if "support_uniqueness_unverified" not in proposal.get("ambiguities", []):
                 errors.append("dictionary proposal dropped unverified support uniqueness")
             attempts = draft.get("attempts")
@@ -2028,7 +2063,7 @@ def validate_schemas_and_manifests() -> None:
     if four_law_report_schema is not None:
         four_law_validator = Draft202012Validator(four_law_report_schema)
         four_law_report = {
-            "schema_version": "2.2.0",
+            "schema_version": "2.3.0",
             "experiment_id": "schema-conformance",
             "status": "abstained",
             "gates": {
@@ -2061,6 +2096,7 @@ def validate_schemas_and_manifests() -> None:
                 "note": "count-only readiness; no confirmation authority",
             },
             "four_law": [],
+            "overlap": [],
             "projection": {},
             "ledger": {
                 "schema_version": "1.0.0",
@@ -2071,7 +2107,7 @@ def validate_schemas_and_manifests() -> None:
         }
         check(
             not list(four_law_validator.iter_errors(four_law_report)),
-            "valid non-certifying four-law v2.1 report was rejected",
+            "valid non-certifying four-law v2.3 report was rejected",
         )
         invalid_four_law_reports: list[dict] = []
         passed_four_law = copy.deepcopy(four_law_report)

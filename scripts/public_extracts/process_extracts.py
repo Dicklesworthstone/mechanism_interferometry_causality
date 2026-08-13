@@ -691,7 +691,7 @@ def process_sachs() -> None:
             "cluster_unit": "cell (flow-cytometry event); reagent is the intervention label",
             "ground_truth_authority": "declared reagents; community graph is expert consensus not construction",
             "note": "Tier A labels. Atlas may find stim×inhibitor. Do not treat the community DAG as a certificate.",
-            "first_falsifier": "peeling a UNIQUE_TARGET from unlabeled cells",
+            "first_falsifier": "peeling a causal target from a UNIQUE_PASS_PATTERN on unlabeled cells",
         },
     )
     survey_and_receipt(

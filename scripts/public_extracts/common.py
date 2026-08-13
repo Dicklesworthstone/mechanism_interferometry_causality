@@ -114,6 +114,7 @@ def summarize_survey(report_path: Path) -> dict:
         "main_effect_alias_dimension": info.get("main_effect_alias_dimension"),
         "recommended_next_corner_cost": info.get("recommended_next_corner_cost"),
         "recommended_next_corner_kind": info.get("recommended_next_corner_kind"),
+        "recommended_next_corner_purpose": info.get("recommended_next_corner_purpose"),
         "ranked_next_corners": info.get("ranked_next_corners") or [],
         "candidate_groups_are_rows": info.get("candidate_groups_are_rows"),
         "candidate_group_count_floor_met": info.get("candidate_group_count_floor_met"),
