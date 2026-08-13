@@ -68,5 +68,39 @@ if [ "${GZIP}" -gt "${BUDGET_GZIP_BYTES}" ]; then
     exit 1
 fi
 
+# Record what the module was built from.
+#
+# Committing the artifact makes staleness visible but does not make it detectable:
+# nothing fails when someone edits the engine and does not rebuild, and the module
+# the site serves then quietly stops being the code the repository describes. That
+# already happened here — the committed module lagged its own source by five hours
+# and the engine it calls by eight, while every check passed.
+#
+# The digest below covers every crate the module links, so `check_repo.py` can compare
+# it against the current sources and fail when they diverge. `SOURCE_REVISION` is
+# advisory; the digest is the part that decides.
+SOURCE_CRATES=(mic-wasm mic-core mic-data mic-design mic-engine mic-sim)
+DIGEST_INPUT=""
+for crate in "${SOURCE_CRATES[@]}"; do
+    while IFS= read -r file; do
+        DIGEST_INPUT="${DIGEST_INPUT}$(shasum -a 256 "${file}" | cut -d' ' -f1)"
+    done < <(find "crates/${crate}" -name '*.rs' -o -name 'Cargo.toml' | sort)
+done
+SOURCE_DIGEST=$(printf '%s' "${DIGEST_INPUT}" | shasum -a 256 | cut -d' ' -f1)
+SOURCE_REVISION=$(git rev-parse HEAD 2>/dev/null || echo unknown)
+
+cat > "${OUT_DIR}/BUILD_INFO.json" <<JSON
+{
+  "schema_version": "1.0.0",
+  "source_digest_sha256": "${SOURCE_DIGEST}",
+  "source_revision": "${SOURCE_REVISION}",
+  "source_crates": ["mic-wasm", "mic-core", "mic-data", "mic-design", "mic-engine", "mic-sim"],
+  "raw_bytes": ${RAW},
+  "gzip_bytes": ${GZIP}
+}
+JSON
+
+printf '==> source digest %s\n' "${SOURCE_DIGEST}"
+
 echo "==> ok. Regenerate the manifest before committing:"
-echo "    python scripts/generate_repository_manifest.py"
+echo "    uv run python scripts/generate_repository_manifest.py"
