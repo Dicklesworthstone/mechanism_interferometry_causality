@@ -2,11 +2,17 @@
 //! Model-independent posterior-odds reconstruction and hierarchical contracts.
 
 pub mod closure;
+pub mod crossfit;
 pub mod multinomial;
 
 pub use closure::{
     ClosureFitConfig, ClosureFitError, ClosureModelKind, FourCornerClosureModel,
     HeldOutClosureComparison, compare_held_out_closure_models,
+    compare_held_out_closure_models_weighted,
+};
+pub use crossfit::{
+    ClosureCrossFitConfig, ClosureCrossFitError, ClusteredMultinomialSample,
+    CrossFittedClosureDiagnostic, FoldClosureDiagnostic, cross_fit_closure_models,
 };
 pub use multinomial::{
     FitConfig, FitSummary, MultinomialFitError, MultinomialLinearModel, MultinomialSample,

@@ -68,9 +68,30 @@ impl FourCornerClosureModel {
         kind: ClosureModelKind,
         config: ClosureFitConfig,
     ) -> Result<Self, ClosureFitError> {
+        let weights = vec![1.0; samples.len()];
+        Self::fit_weighted(samples, &weights, sampling_proportions, kind, config)
+    }
+
+    /// Fits one hierarchical model with explicit positive observation weights.
+    ///
+    /// Cluster-honest callers should give every cluster the same total weight;
+    /// this method does not infer an assignment unit from rows.
+    pub fn fit_weighted(
+        samples: &[MultinomialSample],
+        weights: &[f64],
+        sampling_proportions: [f64; N_CLASSES],
+        kind: ClosureModelKind,
+        config: ClosureFitConfig,
+    ) -> Result<Self, ClosureFitError> {
         validate_config(config)?;
         validate_sampling_proportions(sampling_proportions)?;
         let n_features = validate_samples(samples)?;
+        let total_weight = validate_weights(samples, weights)?;
+        let weighted_samples = WeightedSamples {
+            samples,
+            weights,
+            total_weight,
+        };
         let width = n_features + 1;
         let n_blocks = match kind {
             ClosureModelKind::MainEffectsOnly => 2,
@@ -80,7 +101,7 @@ impl FourCornerClosureModel {
         let offsets = sampling_offsets(sampling_proportions);
         for accepted_steps in 0..config.max_iterations {
             let (objective, gradient) = objective_and_gradient(
-                samples,
+                weighted_samples,
                 kind,
                 &offsets,
                 n_features,
@@ -97,6 +118,7 @@ impl FourCornerClosureModel {
                 };
                 return Ok(build_model(
                     samples,
+                    weights,
                     sampling_proportions,
                     kind,
                     n_features,
@@ -115,10 +137,9 @@ impl FourCornerClosureModel {
                     .map(|(parameter, derivative)| parameter - step * derivative)
                     .collect();
                 let candidate_objective = objective_only(
-                    samples,
+                    weighted_samples,
                     kind,
                     &offsets,
-                    n_features,
                     config.l2_penalty,
                     &candidate,
                 );
@@ -134,7 +155,7 @@ impl FourCornerClosureModel {
         }
 
         let (_, gradient) = objective_and_gradient(
-            samples,
+            weighted_samples,
             kind,
             &offsets,
             n_features,
@@ -195,20 +216,31 @@ impl FourCornerClosureModel {
 
     /// Mean logarithmic loss on untouched rows.
     pub fn mean_log_loss(&self, samples: &[MultinomialSample]) -> Result<f64, ClosureFitError> {
-        if samples.is_empty() {
-            return Err(ClosureFitError::EmptySamples);
-        }
+        let weights = vec![1.0; samples.len()];
+        self.mean_weighted_log_loss(samples, &weights)
+    }
+
+    /// Weighted logarithmic loss on untouched rows.
+    ///
+    /// The weights must be finite and positive. Equal total weight per cluster
+    /// prevents row-rich clusters from dominating a predictive diagnostic.
+    pub fn mean_weighted_log_loss(
+        &self,
+        samples: &[MultinomialSample],
+        weights: &[f64],
+    ) -> Result<f64, ClosureFitError> {
+        let total_weight = validate_weights(samples, weights)?;
         let mut loss = 0.0;
-        for sample in samples {
+        for (sample, weight) in samples.iter().zip(weights) {
             if sample.class >= N_CLASSES {
                 return Err(ClosureFitError::ClassOutOfRange {
                     class: sample.class,
                 });
             }
             let prediction = self.predict_probabilities(&sample.features)?;
-            loss -= prediction[sample.class].ln();
+            loss -= weight * prediction[sample.class].ln();
         }
-        Ok(loss / samples.len() as f64)
+        Ok(loss / total_weight)
     }
 }
 
@@ -235,6 +267,17 @@ pub fn compare_held_out_closure_models(
     saturated: &FourCornerClosureModel,
     samples: &[MultinomialSample],
 ) -> Result<HeldOutClosureComparison, ClosureFitError> {
+    let weights = vec![1.0; samples.len()];
+    compare_held_out_closure_models_weighted(restricted, saturated, samples, &weights)
+}
+
+/// Weighted held-out comparison of a compatible restricted/saturated pair.
+pub fn compare_held_out_closure_models_weighted(
+    restricted: &FourCornerClosureModel,
+    saturated: &FourCornerClosureModel,
+    samples: &[MultinomialSample],
+    weights: &[f64],
+) -> Result<HeldOutClosureComparison, ClosureFitError> {
     if restricted.kind != ClosureModelKind::MainEffectsOnly
         || saturated.kind != ClosureModelKind::MainEffectsPlusInteraction
         || restricted.n_features != saturated.n_features
@@ -242,8 +285,8 @@ pub fn compare_held_out_closure_models(
     {
         return Err(ClosureFitError::IncompatibleModels);
     }
-    let restricted_log_loss = restricted.mean_log_loss(samples)?;
-    let saturated_log_loss = saturated.mean_log_loss(samples)?;
+    let restricted_log_loss = restricted.mean_weighted_log_loss(samples, weights)?;
+    let saturated_log_loss = saturated.mean_weighted_log_loss(samples, weights)?;
     Ok(HeldOutClosureComparison {
         restricted_log_loss,
         saturated_log_loss,
@@ -284,6 +327,9 @@ pub enum ClosureFitError {
     /// Sampling proportions did not form a positive simplex.
     #[error("sampling proportions must be finite, positive, and sum to one")]
     InvalidSamplingProportions,
+    /// Weights were missing, nonfinite, or non-positive.
+    #[error("weights must match samples and be finite and positive")]
+    InvalidWeights,
     /// Configuration was invalid.
     #[error("invalid closure optimizer configuration: {0}")]
     InvalidConfiguration(&'static str),
@@ -359,6 +405,23 @@ fn validate_samples(samples: &[MultinomialSample]) -> Result<usize, ClosureFitEr
     Ok(n_features)
 }
 
+fn validate_weights(
+    samples: &[MultinomialSample],
+    weights: &[f64],
+) -> Result<f64, ClosureFitError> {
+    if samples.is_empty() {
+        return Err(ClosureFitError::EmptySamples);
+    }
+    if weights.len() != samples.len()
+        || weights
+            .iter()
+            .any(|weight| !weight.is_finite() || *weight <= 0.0)
+    {
+        return Err(ClosureFitError::InvalidWeights);
+    }
+    Ok(weights.iter().sum())
+}
+
 fn validate_feature_vector(features: &[f64], expected: usize) -> Result<(), ClosureFitError> {
     if features.len() != expected {
         return Err(ClosureFitError::FeatureDimension {
@@ -374,6 +437,7 @@ fn validate_feature_vector(features: &[f64], expected: usize) -> Result<(), Clos
 
 fn build_model(
     samples: &[MultinomialSample],
+    weights: &[f64],
     sampling_proportions: [f64; 4],
     kind: ClosureModelKind,
     n_features: usize,
@@ -395,13 +459,20 @@ fn build_model(
         summary,
     };
     model.summary.training_log_loss = model
-        .mean_log_loss(samples)
+        .mean_weighted_log_loss(samples, weights)
         .expect("validated training rows remain valid");
     model
 }
 
+#[derive(Clone, Copy)]
+struct WeightedSamples<'a> {
+    samples: &'a [MultinomialSample],
+    weights: &'a [f64],
+    total_weight: f64,
+}
+
 fn objective_and_gradient(
-    samples: &[MultinomialSample],
+    data: WeightedSamples<'_>,
     kind: ClosureModelKind,
     offsets: &[f64; 4],
     n_features: usize,
@@ -411,24 +482,32 @@ fn objective_and_gradient(
     let width = n_features + 1;
     let mut gradient = vec![0.0; parameters.len()];
     let mut log_loss = 0.0;
-    for sample in samples {
+    for (sample, weight) in data.samples.iter().zip(data.weights) {
         let basis = basis(&sample.features);
         let prediction = probabilities_from_parameters(kind, offsets, &basis, parameters);
-        log_loss -= prediction[sample.class].ln();
+        log_loss -= weight * prediction[sample.class].ln();
         let residual = std::array::from_fn::<_, 4, _>(|class| {
             prediction[class] - f64::from(sample.class == class)
         });
-        add_scaled(&mut gradient[..width], &basis, residual[1] + residual[3]);
+        add_scaled(
+            &mut gradient[..width],
+            &basis,
+            weight * (residual[1] + residual[3]),
+        );
         add_scaled(
             &mut gradient[width..2 * width],
             &basis,
-            residual[2] + residual[3],
+            weight * (residual[2] + residual[3]),
         );
         if kind == ClosureModelKind::MainEffectsPlusInteraction {
-            add_scaled(&mut gradient[2 * width..3 * width], &basis, residual[3]);
+            add_scaled(
+                &mut gradient[2 * width..3 * width],
+                &basis,
+                weight * residual[3],
+            );
         }
     }
-    let scale = 1.0 / samples.len() as f64;
+    let scale = 1.0 / data.total_weight;
     for (derivative, parameter) in gradient.iter_mut().zip(parameters) {
         *derivative = *derivative * scale + l2_penalty * parameter;
     }
@@ -439,22 +518,23 @@ fn objective_and_gradient(
 }
 
 fn objective_only(
-    samples: &[MultinomialSample],
+    data: WeightedSamples<'_>,
     kind: ClosureModelKind,
     offsets: &[f64; 4],
-    _n_features: usize,
     l2_penalty: f64,
     parameters: &[f64],
 ) -> f64 {
-    let log_loss = samples
+    let log_loss = data
+        .samples
         .iter()
-        .map(|sample| {
+        .zip(data.weights)
+        .map(|(sample, weight)| {
             let prediction =
                 probabilities_from_parameters(kind, offsets, &basis(&sample.features), parameters);
-            -prediction[sample.class].ln()
+            -weight * prediction[sample.class].ln()
         })
         .sum::<f64>()
-        / samples.len() as f64;
+        / data.total_weight;
     log_loss + 0.5 * l2_penalty * squared_l2(parameters)
 }
 

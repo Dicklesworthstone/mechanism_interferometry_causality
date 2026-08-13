@@ -5,7 +5,10 @@
 mod tests {
     use mic_audit::{CertificateGates, CertificateStatus, EvidenceLedger, ExecutionMode, code};
     use mic_core::{DensitySquare, RatioSquare, covariance, four_law_moment};
-    use mic_data::{DataSource, ExperimentManifest, InferenceTrack, RegimeSpec, SelectionContract};
+    use mic_data::{
+        DataSource, ExperimentManifest, InferenceTrack, RegimeSpec, SelectionContract,
+        fold_for_cluster,
+    };
     use mic_design::{
         DesignPoint, PeelingOutcome, audit_design, audit_sampling_odds, peel_families,
     };
@@ -15,8 +18,9 @@ mod tests {
         run_unsupervised_survey,
     };
     use mic_model::{
-        ClosureFitConfig, ClosureModelKind, FourCornerClosureModel, MultinomialSample,
-        PosteriorSquare, compare_held_out_closure_models,
+        ClosureCrossFitConfig, ClosureFitConfig, ClosureModelKind, ClusteredMultinomialSample,
+        FourCornerClosureModel, MultinomialSample, PosteriorSquare,
+        compare_held_out_closure_models, cross_fit_closure_models,
     };
     use mic_sim::{
         causal_tomography_chain, exact_suite, flat_noncausal_cube, hidden_sensor_tomography,
@@ -28,6 +32,31 @@ mod tests {
     };
     use std::collections::BTreeSet;
     use std::path::PathBuf;
+
+    fn clustered_hidden_sensor_samples(
+        exact_counts: [[usize; 2]; 4],
+        seed: u64,
+        n_folds: usize,
+    ) -> Vec<ClusteredMultinomialSample> {
+        let mut clustered = Vec::new();
+        for (class, counts) in exact_counts.into_iter().enumerate() {
+            for fold in 0..n_folds {
+                let cluster_id = (0_u64..10_000)
+                    .map(|candidate| format!("hidden-{class}-{fold}-{candidate}"))
+                    .find(|candidate| fold_for_cluster(seed, candidate, n_folds) == Some(fold))
+                    .expect("10,000 deterministic candidates cover each of two folds");
+                for (state, count) in counts.into_iter().enumerate() {
+                    let y = if state == 0 { -1.0 } else { 1.0 };
+                    clustered.extend((0..count).map(|_| ClusteredMultinomialSample {
+                        features: vec![y],
+                        class,
+                        cluster_id: cluster_id.clone(),
+                    }));
+                }
+            }
+        }
+        clustered
+    }
 
     #[test]
     fn running_example_demonstrates_scalar_blind_spot() {
@@ -128,6 +157,24 @@ mod tests {
         assert!(!comparison.calibrated_test);
         assert!(saturated.curvature_field(&[-1.0]).unwrap() < 0.0);
         assert!(saturated.curvature_field(&[1.0]).unwrap() > 0.0);
+
+        let seed = 41;
+        let n_folds = 2;
+        let clustered = clustered_hidden_sensor_samples(exact_counts, seed, n_folds);
+        let cross_fitted = cross_fit_closure_models(
+            &clustered,
+            [0.25; 4],
+            ClosureCrossFitConfig {
+                seed,
+                n_folds,
+                fit: config,
+            },
+        )
+        .unwrap();
+        assert_eq!(cross_fitted.seed, seed);
+        assert_eq!(cross_fitted.n_clusters, 8);
+        assert!(cross_fitted.saturated_advantage > 0.0);
+        assert!(!cross_fitted.calibrated_test);
     }
 
     #[test]

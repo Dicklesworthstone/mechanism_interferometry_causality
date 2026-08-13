@@ -1389,8 +1389,10 @@ dependencies = [
  "fnp-ndarray",
  "ft-api",
  "mic-core",
+ "mic-data",
  "mic-design",
  "serde",
+ "sha2",
  "thiserror",
 ]
 

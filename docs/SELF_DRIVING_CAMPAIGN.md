@@ -326,8 +326,13 @@ qualification.
 - [x] Implement deterministic tied-main-effect and interaction-augmented
   four-corner joint regime models with explicit sampling offsets and held-out
   logarithmic-loss comparison.
-- [ ] Add cluster cross-fitting, untouched witness confirmation, and calibrated
-  inference around the global closure comparison.
+- [x] Add deterministic cluster-level outer folds, equal total weight per
+  declared unit, untouched restricted-versus-interaction loss comparison, a
+  recorded seed, and a deterministic fold-plan fingerprint for the reference
+  closure model.
+- [ ] Add adaptive witness separation and calibrated cluster-level inference
+  around the global closure comparison; held-out proper-loss advantage remains
+  diagnostic until this lands.
 - [ ] Implement leave-the-entire-combination-arm-out law prediction with raw normalizer, ESS, overlap, and weighted-law discrepancy.
 - [ ] Calibrate cluster-level type-I error and coverage before adding flexible learner families.
 - [ ] Add one controlled-real factorial experiment before making general discovery claims.
