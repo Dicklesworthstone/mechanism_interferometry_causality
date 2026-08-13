@@ -858,6 +858,11 @@ fn validate_candidate(
             if *amplitudes_calibrated || *anchor_labels_assigned {
                 return invalid("proposal layer cannot verify anchor amplitude or label claims");
             }
+            // The proposal freezer recomputes rank from the displayed codes,
+            // but it deliberately does not open the external atom artifacts.
+            // Consequently it cannot establish that the anchor transports are
+            // linearly independent as functions on the declared support.
+            ambiguities.insert(DictionaryAmbiguity::ExternalAtomIndependenceUnverified);
             ambiguities.insert(DictionaryAmbiguity::ConventionalScale);
             ambiguities.insert(DictionaryAmbiguity::CoordinatePermutation);
         }
@@ -1598,6 +1603,56 @@ mod tests {
             next_queries: vec![],
         };
         assert!(freeze_transport_dictionary_proposal(&request, &shift, &plan, &draft).is_err());
+    }
+
+    #[test]
+    fn marked_anchors_retain_unverified_external_atom_independence() {
+        let request = request();
+        let shift = shift_draft();
+        let mut plan = plan(&request, &shift);
+        plan.code_policy = DictionaryCodePolicy::MarkedPureAnchors;
+        plan.attempt_specification_sha256s = vec![digest('9')];
+        let mut completed = candidate(
+            vec![atom("atom_001", 'a'), atom("atom_002", 'b')],
+            vec![vec![0.0, 0.0], vec![1.0, 0.0], vec![0.0, 1.0]],
+        );
+        completed.algebraic_case = AlgebraicRecoveryCase::MarkedPureAnchors {
+            baseline_environment_id: "env_001".into(),
+            anchor_environment_ids: vec!["env_002".into(), "env_003".into()],
+            observed_anchor_rank: 2,
+            amplitudes_calibrated: false,
+            anchor_labels_assigned: false,
+        };
+        let draft = TransportDictionaryDraft {
+            proposal_id: "dictionary_001".into(),
+            execution: execution(),
+            attempts: vec![DictionaryAttemptDraft {
+                attempt_id: "attempt_001".into(),
+                specification_sha256: digest('9'),
+                outcome: DictionaryAttemptOutcome::Completed {
+                    candidate: Box::new(completed),
+                },
+            }],
+            contract_requests: vec![],
+            next_queries: vec![],
+        };
+        let frozen = freeze_transport_dictionary_proposal(&request, &shift, &plan, &draft)
+            .expect("marked anchors remain a proposal with unopened atom artifacts");
+        assert!(
+            frozen
+                .ambiguities()
+                .contains(&DictionaryAmbiguity::ExternalAtomIndependenceUnverified)
+        );
+        assert!(
+            frozen
+                .ambiguities()
+                .contains(&DictionaryAmbiguity::ConventionalScale)
+        );
+        assert!(
+            frozen
+                .ambiguities()
+                .contains(&DictionaryAmbiguity::CoordinatePermutation)
+        );
     }
 
     #[test]
