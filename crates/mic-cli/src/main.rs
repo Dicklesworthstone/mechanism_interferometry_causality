@@ -40,6 +40,7 @@ fn run(args: &[String]) -> Result<(), String> {
         "preflight" => preflight(&args[1..]),
         "orient" => orient(&args[1..]),
         "propose-tilt" => propose_tilt(&args[1..]),
+        "freeze-scout" => freeze_scout(&args[1..]),
         "help" | "--help" | "-h" => {
             print_help();
             Ok(())
@@ -305,6 +306,26 @@ fn propose_tilt(args: &[String]) -> Result<(), String> {
     write_json_value(&value, output.as_deref())
 }
 
+fn freeze_scout(args: &[String]) -> Result<(), String> {
+    let request_path = args
+        .first()
+        .ok_or("usage: mic freeze-scout REQUEST.json DRAFT.json [--output PATH]")?;
+    let draft_path = args
+        .get(1)
+        .ok_or("usage: mic freeze-scout REQUEST.json DRAFT.json [--output PATH]")?;
+    let request_bytes = fs::read(request_path).map_err(|error| error.to_string())?;
+    let draft_bytes = fs::read(draft_path).map_err(|error| error.to_string())?;
+    let request: mic_proposal::SelfDrivingRequest =
+        serde_json::from_slice(&request_bytes).map_err(|error| error.to_string())?;
+    let draft: mic_proposal::ShiftFactorizationDraft =
+        serde_json::from_slice(&draft_bytes).map_err(|error| error.to_string())?;
+    let proposal = mic_proposal::freeze_shift_factorization_proposal(&request, &draft)
+        .map_err(|error| error.to_string())?;
+    let value = serde_json::to_value(proposal).map_err(|error| error.to_string())?;
+    let output = option_value(args, "--output").map(PathBuf::from);
+    write_json_value(&value, output.as_deref())
+}
+
 fn print_json(value: &impl serde::Serialize) -> Result<(), String> {
     println!(
         "{}",
@@ -358,6 +379,7 @@ fn print_help() {
            mic preflight MANIFEST.json [--output PATH]\n\
            mic orient INPUT.json [--output PATH]\n\
            mic propose-tilt INPUT.json [--output PATH]\n\
+           mic freeze-scout REQUEST.json DRAFT.json [--output PATH]\n\
            mic version"
     );
 }

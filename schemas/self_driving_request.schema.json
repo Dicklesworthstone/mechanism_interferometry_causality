@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/self_driving_request.schema.json",
+  "title": "MIC Atlas Discovery-Only Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "source_table_sha256",
+    "discovery_table_sha256",
+    "confirmation_table_sha256",
+    "transformation_sha256",
+    "discovery_units_sha256",
+    "confirmation_units_sha256",
+    "partition",
+    "unit",
+    "seed",
+    "split_algorithm",
+    "candidate_enumeration_policy",
+    "candidate_budget",
+    "common_cohort_policy",
+    "equivalence_tolerance",
+    "detection_floor",
+    "learner_families",
+    "sealed_context"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "request_id": { "$ref": "#/$defs/nonempty" },
+    "source_table_sha256": { "$ref": "#/$defs/sha256" },
+    "discovery_table_sha256": { "$ref": "#/$defs/sha256" },
+    "confirmation_table_sha256": { "$ref": "#/$defs/sha256" },
+    "transformation_sha256": { "$ref": "#/$defs/sha256" },
+    "discovery_units_sha256": { "$ref": "#/$defs/sha256" },
+    "confirmation_units_sha256": { "$ref": "#/$defs/sha256" },
+    "partition": { "$ref": "#/$defs/partition" },
+    "unit": { "$ref": "#/$defs/unit" },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 18446744073709551615 },
+    "split_algorithm": { "$ref": "#/$defs/nonempty" },
+    "candidate_enumeration_policy": { "$ref": "#/$defs/nonempty" },
+    "candidate_budget": { "type": "integer", "minimum": 1 },
+    "common_cohort_policy": { "$ref": "#/$defs/nonempty" },
+    "equivalence_tolerance": { "type": "number", "exclusiveMinimum": 0 },
+    "detection_floor": { "type": "number", "exclusiveMinimum": 0 },
+    "learner_families": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonempty" }
+    },
+    "sealed_context": { "$ref": "#/$defs/sealed_context" }
+  },
+  "$defs": {
+    "nonempty": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "partition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id",
+        "receipt_sha256",
+        "total_units",
+        "discovery_units",
+        "confirmation_units",
+        "disjoint",
+        "exhaustive"
+      ],
+      "properties": {
+        "receipt_id": { "$ref": "#/$defs/nonempty" },
+        "receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "total_units": { "type": "integer", "minimum": 2 },
+        "discovery_units": { "type": "integer", "minimum": 1 },
+        "confirmation_units": { "type": "integer", "minimum": 1 },
+        "disjoint": { "const": true },
+        "exhaustive": { "const": true }
+      }
+    },
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["column", "basis", "evidence_ref"],
+      "properties": {
+        "column": { "$ref": "#/$defs/nonempty" },
+        "basis": {
+          "enum": [
+            "declared_assignment_unit",
+            "declared_dependence_block",
+            "unverified_identifier",
+            "row"
+          ]
+        },
+        "evidence_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/nonempty" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "basis": {
+                "enum": ["declared_assignment_unit", "declared_dependence_block"]
+              }
+            }
+          },
+          "then": { "properties": { "evidence_ref": { "$ref": "#/$defs/nonempty" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "basis": { "enum": ["unverified_identifier", "row"] }
+            }
+          },
+          "then": { "properties": { "evidence_ref": { "type": "null" } } }
+        }
+      ]
+    },
+    "sealed_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_url",
+        "study_title",
+        "file_names",
+        "codebook_labels",
+        "paper",
+        "replication_scripts",
+        "published_results",
+        "confirmation_outcomes",
+        "oracle",
+        "network"
+      ],
+      "properties": {
+        "source_url": { "const": "unavailable" },
+        "study_title": { "const": "unavailable" },
+        "file_names": { "const": "unavailable" },
+        "codebook_labels": { "const": "unavailable" },
+        "paper": { "const": "unavailable" },
+        "replication_scripts": { "const": "unavailable" },
+        "published_results": { "const": "unavailable" },
+        "confirmation_outcomes": { "const": "unavailable" },
+        "oracle": { "const": "unavailable" },
+        "network": { "const": "unavailable" }
+      }
+    }
+  }
+}

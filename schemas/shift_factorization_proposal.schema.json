@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/shift_factorization_proposal.schema.json",
+  "title": "MIC Atlas Shift-Factorization Proposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proposal_id",
+    "request_id",
+    "request_fingerprint",
+    "candidate_library_fingerprint",
+    "authority",
+    "certificate_eligible",
+    "status",
+    "environments",
+    "supports",
+    "support_relations",
+    "strategy_eligibility",
+    "contract_requests",
+    "next_queries",
+    "reasons",
+    "seed"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "status": { "const": "abstained" },
+        "environments": { "maxItems": 0 }
+      }
+    },
+    {
+      "properties": {
+        "status": { "const": "inconclusive" },
+        "environments": { "minItems": 1 },
+        "next_queries": { "maxItems": 0 }
+      }
+    },
+    {
+      "properties": {
+        "status": { "const": "recommended" },
+        "environments": { "minItems": 1 },
+        "next_queries": { "minItems": 1 }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "proposal_id": { "$ref": "#/$defs/nonempty" },
+    "request_id": { "$ref": "#/$defs/nonempty" },
+    "request_fingerprint": { "$ref": "#/$defs/sha256" },
+    "candidate_library_fingerprint": { "$ref": "#/$defs/sha256" },
+    "authority": { "const": "proposal_only" },
+    "certificate_eligible": { "const": false },
+    "status": { "enum": ["recommended", "inconclusive", "abstained"] },
+    "environments": { "type": "array", "items": { "$ref": "#/$defs/environment" } },
+    "supports": { "type": "array", "items": { "$ref": "#/$defs/support" } },
+    "support_relations": { "type": "array", "items": { "$ref": "#/$defs/relation" } },
+    "strategy_eligibility": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/nonempty" },
+      "additionalProperties": { "$ref": "#/$defs/strategy" }
+    },
+    "contract_requests": { "type": "array", "items": { "$ref": "#/$defs/contract_request" } },
+    "next_queries": { "type": "array", "items": { "$ref": "#/$defs/next_query" } },
+    "reasons": { "$ref": "#/$defs/reasons" },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 18446744073709551615 }
+  },
+  "$defs": {
+    "nonempty": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "semantics": { "enum": ["regime_information_support", "marginal_shift_set"] },
+    "reasons": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "no_environment_candidate",
+          "unit_unverified",
+          "selection_unestablished",
+          "learner_disagreement",
+          "support_failure",
+          "composition_unavailable",
+          "same_target_premise_unestablished",
+          "confirmation_sealed"
+        ]
+      }
+    },
+    "sorted_strings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonempty" }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment_id", "defining_columns", "transform_sha256", "score", "score_semantics"],
+      "properties": {
+        "environment_id": { "$ref": "#/$defs/nonempty" },
+        "defining_columns": { "$ref": "#/$defs/sorted_strings" },
+        "transform_sha256": { "$ref": "#/$defs/sha256" },
+        "score": { "type": "number" },
+        "score_semantics": { "$ref": "#/$defs/nonempty" }
+      }
+    },
+    "support": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "support_id",
+        "environment_id",
+        "semantics",
+        "variables",
+        "learner_family",
+        "discovery_fold",
+        "score",
+        "score_semantics",
+        "on_parsimony_frontier"
+      ],
+      "properties": {
+        "support_id": { "$ref": "#/$defs/nonempty" },
+        "environment_id": { "$ref": "#/$defs/nonempty" },
+        "semantics": { "$ref": "#/$defs/semantics" },
+        "variables": { "$ref": "#/$defs/sorted_strings" },
+        "learner_family": { "$ref": "#/$defs/nonempty" },
+        "discovery_fold": { "$ref": "#/$defs/nonempty" },
+        "score": { "type": "number" },
+        "score_semantics": { "$ref": "#/$defs/nonempty" },
+        "on_parsimony_frontier": { "type": "boolean" }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left_support_id", "right_support_id", "semantics", "relation"],
+      "properties": {
+        "left_support_id": { "$ref": "#/$defs/nonempty" },
+        "right_support_id": { "$ref": "#/$defs/nonempty" },
+        "semantics": { "$ref": "#/$defs/semantics" },
+        "relation": {
+          "enum": ["equal", "left_proper_subset", "right_proper_subset", "overlap", "disjoint"]
+        }
+      }
+    },
+    "strategy": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason"],
+          "properties": {
+            "status": { "const": "missing_contract" },
+            "reason": { "$ref": "#/$defs/nonempty" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "evidence_ref"],
+          "properties": {
+            "status": { "const": "declared_reference" },
+            "evidence_ref": { "$ref": "#/$defs/nonempty" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "audit_request_ref"],
+          "properties": {
+            "status": { "const": "eligible_for_separate_audit" },
+            "audit_request_ref": { "$ref": "#/$defs/nonempty" }
+          }
+        }
+      ]
+    },
+    "contract_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "kind", "required_for", "detail", "priority"],
+      "properties": {
+        "request_id": { "$ref": "#/$defs/nonempty" },
+        "kind": {
+          "enum": [
+            "unit_evidence",
+            "selection_evidence",
+            "same_target_grouping",
+            "missing_design_corner",
+            "replicate_dropped_corner",
+            "identification_premise",
+            "measurement"
+          ]
+        },
+        "required_for": { "$ref": "#/$defs/nonempty" },
+        "detail": { "$ref": "#/$defs/nonempty" },
+        "priority": { "type": "number", "minimum": 0 }
+      }
+    },
+    "next_query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["query_id", "kind", "separates_hypotheses", "priority", "priority_semantics"],
+      "properties": {
+        "query_id": { "$ref": "#/$defs/nonempty" },
+        "kind": {
+          "enum": [
+            "collect_missing_corner",
+            "replicate_corner",
+            "asymmetric_tilt",
+            "measure_state",
+            "obtain_contract",
+            "negative_control"
+          ]
+        },
+        "separates_hypotheses": { "$ref": "#/$defs/sorted_strings" },
+        "priority": { "type": "number", "minimum": 0 },
+        "priority_semantics": { "$ref": "#/$defs/nonempty" }
+      }
+    }
+  }
+}

@@ -482,6 +482,187 @@ def active_tilt_candidate_fingerprint(candidates: list[object]) -> str:
     return f"sha256:{digest.hexdigest()}"
 
 
+def scout_json_fingerprint(domain: bytes, value: object) -> str:
+    """Mirror the scout's domain-separated, length-framed Serde JSON fingerprint."""
+    encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    digest = hashlib.sha256()
+    digest.update(domain)
+    digest.update(len(encoded).to_bytes(8, "big"))
+    digest.update(encoded)
+    return digest.hexdigest()
+
+
+def scout_bundle_semantic_errors(request: dict, draft: dict, proposal: dict) -> list[str]:
+    """Cross-check the frozen scout artifact against the two exact inputs."""
+    errors: list[str] = []
+
+    def require(condition: bool, message: str) -> None:
+        if not condition:
+            errors.append(message)
+
+    def sorted_unique_strings(value: object) -> bool:
+        return (
+            isinstance(value, list)
+            and bool(value)
+            and all(isinstance(item, str) and item.strip() for item in value)
+            and value == sorted(set(value))
+        )
+
+    partition = request.get("partition", {})
+    if isinstance(partition, dict):
+        require(
+            partition.get("discovery_units", 0) + partition.get("confirmation_units", 0)
+            == partition.get("total_units", -1),
+            "scout unit counts do not sum to the declared total",
+        )
+    require(
+        sorted_unique_strings(request.get("learner_families")),
+        "scout learner families are not canonical",
+    )
+
+    environments = draft.get("environments", [])
+    environment_ids = [
+        item.get("environment_id") for item in environments if isinstance(item, dict)
+    ]
+    require(
+        len(environment_ids) == len(environments) == len(set(environment_ids)),
+        "scout environment identifiers are incomplete or duplicated",
+    )
+    for environment in environments:
+        if isinstance(environment, dict):
+            require(
+                sorted_unique_strings(environment.get("defining_columns")),
+                f"scout environment {environment.get('environment_id')} columns are not canonical",
+            )
+
+    supports = draft.get("supports", [])
+    support_items = [item for item in supports if isinstance(item, dict)]
+    support_ids = [item.get("support_id") for item in support_items]
+    require(
+        len(support_ids) == len(supports) == len(set(support_ids)),
+        "scout support identifiers are incomplete or duplicated",
+    )
+    support_by_id = {item.get("support_id"): item for item in support_items}
+    for support in support_items:
+        require(
+            support.get("environment_id") in environment_ids,
+            f"scout support {support.get('support_id')} has an unknown environment",
+        )
+        require(
+            sorted_unique_strings(support.get("variables")),
+            f"scout support {support.get('support_id')} variables are not canonical",
+        )
+
+    def relation(left: list[str], right: list[str]) -> str:
+        left_set, right_set = set(left), set(right)
+        if left_set == right_set:
+            return "equal"
+        if left_set < right_set:
+            return "left_proper_subset"
+        if right_set < left_set:
+            return "right_proper_subset"
+        if left_set.isdisjoint(right_set):
+            return "disjoint"
+        return "overlap"
+
+    relation_pairs: list[tuple[object, object]] = []
+    for item in draft.get("support_relations", []):
+        if not isinstance(item, dict):
+            continue
+        pair = (item.get("left_support_id"), item.get("right_support_id"))
+        relation_pairs.append(pair)
+        left = support_by_id.get(pair[0])
+        right = support_by_id.get(pair[1])
+        require(left is not None and right is not None, "scout relation has an unknown support")
+        if left is None or right is None:
+            continue
+        require(pair[0] != pair[1], "scout relation compares a support to itself")
+        require(
+            left.get("semantics") == right.get("semantics") == item.get("semantics"),
+            "scout relation crosses support semantics",
+        )
+        require(
+            item.get("relation")
+            == relation(left.get("variables", []), right.get("variables", [])),
+            "scout relation does not match the frozen variable sets",
+        )
+    require(
+        len(relation_pairs) == len(set(relation_pairs)),
+        "scout repeats an ordered support relation",
+    )
+
+    for field, identifier in [
+        ("contract_requests", "request_id"),
+        ("next_queries", "query_id"),
+    ]:
+        items = draft.get(field, [])
+        identifiers = [item.get(identifier) for item in items if isinstance(item, dict)]
+        require(
+            len(identifiers) == len(items) == len(set(identifiers)),
+            f"scout {field} identifiers are incomplete or duplicated",
+        )
+    for query in draft.get("next_queries", []):
+        if isinstance(query, dict):
+            require(
+                sorted_unique_strings(query.get("separates_hypotheses")),
+                f"scout query {query.get('query_id')} hypotheses are not canonical",
+            )
+    reasons = draft.get("reasons", [])
+    reason_order = [
+        "no_environment_candidate",
+        "unit_unverified",
+        "selection_unestablished",
+        "learner_disagreement",
+        "support_failure",
+        "composition_unavailable",
+        "same_target_premise_unestablished",
+        "confirmation_sealed",
+    ]
+    reason_rank = {reason: index for index, reason in enumerate(reason_order)}
+    require(
+        len(reasons) == len(set(reasons))
+        and all(reason in reason_rank for reason in reasons)
+        and reasons == sorted(reasons, key=reason_rank.get),
+        "scout reason codes are not canonical",
+    )
+
+    next_queries = draft.get("next_queries", [])
+    expected_status = (
+        "abstained"
+        if not environments
+        else "inconclusive"
+        if not next_queries
+        else "recommended"
+    )
+    require(proposal.get("status") == expected_status, "scout status is not derived from the draft")
+    require(proposal.get("authority") == "proposal_only", "scout grants causal authority")
+    require(proposal.get("certificate_eligible") is False, "scout is certificate eligible")
+    require(proposal.get("request_id") == request.get("request_id"), "scout request ID drifted")
+    require(proposal.get("proposal_id") == draft.get("proposal_id"), "scout proposal ID drifted")
+    require(proposal.get("seed") == request.get("seed"), "scout seed drifted")
+    require(
+        proposal.get("request_fingerprint")
+        == scout_json_fingerprint(b"mic-self-driving-request-v1\0", request),
+        "scout request fingerprint drifted",
+    )
+    require(
+        proposal.get("candidate_library_fingerprint")
+        == scout_json_fingerprint(b"mic-shift-factorization-library-v1\0", draft),
+        "scout candidate-library fingerprint drifted",
+    )
+    for field in [
+        "environments",
+        "supports",
+        "support_relations",
+        "strategy_eligibility",
+        "contract_requests",
+        "next_queries",
+        "reasons",
+    ]:
+        require(proposal.get(field) == draft.get(field), f"scout output drifted from draft field {field}")
+    return errors
+
+
 def required_files() -> None:
     paths = [
         "README.md",
@@ -501,6 +682,9 @@ def required_files() -> None:
         "schemas/active_tilt_input.schema.json",
         "schemas/orientation_input.schema.json",
         "schemas/proposal_batch.schema.json",
+        "schemas/self_driving_request.schema.json",
+        "schemas/shift_factorization_draft.schema.json",
+        "schemas/shift_factorization_proposal.schema.json",
         "schemas/benchmark_routing_view.schema.json",
         "schemas/design_authority_receipt.schema.json",
         "schemas/benchmark_oracle.schema.json",
@@ -509,6 +693,9 @@ def required_files() -> None:
         "examples/orientation/parity_demo.json",
         "examples/proposal_inputs/parity_active_tilt.json",
         "examples/proposals/parity_active_tilt.json",
+        "examples/scout_inputs/self_driving_request.json",
+        "examples/scout_inputs/shift_factorization_draft.json",
+        "examples/scout_proposals/shift_factorization.json",
         "examples/benchmarks/authority_ablation_template/README.md",
         "examples/benchmarks/authority_ablation_template/source_table.csv",
         "examples/benchmarks/authority_ablation_template/routing_data.csv",
@@ -559,6 +746,9 @@ def validate_schemas_and_manifests() -> None:
     orientation_schema = schemas.get("orientation_input.schema.json")
     proposal_input_schema = schemas.get("active_tilt_input.schema.json")
     proposal_schema = schemas.get("proposal_batch.schema.json")
+    scout_request_schema = schemas.get("self_driving_request.schema.json")
+    scout_draft_schema = schemas.get("shift_factorization_draft.schema.json")
+    scout_proposal_schema = schemas.get("shift_factorization_proposal.schema.json")
     audit_report_schema = schemas.get("audit_report.schema.json")
     four_law_report_schema = schemas.get("four_law_report.schema.json")
     finding_schema = schemas.get("evidence_finding.schema.json")
@@ -586,6 +776,87 @@ def validate_schemas_and_manifests() -> None:
                 and scalar_contract.get("certificate_eligible") is False,
                 "scalar-response contract gained causal certificate authority",
             )
+
+    check(scout_request_schema is not None, "self-driving request schema was not loaded")
+    check(scout_draft_schema is not None, "shift-factorization draft schema was not loaded")
+    check(scout_proposal_schema is not None, "shift-factorization proposal schema was not loaded")
+    if (
+        scout_request_schema is not None
+        and scout_draft_schema is not None
+        and scout_proposal_schema is not None
+    ):
+        scout_registry = Registry().with_resource(
+            str(scout_proposal_schema["$id"]),
+            Resource.from_contents(scout_proposal_schema),
+        )
+        request_validator = Draft202012Validator(scout_request_schema)
+        draft_validator = Draft202012Validator(scout_draft_schema, registry=scout_registry)
+        scout_validator = Draft202012Validator(scout_proposal_schema)
+        request_path = ROOT / "examples" / "scout_inputs" / "self_driving_request.json"
+        draft_path = ROOT / "examples" / "scout_inputs" / "shift_factorization_draft.json"
+        proposal_path = ROOT / "examples" / "scout_proposals" / "shift_factorization.json"
+        request = load_json(request_path)
+        draft = load_json(draft_path)
+        proposal = load_json(proposal_path)
+        for name, validator, value in [
+            ("self-driving request", request_validator, request),
+            ("shift-factorization draft", draft_validator, draft),
+            ("shift-factorization proposal", scout_validator, proposal),
+        ]:
+            for error in sorted(validator.iter_errors(value), key=lambda error: list(error.path)):
+                location = ".".join(str(part) for part in error.path) or "<root>"
+                fail(f"{name} schema violation at {location}: {error.message}")
+        if isinstance(request, dict) and isinstance(draft, dict) and isinstance(proposal, dict):
+            for error in scout_bundle_semantic_errors(request, draft, proposal):
+                fail(error)
+
+            def scout_bundle_rejected(
+                candidate_request: dict, candidate_draft: dict, candidate_proposal: dict
+            ) -> bool:
+                schema_errors = [
+                    *request_validator.iter_errors(candidate_request),
+                    *draft_validator.iter_errors(candidate_draft),
+                    *scout_validator.iter_errors(candidate_proposal),
+                ]
+                semantic_errors = scout_bundle_semantic_errors(
+                    candidate_request, candidate_draft, candidate_proposal
+                )
+                return bool(schema_errors or semantic_errors)
+
+            mutations: list[tuple[str, dict, dict, dict]] = []
+            unsorted_learners = copy.deepcopy(request)
+            unsorted_learners["learner_families"] = list(
+                reversed(unsorted_learners["learner_families"])
+            )
+            mutations.append(("unsorted learner battery", unsorted_learners, draft, proposal))
+            bad_partition = copy.deepcopy(request)
+            bad_partition["partition"]["confirmation_units"] -= 1
+            mutations.append(("nonexhaustive unit counts", bad_partition, draft, proposal))
+            unknown_environment = copy.deepcopy(draft)
+            unknown_environment["supports"][0]["environment_id"] = "env_999"
+            mutations.append(("unknown support environment", request, unknown_environment, proposal))
+            crossed_semantics = copy.deepcopy(draft)
+            crossed_semantics["supports"][1]["semantics"] = "marginal_shift_set"
+            mutations.append(("cross-semantic support relation", request, crossed_semantics, proposal))
+            false_relation = copy.deepcopy(draft)
+            false_relation["support_relations"][0]["relation"] = "equal"
+            mutations.append(("false support relation", request, false_relation, proposal))
+            repeated_support = copy.deepcopy(draft)
+            repeated_support["supports"][1]["support_id"] = repeated_support["supports"][0]["support_id"]
+            mutations.append(("duplicate support ID", request, repeated_support, proposal))
+            stale_fingerprint = copy.deepcopy(proposal)
+            stale_fingerprint["candidate_library_fingerprint"] = "0" * 64
+            mutations.append(("stale library fingerprint", request, draft, stale_fingerprint))
+            forged_authority = copy.deepcopy(proposal)
+            forged_authority["authority"] = "certificate"
+            mutations.append(("forged authority", request, draft, forged_authority))
+            for name, candidate_request, candidate_draft, candidate_proposal in mutations:
+                check(
+                    scout_bundle_rejected(
+                        candidate_request, candidate_draft, candidate_proposal
+                    ),
+                    f"scout validator accepted adversary: {name}",
+                )
 
     check(audit_report_schema is not None, "audit report schema was not loaded")
     check(four_law_report_schema is not None, "four-law report schema was not loaded")

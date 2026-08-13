@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dicklesworthstone/mechanism_interferometry_causality/schemas/shift_factorization_draft.schema.json",
+  "title": "MIC Atlas Shift-Factorization Draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposal_id",
+    "environments",
+    "supports",
+    "support_relations",
+    "strategy_eligibility",
+    "contract_requests",
+    "next_queries",
+    "reasons"
+  ],
+  "properties": {
+    "proposal_id": { "$ref": "shift_factorization_proposal.schema.json#/$defs/nonempty" },
+    "environments": {
+      "type": "array",
+      "items": { "$ref": "shift_factorization_proposal.schema.json#/$defs/environment" }
+    },
+    "supports": {
+      "type": "array",
+      "items": { "$ref": "shift_factorization_proposal.schema.json#/$defs/support" }
+    },
+    "support_relations": {
+      "type": "array",
+      "items": { "$ref": "shift_factorization_proposal.schema.json#/$defs/relation" }
+    },
+    "strategy_eligibility": {
+      "type": "object",
+      "propertyNames": { "$ref": "shift_factorization_proposal.schema.json#/$defs/nonempty" },
+      "additionalProperties": { "$ref": "shift_factorization_proposal.schema.json#/$defs/strategy" }
+    },
+    "contract_requests": {
+      "type": "array",
+      "items": { "$ref": "shift_factorization_proposal.schema.json#/$defs/contract_request" }
+    },
+    "next_queries": {
+      "type": "array",
+      "items": { "$ref": "shift_factorization_proposal.schema.json#/$defs/next_query" }
+    },
+    "reasons": {
+      "$ref": "shift_factorization_proposal.schema.json#/$defs/reasons"
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "proposal_id": "proposal_001",
+  "environments": [
+    {
+      "environment_id": "env_001",
+      "defining_columns": ["e_001"],
+      "transform_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "score": 0.8,
+      "score_semantics": "held-out regime-prediction gain"
+    }
+  ],
+  "supports": [
+    {
+      "support_id": "support_001",
+      "environment_id": "env_001",
+      "semantics": "regime_information_support",
+      "variables": ["x_001"],
+      "learner_family": "linear",
+      "discovery_fold": "fold_001",
+      "score": 0.2,
+      "score_semantics": "held-out log loss; lower is better",
+      "on_parsimony_frontier": true
+    },
+    {
+      "support_id": "support_002",
+      "environment_id": "env_001",
+      "semantics": "regime_information_support",
+      "variables": ["x_001", "x_002"],
+      "learner_family": "kernel",
+      "discovery_fold": "fold_001",
+      "score": 0.19,
+      "score_semantics": "held-out log loss; lower is better",
+      "on_parsimony_frontier": true
+    }
+  ],
+  "support_relations": [
+    {
+      "left_support_id": "support_001",
+      "right_support_id": "support_002",
+      "semantics": "regime_information_support",
+      "relation": "left_proper_subset"
+    }
+  ],
+  "strategy_eligibility": {
+    "anchored_invariance": {
+      "status": "missing_contract",
+      "reason": "anchor exclusion is not established"
+    }
+  },
+  "contract_requests": [
+    {
+      "request_id": "contract_001",
+      "kind": "identification_premise",
+      "required_for": "anchored_invariance",
+      "detail": "supply a content-bound exclusion receipt",
+      "priority": 1.0
+    }
+  ],
+  "next_queries": [
+    {
+      "query_id": "query_001",
+      "kind": "obtain_contract",
+      "separates_hypotheses": ["anchor_valid", "anchor_violated"],
+      "priority": 1.0,
+      "priority_semantics": "external premise required before separate audit"
+    }
+  ],
+  "reasons": ["selection_unestablished", "confirmation_sealed"]
+}

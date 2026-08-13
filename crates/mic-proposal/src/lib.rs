@@ -10,6 +10,15 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
+mod scout;
+pub use scout::{
+    CandidateEnvironment, CandidateSupport, ContractRequest, ContractRequestKind, DiscoveryAccess,
+    EnvironmentRelation, FrozenShiftFactorizationProposal, NextQuery, NextQueryKind,
+    PartitionReceipt, ScoutReasonCode, ScoutStatus, SealedContext, SelfDrivingRequest,
+    ShiftFactorizationDraft, StrategyEligibility, SupportRelation, SupportSemantics, UnitBasis,
+    UnitContract, freeze_shift_factorization_proposal,
+};
+
 /// Proposal-layer errors that prevent an auditable batch from being constructed.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum ProposalError {
@@ -31,6 +40,9 @@ pub enum ProposalError {
     /// Feature flags were not unique and lexically sorted.
     #[error("proposal source feature flags must be unique, nonempty, and sorted")]
     NonCanonicalFeatureFlags,
+    /// A discovery-only scout request or draft violated its closed contract.
+    #[error("invalid shift-scout contract: {0}")]
+    InvalidScoutContract(String),
 }
 
 /// Where a proposal batch came from.
