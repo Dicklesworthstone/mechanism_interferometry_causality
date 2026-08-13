@@ -508,7 +508,7 @@ pub fn audit_lens_battery(
         ledger.push(finding_with_context(
             Severity::Info,
             stage,
-            "estimator_family_agreement",
+            code::info::ESTIMATOR_FAMILY_AGREEMENT,
             "estimator families agree within the preregistered sensitivity tolerance; agreement is diagnostic, not certifying",
             context,
         ));

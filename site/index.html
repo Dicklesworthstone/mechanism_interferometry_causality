@@ -1531,6 +1531,70 @@
       </div>
 
       <div class="section-head reveal mt">
+        <h3>Discovery is frozen, then quarantined</h3>
+        <p class="note">
+          Many-environment work needs a way to write down what a search found without letting the
+          search grade itself. Two artifacts do that. A <b>scout</b> freezes candidate shift
+          structure discovered across environments; a <b>shift-factorization proposal</b> records a
+          candidate decomposition of those shifts into reusable factors. Both carry complete adapter
+          provenance and a recorded seed, both serialize with authority <code>proposal_only</code>,
+          and neither crate depends on the audit or design verdict types. A frozen artifact can order
+          the next experiment. It cannot become a target, an edge, an invariant, or a gate &#8212;
+          not because the analyst refrains, but because there is no type to convert it into.
+        </p>
+      </div>
+
+      <div class="grid grid-2 mt">
+        <article class="card reveal">
+          <p class="label">The dataset gauntlet</p>
+          <p class="note">
+            Intake asks the unglamorous question first: not whether a dataset is interesting, but
+            which of the four contracts it could possibly satisfy, recorded before any estimation is
+            attempted. Most candidates fail at the selection contract. Finding that out in advance is
+            cheaper than finding it out in a verdict you then have to withdraw.
+          </p>
+        </article>
+        <article class="card reveal delay-1">
+          <p class="label">The report leads with what it refused</p>
+          <p class="note">
+            The ordering of the audit report is fixed by the implementation, not chosen per run.
+            First the certificate status, then the abstentions with their reason codes, and the
+            informational findings last. It cannot open with a table of significance statistics, and
+            a test asserts exactly that. The arrangement of a document is itself a claim about what
+            matters in it.
+          </p>
+        </article>
+      </div>
+
+      <div class="section-head reveal mt">
+        <h3>Four gates, not one verdict</h3>
+        <p class="note">
+          Locality, conditional normalization, square flatness and orientation are each carried as a
+          typed value &#8212; <code>established</code>, <code>refuted</code>, or
+          <code>unresolved</code> &#8212; and the terminal status is derived from that record rather
+          than supplied beside it. &#8220;The certificate failed&#8221; and &#8220;flatness was
+          rejected while orientation was never resolved&#8221; license completely different next
+          experiments, and only the second tells you where to spend the next randomization. Carrying
+          the gates also lets a reader recompute the verdict instead of trusting it.
+        </p>
+      </div>
+
+      <div class="section-head reveal mt">
+        <h3>The reader is audited too</h3>
+        <p class="note">
+          An audit system inherits the correctness of everything it reads with, so the tabular
+          adapter checks its own backend: every cell the dataframe reader returns is compared against
+          the reference tokenizer, and any disagreement is a refusal naming the row, the column and
+          both values. This is not decoration. The reviewed revision of that reader rendered the
+          identifiers <code>007</code> and <code>7</code> as the same string &#8212; merging two
+          distinct assignment units and pooling their rows into one randomization unit &#8212; and
+          flattened the design label <code>00</code> to <code>0</code>. Neither failure raises an
+          error; both produce a fluent report about a different experiment. Pinning a version records
+          which code ran, not whether it preserved your data.
+        </p>
+      </div>
+
+      <div class="section-head reveal mt">
         <h3>The estimator lens battery</h3>
         <p class="note">
           Run the same projection through several estimator families and compare them. The gate is

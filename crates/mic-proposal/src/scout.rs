@@ -207,21 +207,7 @@ impl SelfDrivingRequest {
         ] {
             require_sha256(name, value)?;
         }
-        if self.candidate_budget == 0 {
-            return Err(ProposalError::InvalidScoutContract(
-                "candidate_budget must be positive".into(),
-            ));
-        }
-        if !self.equivalence_tolerance.is_finite() || self.equivalence_tolerance <= 0.0 {
-            return Err(ProposalError::InvalidScoutContract(
-                "equivalence_tolerance must be finite and positive".into(),
-            ));
-        }
-        if !self.detection_floor.is_finite() || self.detection_floor <= 0.0 {
-            return Err(ProposalError::InvalidScoutContract(
-                "detection_floor must be finite and positive".into(),
-            ));
-        }
+        self.validate_numeric_budgets()?;
         let declared_total = self
             .partition_claim
             .discovery_units
@@ -256,6 +242,46 @@ impl SelfDrivingRequest {
                 "a declared unit basis requires a content-bound evidence_ref".into(),
             ));
         }
+        self.validate_unit_declaration()?;
+        require_sorted_unique("learner_families", &self.learner_families)?;
+        for learner in &self.learner_families {
+            require_quarantined_text("learner family", learner)?;
+        }
+        Ok(())
+    }
+
+    /// Checks the numeric budgets and thresholds.
+    ///
+    /// A zero budget or a non-positive tolerance is not a degenerate-but-harmless
+    /// input here: it would make an equivalence comparison vacuous and let a request
+    /// look satisfied without any comparison having been performed.
+    fn validate_numeric_budgets(&self) -> Result<(), ProposalError> {
+        if self.candidate_budget == 0 {
+            return Err(ProposalError::InvalidScoutContract(
+                "candidate_budget must be positive".into(),
+            ));
+        }
+        if !self.equivalence_tolerance.is_finite() || self.equivalence_tolerance <= 0.0 {
+            return Err(ProposalError::InvalidScoutContract(
+                "equivalence_tolerance must be finite and positive".into(),
+            ));
+        }
+        if !self.detection_floor.is_finite() || self.detection_floor <= 0.0 {
+            return Err(ProposalError::InvalidScoutContract(
+                "detection_floor must be finite and positive".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Checks the randomization-unit contract on its own.
+    ///
+    /// Split out of `validate` because the unit declaration is the one field whose
+    /// misuse silently changes what the request means: a unit that claims more
+    /// authority than its evidence supports pools observations that were never
+    /// exchangeable. Keeping it as a named check makes that rule greppable rather
+    /// than buried mid-way through a long sequence of string validations.
+    fn validate_unit_declaration(&self) -> Result<(), ProposalError> {
         if matches!(
             self.unit_declaration.basis,
             UnitBasis::UnverifiedIdentifier | UnitBasis::Row
@@ -267,10 +293,6 @@ impl SelfDrivingRequest {
         }
         if let Some(evidence_ref) = &self.unit_declaration.evidence_ref {
             require_opaque_identifier("unit evidence_ref", evidence_ref, "evidence_")?;
-        }
-        require_sorted_unique("learner_families", &self.learner_families)?;
-        for learner in &self.learner_families {
-            require_quarantined_text("learner family", learner)?;
         }
         Ok(())
     }

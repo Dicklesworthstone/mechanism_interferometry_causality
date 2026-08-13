@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Multi-level factorial geometry and fail-closed family classification.
 //!
 //! Geometry never yields [`crate::ModularCompletionClass::Unique`]. That class
@@ -240,8 +241,73 @@ pub struct ObservedFamilyClassification {
     pub recommended_next_corner: Option<String>,
     /// Identified-set reduction delivered by that cell.
     pub next_corner_identified_set_reduction: Option<usize>,
+    /// Integer cost of that cell (default 1000).
+    pub next_corner_cost: Option<u32>,
     /// Human-readable refusal or witness note.
     pub note: String,
+}
+
+/// Diagnostic audit of supplied log-laws on fully observed rectangles.
+///
+/// Flat rectangles are not a modularity certificate.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RectangleLawAudit {
+    /// Number of fully observed rectangles in the design.
+    pub n_observed_rectangles: usize,
+    /// Rectangles for which all four log-laws were supplied.
+    pub n_evaluated: usize,
+    /// Rectangles skipped because a law was missing.
+    pub n_missing_laws: usize,
+    /// Largest absolute rectangle contrast among evaluated faces.
+    pub max_abs_contrast: Option<f64>,
+    /// True when at least one rectangle was evaluated and all lie within tolerance.
+    pub all_flat: bool,
+    /// Reminder that this is not a certificate.
+    pub note: String,
+}
+
+/// Evaluates supplied log-laws on every fully observed rectangle.
+pub fn audit_rectangle_laws(
+    points: &[MultiLevelPoint],
+    cardinalities: &[u32],
+    log_laws: &BTreeMap<Vec<u32>, f64>,
+    tolerance: f64,
+) -> Result<RectangleLawAudit, DesignError> {
+    if !tolerance.is_finite() || tolerance < 0.0 {
+        return Err(DesignError::InvalidTolerance(tolerance));
+    }
+    let faces = enumerate_rectangles(points, cardinalities)?;
+    let mut n_evaluated = 0_usize;
+    let mut n_missing_laws = 0_usize;
+    let mut max_abs_contrast = 0.0_f64;
+    let mut any = false;
+    for face in &faces {
+        match rectangle_contrast(face, log_laws) {
+            Ok(value) => {
+                n_evaluated += 1;
+                any = true;
+                max_abs_contrast = max_abs_contrast.max(value.abs());
+            }
+            Err(DesignError::MissingLaw(_)) => n_missing_laws += 1,
+            Err(error) => return Err(error),
+        }
+    }
+    let all_flat = n_evaluated > 0 && max_abs_contrast <= tolerance;
+    Ok(RectangleLawAudit {
+        n_observed_rectangles: faces.len(),
+        n_evaluated,
+        n_missing_laws,
+        max_abs_contrast: any.then_some(max_abs_contrast),
+        all_flat,
+        note: if all_flat {
+            "observed rectangles are flat under the supplied laws; this is a diagnostic, not a modularity certificate"
+        } else if n_evaluated == 0 {
+            "no rectangle could be evaluated; missing laws or no observed rectangle"
+        } else {
+            "at least one evaluated rectangle is curved under the supplied laws"
+        }
+        .into(),
+    })
 }
 
 /// Classifies an observed Boolean family.
@@ -313,6 +379,7 @@ pub fn classify_observed_family(
         next_corner_identified_set_reduction: next
             .first()
             .map(|item| item.identified_set_reduction),
+        next_corner_cost: next.first().map(|item| item.cost),
         note,
     })
 }
@@ -479,6 +546,7 @@ pub fn classify_multilevel_family(
         next_corner_identified_set_reduction: next
             .first()
             .map(|item| item.identified_set_reduction),
+        next_corner_cost: next.first().map(|item| item.cost),
         note: note.to_string(),
     })
 }
@@ -840,5 +908,23 @@ mod tests {
             rectangle_contrast(&face, &laws),
             Err(DesignError::MissingLaw(_))
         ));
+    }
+
+    #[test]
+    fn rectangle_law_audit_is_diagnostic_and_detects_curvature() {
+        let points = [ml(&[0, 0]), ml(&[1, 0]), ml(&[0, 1]), ml(&[1, 1])];
+        let mut laws = BTreeMap::new();
+        laws.insert(vec![0, 0], 0.0);
+        laws.insert(vec![1, 0], 0.0);
+        laws.insert(vec![0, 1], 0.0);
+        laws.insert(vec![1, 1], 0.0);
+        let flat = audit_rectangle_laws(&points, &[2, 2], &laws, 1e-12).unwrap();
+        assert!(flat.all_flat);
+        assert_eq!(flat.n_evaluated, 1);
+        assert!(flat.note.contains("not a modularity certificate"));
+        laws.insert(vec![1, 1], 1.0);
+        let curved = audit_rectangle_laws(&points, &[2, 2], &laws, 1e-12).unwrap();
+        assert!(!curved.all_flat);
+        assert!((curved.max_abs_contrast.unwrap() - 1.0).abs() < 1e-15);
     }
 }

@@ -75,7 +75,7 @@
 \newcommand{\given}{\,\middle|\,}
 
 \title{\textbf{Mechanism Interferometry}\\[0.35em]
-\large A Gauge-Invariant Soft-Intervention Certificate for Causal Modularity}
+\large Auditing the Compositionality of Soft Interventions}
 \author{Jeffrey Emanuel\\
 \small \href{https://github.com/Dicklesworthstone}{\texttt{@Dicklesworthstone}}}
 \date{August 2026}
@@ -86,7 +86,7 @@
 \begin{abstract}
 We study a system observed under a reference regime, primitive perturbations, and combinations of those perturbations.  For common-support soft interventions, autonomous causal mechanisms impose a rigid algebra on the family of regime distributions.  A primitive intervention that replaces one conditional mechanism has a likelihood ratio local to the target and its parents.  The ratio conditionally normalizes over the target.  Distinct mechanism replacements compose multiplicatively, so mixed finite differences of regime log densities vanish on every square of the factorial design.
 
-These facts yield a finite biconditional certificate on a complete factorial cube.  Relative to a proposed directed acyclic graph and target assignment, locality, targetwise conditional normalization, and zero square curvature on every face are necessary and sufficient for the existence of a context-invariant modular soft-intervention representation.  The same argument applies to a complete subcube only when its reference-corner law factorizes over the proposed DAG and its varying-edge ratios are the local normalized primitives.  On an irregular partial design, the null space of the observed main-effects design characterizes all testable flatness restrictions, but flatness alone is not a modularity certificate when the primitive potentials needed to check locality and conditional normalization are unobserved.  A master identity,
+These facts yield a finite biconditional certificate on a complete factorial cube.  Relative to a proposed directed acyclic graph and target assignment, locality, targetwise conditional normalization, and zero square curvature on every face are necessary and sufficient for the existence of a context-invariant modular soft-intervention representation.  The certificate extends to a product of finite categorical mechanism families: alternative guides, doses, or implementations within one family may define arbitrary replacement kernels, while every cross-family rectangular log-density contrast must vanish at every background configuration.  The same argument applies to a complete subgrid only when its reference-corner law factorizes over the proposed DAG and its varying-edge ratios are the local normalized primitives.  On an irregular partial design, the null space of the observed main-effects design characterizes all testable flatness restrictions, but flatness alone is not a modularity certificate when the primitive potentials needed to check locality and conditional normalization are unobserved.  A master identity,
 \[
 \E_0[r_e(X)\mid X_A]=\frac{p_e(X_A)}{p_0(X_A)},
 \]
@@ -133,7 +133,7 @@ The closest ingredients are classical or already present in neighboring literatu
 The paper makes eight main contributions.
 
 \begin{enumerate}
-\item \textbf{A finite biconditional certificate.}  For a complete factorial family of common-support soft interventions with proposed distinct targets, locality, conditional normalization, and zero curvature on every two-dimensional design face are necessary and sufficient for a modular causal representation.  Pairwise square flatness then suffices and all higher Boolean-lattice curvatures vanish automatically.  On an irregular partial design, the full estimable lack-of-fit contrast space gives the complete flatness audit, while a modularity certificate additionally requires identified local, normalized primitive potentials.
+\item \textbf{A finite biconditional certificate.}  For a complete factorial family of common-support soft interventions with proposed distinct targets, locality, conditional normalization, and zero curvature on every two-dimensional design face are necessary and sufficient for a modular causal representation.  The result holds for finite categorical mechanism families when every cross-family rectangle is flat at every background; it imposes no linearity among alternative levels of the same family.  On an irregular partial design, the full estimable lack-of-fit contrast space gives the complete flatness audit, while a modularity certificate additionally requires feasible local, normalized primitive potentials.
 
 \item \textbf{Ratio-free orientation.}  Under separately justified single-target intervention semantics and deletion faithfulness, the identity \(\E_0[r_e\mid X_A]=p_e(X_A)/p_0(X_A)\) converts target orientation into low-dimensional two-sample equivalence tests.  It also pins the otherwise unidentified additive constant of an unnormalized discriminative log-ratio score.
 
@@ -145,7 +145,7 @@ The paper makes eight main contributions.
 
 \item \textbf{Two coherent inference tracks.}  Four-law moment functionals apply to regime-conditioned samples with arbitrary known state-independent sampling proportions.  Under product factorial randomization, the GCM and weighted GCM provide orthogonal, cross-fitted tests of projected curvature.  The distinction prevents a subtle but consequential misuse of residual-product tests under arbitrary corner quotas.
 
-\item \textbf{Partial-design geometry.}  On an arbitrary observed design, testable flatness is exactly the lack-of-fit space of a main-effects-only design matrix with a function-valued response.  Classical fractional-factorial aliasing theory therefore applies pointwise in state space.
+\item \textbf{Partial-design geometry.}  On an arbitrary observed binary or categorical design, testable flatness is exactly the lack-of-fit space of a main-effects-only design matrix with a function-valued response.  The causal completion fiber may nevertheless be empty, point identified, or set identified; algebraic testability is a separate axis from causal feasibility.
 
 \item \textbf{A complete empirical and software protocol.}  We specify localization, orientation, curvature testing, overlap gates, compositional prediction, state expansion, simulations, engineered feature-flag validation, Perturb-seq analysis, and a safe-Rust implementation architecture.
 \end{enumerate}
@@ -360,6 +360,70 @@ h_s(x)=h_0(x)+\sum_j s_j\ell_j(x).
 \end{equation}
 Therefore \(p_s=p_0\prod_jr_j^{s_j}\), which is exactly the density generated by replacing the baseline kernels with \eqref{eq:constructed-kernel}.  This proves (A).
 \end{proof}
+
+\begin{theorem}[Categorical mechanism-family certificate]
+\label{thm:categorical-certificate}
+For each mechanism family \(j\), let \(\mathcal A_j\) be a finite level set
+with marked baseline level \(0_j\), and observe the complete product grid
+\(\mathcal S=\prod_{j=1}^K\mathcal A_j\).  Nonbaseline levels of one family are
+mutually exclusive alternative replacements of the same proposed target
+\(t_j\); targets remain distinct across families.  Assume common support and
+that \(p_0\) factorizes over the proposed DAG.  For \(a\ne0_j\), let
+\begin{equation}
+r_{j,a}(x)=\frac{p_{(0_1,\ldots,a,\ldots,0_K)}(x)}{p_0(x)}.
+\end{equation}
+The grid admits a context-invariant modular representation by valid
+family-level replacement kernels if and only if:
+\begin{enumerate}[label=(\roman*)]
+\item \(r_{j,a}\) is measurable with respect to
+\(X_{t_j},X_{\pa(t_j)}\) for every \(j,a\);
+\item
+\begin{equation}
+\E_0[r_{j,a}(X)\mid X_{\pa(t_j)}]=1
+\end{equation}
+for every \(j,a\); and
+\item for every \(j\ne k\), levels \(a,a'\in\mathcal A_j\),
+\(b,b'\in\mathcal A_k\), and background
+\(u\in\prod_{\ell\notin\{j,k\}}\mathcal A_\ell\),
+\begin{equation}
+h_{a,b,u}+h_{a',b',u}-h_{a,b',u}-h_{a',b,u}=0
+\quad\text{a.e.}
+\label{eq:categorical-rectangle}
+\end{equation}
+It is equivalent in (iii) to take \(a'=0_j,b'=0_k\), but those
+baseline-level rectangles must still be checked at every background \(u\).
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+Under a modular representation, unchanged DAG factors cancel and the active
+family-level kernel ratios multiply, proving all three conditions.  Conversely,
+define the increment from family baseline to level \(a\) at background
+\(s_{-j}\) by
+\begin{equation}
+\delta_{j,a}(s_{-j};x)=h_{a,s_{-j}}(x)-h_{0_j,s_{-j}}(x).
+\end{equation}
+Equation~\eqref{eq:categorical-rectangle}, with the other family's baseline as
+one side of the rectangle, makes this increment invariant to changing any
+other coordinate to any of its levels.  Hence
+\(\delta_{j,a}=\log r_{j,a}\).  Summing increments along a path through the
+product grid gives
+\begin{equation}
+h_s=h_0+\sum_{j:s_j\ne0_j}\log r_{j,s_j}.
+\end{equation}
+Locality supplies the arguments of each replacement kernel and conditional
+normalization makes
+\(q_{j,a}=p^0_{t_j}r_{j,a}\) a valid conditional law.  Their modular product
+therefore reproduces every \(p_s\).
+\end{proof}
+
+The theorem asserts no linear or ordered relation among levels within a
+family.  A weak dose and a strong dose may be unrelated normalized replacement
+kernels; a continuous dosage path requires its own parameter-dependent
+normalization model.  Checking only rectangles whose other coordinates are all
+at baseline is also insufficient when \(K\ge3\): a family with
+\(h_s=h_0\) at every corner except a normalized nontrivial ratio at \(111\)
+passes all such baseline-background faces while failing the opposite faces.
 
 \begin{corollary}[Order two suffices]
 On a complete Boolean cube or complete subcube, zero curvature on every square implies that every higher-order M\"obius coefficient vanishes.
@@ -988,7 +1052,7 @@ A preregistered GHCN prototype illustrates both the opportunity and the
 boundary.  It compared January and July 2025 on a fixed panel of 9{,}109
 northern-hemisphere stations.  The fixed-panel construction made the elevation
 marginal identical by design, while the station-averaged temperature mean
-differed by (24.24\,^{\circ}\mathrm C); a within-station month-label shuffle
+differed by ($24.24\,^{\circ}\mathrm{C}$); a within-station month-label shuffle
 rendered that mean statistic undetermined.  This is a useful pass-count and
 negative-control exercise, not evidence that elevation causes temperature: the
 prototype did not test conditional laws, locality, normalization, selection,
@@ -1009,10 +1073,12 @@ support.
 
 \section{Partial factorial designs}
 
-Pointwise in \(x\), flatness says that the vector \(h_D(x)=(h_s(x):s\in D)\) lies in the column space of a main-effects design matrix.  Let
+Pointwise in \(x\), flatness says that the vector \(h_D(x)=(h_s(x):s\in D)\) lies in the column space of a main-effects design matrix.  For the binary case let
 \begin{equation}
 M_D=[\mathbf 1, s_1,\ldots,s_K]_{s\in D}.
 \end{equation}
+For categorical families, replace each binary column by the treatment-coded
+indicators \(\mathbf1\{s_j=a\}\) for every nonbaseline family level \(a\).
 The complete testable flatness content on an observed design \(D\subseteq\{0,1\}^K\) is
 \begin{equation}
 C^\top h_D(x)=0
@@ -1023,6 +1089,38 @@ C^\top h_D(x)=0
 Thus estimability and aliasing are exactly those of classical factorial design, with a function-valued response \citep{box2005statistics,wu2009experiments}.
 
 Equation~\eqref{eq:lack-of-fit-space} is the complete \emph{flatness} content of the observed design, not by itself a partial-design modularity certificate.  If primitive corners are missing, the data may not identify the local normalized potentials whose existence the complete-cube theorem requires.  A minimal witness is \(D=\{00,11\}\): the main-effects matrix has full row rank, so its lack-of-fit null space is trivial and every observed law family passes the flatness audit.  Yet with a uniform baseline on two binary root variables and a correlated positive law at corner \(11\), no pair of distinct root-mechanism replacements can reproduce the observed \(11\) law, because such replacements preserve a product form.  Certificate-grade use of a partial design therefore needs either observed or otherwise identified primitive potentials with separate locality and normalization checks, or an explicit feasibility test for the existence of such potentials.  Null-space flatness alone is diagnostic.
+
+The exact partial-design object is a nonlinear functional fiber.  For a fixed
+proposed graph and target assignment, define
+\begin{equation}
+\mathfrak F_D(G,t)=
+\left\{
+\Phi:
+M_D(h_0,\Phi)^\top=h_D,\quad
+\phi_{j,a}\text{ is local to }\{t_j\}\cup\pa(t_j),\
+\E_0[e^{\phi_{j,a}}\mid X_{\pa(t_j)}]=1
+\right\},
+\label{eq:causal-completion-fiber}
+\end{equation}
+with baseline factorization, positivity, and common support understood.  For a
+named query---the potentials, targets, graph, or unobserved law---the projection
+of this fiber is either empty, a single equivalence class almost everywhere, or
+multiple classes.  These correspond to infeasibility, point identification, and
+set identification.
+
+Algebraic testability is a separate axis, not a mutually exclusive fourth
+fiber state.  A report should therefore pair the fiber status with the
+left-null lack-of-fit dimension, identified potential subspace, observed
+closure rectangles, and untested directions.  For example,
+\(D=\{00,10,01\}\) identifies both primitive potentials and uniquely predicts
+the missing \(11\) law when they pass locality and normalization, but no
+combination law has tested that prediction.  Conversely, \(D=\{00,11\}\) has no
+linear flatness restriction, yet the correlated-root witness above makes
+\(\mathfrak F_D\) empty.  Nonlinear causal restrictions can also restore
+uniqueness despite design-matrix rank deficiency: on a fixed \(X\to Y\) graph,
+a positive \(11\) law uniquely determines its \(X\) marginal replacement and
+its \(Y\mid X\) replacement.  Thus rank alone neither proves nor disproves
+causal identification.
 
 Squares suffice when observed face contrasts span the lack-of-fit space, as in complete subcubes and many square-connected designs.  They need not suffice on irregular designs.  In the three-cube with corners \(000\) and \(111\) removed, no square face is fully observed, yet the six-point main-effects matrix has rank four, leaving a two-dimensional lack-of-fit space.  One valid contrast is
 \begin{equation}
@@ -1473,10 +1571,24 @@ M_D=
 1&s_1^{(n_D)}&\cdots&s_K^{(n_D)}
 \end{bmatrix}.
 \end{equation}
+For a categorical product grid, replace the \(K\) binary columns by one
+indicator for each nonbaseline level of each family.  The coded column count is
+\begin{equation}
+q=1+\sum_j(|\mathcal A_j|-1).
+\end{equation}
 At each \(x\), the flat model is \(h_D(x)=M_D\beta(x)\).  A contrast \(c^\top h_D(x)\) is a testable implication of flatness exactly when \(c\in\ker(M_D^\top)\).  The dimension of the lack-of-fit space is
 \begin{equation}
 n_D-\operatorname{rank}(M_D).
 \end{equation}
+The additive coefficient functions are unique exactly when
+\(\operatorname{rank}(M_D)=q\); otherwise every feasible algebraic solution
+lies in an affine functional fiber directed by \(\ker(M_D)\).  A linear
+functional of the potentials is algebraically identified exactly when its
+coefficient vector lies in the row space of \(M_D\).  These are design-space
+facts only.  Locality and exponential conditional normalization define the
+nonlinear causal-completion fiber in
+\eqref{eq:causal-completion-fiber} and can rule out a linearly saturated design
+or restore uniqueness in a rank-deficient one.
 An implementation should compute a numerically stable basis of this null space, map familiar face contrasts into it, and report which directions are untested or aliased.  For binary fractions, standard defining relations and generalized word-length patterns can be carried over pointwise.
 
 The six-corner design \(\{0,1\}^3\setminus\{000,111\}\) has \(n_D=6\) and rank four.  It has two independent lack-of-fit contrasts despite containing no complete square face.  This demonstrates why ``test all observed squares'' is complete only under a design-topology condition.
@@ -1545,7 +1657,7 @@ The companion repository defines JSON schemas for these artifacts and a Rust wor
 
 The contract above is only enforceable if a refusal is a value rather than a
 sentence in a log. The implementation therefore fixes a closed vocabulary of
-reason codes, and every gate in this paper emits one of them:
+blocking reason codes, and every gate in this paper emits one of them:
 \texttt{non\_product\_sampling\_for\_gcm},
 \texttt{state\_dependent\_selection},
 \texttt{selection\_model\_unvalidated},
@@ -1558,8 +1670,20 @@ reason codes, and every gate in this paper emits one of them:
 \texttt{estimator\_family\_disagreement},
 \texttt{cluster\_spans\_regimes},
 \texttt{missing\_regime\_data},
-\texttt{empty\_common\_support}, and
+\texttt{empty\_common\_support},
+\texttt{declared\_empirical\_quota\_mismatch}, and
 \texttt{duplicate\_provenance}.
+
+Informational findings carry a separate declared set, currently
+\texttt{estimator\_family\_agreement} and
+\texttt{histogram\_not\_a\_certificate}.  The split is deliberate rather than
+bookkeeping.  An informational code records what a run established, never a
+licence to proceed, and the first of these is the clearest case: agreement
+across the estimator lens battery is diagnostic and certifies nothing on its
+own, so a consumer that treated it as a gate would invert the very asymmetry
+the battery is built on.  Both sets are declared in one place, so the
+vocabulary is discoverable by a downstream reader rather than recoverable only
+by reading every emission site.
 
 The last of these enforces an append-only evidence ledger: binding a provenance
 key twice with different values preserves the first write and records the
@@ -1580,6 +1704,43 @@ cluster-weighted histogram implementation of the four-law functionals returns
 \emph{abstained} on every clean run by construction. It is a diagnostic that
 can never certify, and saying so in the type is what prevents an eventual
 reader from treating a quiet run as a passing one.
+
+\subsection{Typed certificate gates}
+
+A single boolean verdict cannot say which condition failed, so the four
+certificate conditions are carried as typed values rather than collapsed into
+one flag. Locality, conditional normalization, square flatness, and orientation
+are each recorded as \emph{established}, \emph{refuted}, or \emph{unresolved},
+and the terminal state is derived from that record rather than supplied
+alongside it. The distinction is not cosmetic. ``The certificate failed'' and
+``square flatness was rejected while orientation was never resolved'' license
+entirely different next experiments, and only the second tells an experimenter
+where to spend the next randomization. Carrying the gates also makes the
+derivation auditable after the fact: a report states the inputs from which its
+status follows, so a reader can recompute the verdict rather than trust it.
+
+\subsection{Dependencies are load-bearing assumptions}
+
+An audit system inherits the correctness of everything it reads with. The
+tabular adapter therefore audits its own backend: every cell returned by the
+sibling dataframe reader is compared against the reference tokenizer, and any
+disagreement is a refusal naming the row, the column, and both values.
+
+This is not hypothetical rigour. The reviewed revision of that reader rendered
+the identifiers \texttt{007} and \texttt{7} as the same string, which merges two
+distinct assignment units and pools their observations into a single
+randomization unit, and it flattened the design label \texttt{00} to
+\texttt{0}, erasing the distinction between two regimes. Neither failure raises
+an error. Both produce a fluent report about a different experiment than the
+one that was run, and the corrupted quantity is exactly the one on which the
+spanning-cluster refusal is conditioned, so the failure can both manufacture
+and mask the audit that would have caught it.
+
+Version pinning does not detect this class of fault, because a pin records
+which code ran and not whether it preserved the data. The comparison costs one
+pass over the cells and converts an unverified assumption about a dependency
+into either a checked fact or a typed refusal, which is the same standard the
+rest of the protocol applies to assumptions about the world.
 
 \subsection{Authority tiers under incomplete contracts}
 
@@ -1603,6 +1764,37 @@ proposal-adapter boundary. Tier~B is the operating point
 this architecture adds: stronger than a discovery algorithm's edge weight,
 deliberately weaker than a certificate, and unable to overclaim because
 overclaiming is a type error rather than a matter of restraint.
+
+\subsection{The report leads with what it refused}
+
+The audit emits a human-readable report whose ordering is fixed by the
+implementation rather than chosen per run. The first heading is the certificate
+status; the second section is the abstentions, each with its reason code; the
+informational findings come last. A report cannot open with a table of
+significance statistics, and a test asserts as much, because the ordering of a
+document is itself a claim about what matters in it. The conventional
+arrangement, in which the estimates lead and the caveats trail, is well suited
+to a reader looking for a result and poorly suited to one who needs to know
+whether the result is admissible.
+
+\subsection{Proposal-side discovery and its quarantine}
+
+Two proposal-layer artifacts extend the boundary to the many-environment
+setting without weakening it. A scout freezes candidate shift structure
+discovered across environments, and a shift-factorization proposal records a
+candidate decomposition of observed shifts into reusable factors. Both are
+frozen with complete adapter provenance, both serialize with authority
+\texttt{proposal\_only}, and neither depends on the audit or design verdict
+types, so a frozen artifact can order later work but cannot be converted into a
+certificate gate, target, edge, or invariant. The type system, not the
+analyst's restraint, is what prevents a discovery from being read as a finding.
+
+A dataset gauntlet complements them on the intake side. Rather than asking
+whether a dataset is interesting, it asks which of the certificate's contracts
+that dataset could possibly satisfy, and records the answer before any
+estimation is attempted. Most candidate datasets fail at the selection contract,
+and discovering that in advance is cheaper than discovering it in a verdict that
+has to be withdrawn.
 
 \printbibliography
 

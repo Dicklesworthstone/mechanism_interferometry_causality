@@ -11,7 +11,7 @@ use crate::{
 };
 use mic_audit::{
     CertificateGates, CertificateStatus, EvidenceLedger, ExecutionMode, NarrativeReport, Severity,
-    render_narrative,
+    code, render_narrative,
 };
 use mic_core::DensitySquare;
 use mic_data::{ExperimentManifest, IngestReport, load_csv_table};
@@ -392,7 +392,7 @@ fn finish(
     ledger.note(
         Severity::Info,
         "certificate",
-        "histogram_not_a_certificate",
+        code::info::HISTOGRAM_NOT_A_CERTIFICATE,
         "histogram four-law is a projection diagnostic; locality and deletion orientation were not established, so the run abstains from a modularity certificate",
     );
     // The histogram projection is diagnostic: it does not establish locality,
@@ -462,7 +462,7 @@ fn record_ingest(
         ledger.push(finding_with_context(
             Severity::Warning,
             "ingest",
-            "declared_empirical_quota_mismatch",
+            code::DECLARED_EMPIRICAL_QUOTA_MISMATCH,
             "realized cluster quotas differ from the declared sampling proportions; four-law uses the declared quotas only for the sampling-odds gate",
             context,
         ));
