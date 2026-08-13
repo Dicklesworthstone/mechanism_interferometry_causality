@@ -528,7 +528,12 @@ pub fn classify_multilevel_family(
     let identified_set_dimension = n_coded_columns.saturating_sub(main_effects_rank);
     let lack_of_fit_dimension = points.len().saturating_sub(main_effects_rank);
     let orientation = orientation_testability(same_target_tilt_count);
-    let next = rank_missing_multilevel_cells(points, cardinalities, tolerance)?;
+    let next = rank_missing_multilevel_cells_with_costs(
+        points,
+        cardinalities,
+        &BTreeMap::new(),
+        tolerance,
+    )?;
     let note = if orientation == OrientationTestability::Untestable {
         "multi-level geometry does not identify a unique local normalized potential system; orientation is untestable without a same-target tilt family"
     } else {
@@ -551,9 +556,20 @@ pub fn classify_multilevel_family(
     })
 }
 
-fn rank_missing_multilevel_cells(
+/// Ranks unobserved multi-level cells by identified-set reduction per unit cost.
+pub fn rank_missing_multilevel_cells(
     points: &[MultiLevelPoint],
     cardinalities: &[u32],
+    tolerance: f64,
+) -> Result<Vec<NextCornerCandidate>, DesignError> {
+    rank_missing_multilevel_cells_with_costs(points, cardinalities, &BTreeMap::new(), tolerance)
+}
+
+/// Same ranking with optional positive integer costs (default 1000).
+pub fn rank_missing_multilevel_cells_with_costs(
+    points: &[MultiLevelPoint],
+    cardinalities: &[u32],
+    costs: &BTreeMap<String, u32>,
     tolerance: f64,
 ) -> Result<Vec<NextCornerCandidate>, DesignError> {
     let n_cells: usize = cardinalities
@@ -575,23 +591,31 @@ fn rank_missing_multilevel_cells(
         if seen.contains(&cell) {
             continue;
         }
+        let label = cell
+            .iter()
+            .map(u32::to_string)
+            .collect::<Vec<_>>()
+            .join(",");
+        let cost = *costs.get(&label).unwrap_or(&1000);
+        if cost == 0 {
+            return Err(DesignError::InvalidCost {
+                corner: label,
+                cost,
+            });
+        }
         let mut expanded = points.to_vec();
-        expanded.push(MultiLevelPoint::new(cell.clone())?);
+        expanded.push(MultiLevelPoint::new(cell)?);
         let matrix = multilevel_main_effects_matrix(&expanded, cardinalities)?;
         let rank = matrix_rank(matrix, tolerance)?;
         let new_idim = n_coded.saturating_sub(rank);
         let new_lof = expanded.len().saturating_sub(rank);
         ranked.push(NextCornerCandidate {
-            corner: cell
-                .iter()
-                .map(u32::to_string)
-                .collect::<Vec<_>>()
-                .join(","),
+            corner: label,
             identified_set_reduction: current_idim.saturating_sub(new_idim),
             new_identified_set_dimension: new_idim,
             lack_of_fit_gain: new_lof.saturating_sub(current_lof),
             new_lack_of_fit_dimension: new_lof,
-            cost: 1000,
+            cost,
         });
     }
     sort_next_corners(&mut ranked);
@@ -886,6 +910,28 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(error, DesignError::InvalidCost { .. }));
+    }
+
+    #[test]
+    fn expensive_multilevel_cell_loses_to_the_cheap_one() {
+        let points = [ml(&[0, 0]), ml(&[1, 0]), ml(&[0, 1])];
+        let mut costs = BTreeMap::new();
+        for cell in ["1,1", "0,2", "1,2"] {
+            costs.insert(cell.into(), 1000);
+        }
+        costs.insert("1,1".into(), 80_000);
+        let ranked =
+            rank_missing_multilevel_cells_with_costs(&points, &[2, 3], &costs, 1e-12).unwrap();
+        assert!(!ranked.is_empty());
+        assert_ne!(ranked[0].corner, "1,1");
+        assert_eq!(
+            ranked
+                .iter()
+                .find(|item| item.corner == "1,1")
+                .unwrap()
+                .cost,
+            80_000
+        );
     }
 
     #[test]
