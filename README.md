@@ -105,8 +105,9 @@ now goes one step beyond rank geometry when the observed treatment design has
 full column rank: it solves the statewise log potentials, rejects observed laws
 outside the design image, verifies baseline and regime Markov factorization,
 then checks locality and conditional normalization. Rank-deficient nonlinear
-fibers remain explicitly set identified unless a necessary Markov or algebraic
-condition already refutes them. The report keeps causal feasibility separate
+fibers remain explicitly unresolved unless a necessary Markov or algebraic
+condition already refutes them: rank deficiency alone cannot decide whether
+nonlinear causal restrictions leave zero, one, or many completions. The report keeps causal feasibility separate
 from additive testability: an identified completion from primitive arms can
 still have no observed combination contrast with which to test closure.
 

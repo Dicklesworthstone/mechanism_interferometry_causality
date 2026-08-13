@@ -61,8 +61,8 @@ pub enum CompletionStatus {
     Infeasible,
     /// Every potential is algebraically identified and passes causal checks.
     IdentifiedFeasible,
-    /// Observed laws are algebraically feasible but potentials are not unique.
-    AlgebraicallySetIdentified,
+    /// Algebraic potentials are underdetermined; the nonlinear causal fiber was not classified.
+    CausalCompletionUnresolved,
 }
 
 /// Clause that refuted a proposed completion or prevented full evaluation.
@@ -215,7 +215,7 @@ pub fn solve_finite_modular_completion(
         }
         TransportSolutions::Underdetermined => {
             return Ok(base_report(
-                CompletionStatus::AlgebraicallySetIdentified,
+                CompletionStatus::CausalCompletionUnresolved,
                 Some(CompletionFailure::RankDeficient),
                 false,
                 Vec::new(),
@@ -288,7 +288,9 @@ fn solve_transports(input: &FiniteCompletionInput, design: &[Vec<f64>]) -> Trans
         let transport = input
             .regimes
             .iter()
-            .map(|regime| (regime.probabilities[state] / input.baseline_probabilities[state]).ln())
+            .map(|regime| {
+                regime.probabilities[state].ln() - input.baseline_probabilities[state].ln()
+            })
             .collect::<Vec<_>>();
         match solve_linear(design, &transport, input.tolerance) {
             LinearSolution::Inconsistent => return TransportSolutions::Inconsistent,
@@ -583,7 +585,7 @@ fn factorizes_over_dag(
     tolerance: f64,
 ) -> bool {
     for (state_index, state) in states.iter().enumerate() {
-        let mut reconstructed = 1.0;
+        let mut log_reconstructed = 0.0;
         for (node, node_parents) in parents.iter().enumerate() {
             let denominator = states
                 .iter()
@@ -600,9 +602,9 @@ fn factorizes_over_dag(
                 })
                 .map(|(index, _)| law[index])
                 .sum::<f64>();
-            reconstructed *= numerator / denominator;
+            log_reconstructed += numerator.ln() - denominator.ln();
         }
-        if (reconstructed - law[state_index]).abs() > tolerance {
+        if (log_reconstructed - law[state_index].ln()).abs() > tolerance {
             return false;
         }
     }
@@ -648,7 +650,7 @@ fn is_conditionally_normalized(
     parents: &[usize],
     tolerance: f64,
 ) -> bool {
-    let mut groups = BTreeMap::<Vec<u32>, (f64, f64)>::new();
+    let mut groups = BTreeMap::<Vec<u32>, (f64, Vec<f64>)>::new();
     for ((state, probability), potential) in states.iter().zip(baseline).zip(log_ratio) {
         let key = parents
             .iter()
@@ -656,11 +658,23 @@ fn is_conditionally_normalized(
             .collect::<Vec<_>>();
         let entry = groups.entry(key).or_default();
         entry.0 += probability;
-        entry.1 += probability * potential.exp();
+        entry.1.push(probability.ln() + potential);
     }
-    groups.values().all(|(mass, tilted_mass)| {
-        tilted_mass.is_finite() && (tilted_mass / mass - 1.0).abs() <= tolerance
+    groups.values().all(|(mass, log_terms)| {
+        let log_tilted_mass = log_sum_exp(log_terms);
+        let log_ratio = log_tilted_mass - mass.ln();
+        log_ratio.is_finite() && log_ratio.exp_m1().abs() <= tolerance
     })
+}
+
+fn log_sum_exp(values: &[f64]) -> f64 {
+    let maximum = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    maximum
+        + values
+            .iter()
+            .map(|value| (value - maximum).exp())
+            .sum::<f64>()
+            .ln()
 }
 
 #[cfg(test)]
@@ -744,13 +758,13 @@ mod tests {
     }
 
     #[test]
-    fn rank_deficient_product_regime_remains_set_identified() {
+    fn rank_deficient_product_regime_leaves_causal_fiber_unresolved() {
         let report = solve_finite_modular_completion(&root_input(vec![FiniteObservedRegime {
             levels: vec![1, 1],
             probabilities: vec![0.12, 0.28, 0.18, 0.42],
         }]))
         .unwrap();
-        assert_eq!(report.status, CompletionStatus::AlgebraicallySetIdentified);
+        assert_eq!(report.status, CompletionStatus::CausalCompletionUnresolved);
         assert_eq!(report.failure, Some(CompletionFailure::RankDeficient));
         assert!(!report.causal_potentials_evaluated);
     }
@@ -800,6 +814,33 @@ mod tests {
         assert_eq!(
             report.failure,
             Some(CompletionFailure::ConditionalNormalization)
+        );
+    }
+
+    #[test]
+    fn extreme_but_finite_ratios_are_solved_in_the_log_domain() {
+        let report = solve_finite_modular_completion(&FiniteCompletionInput {
+            state_cardinalities: vec![2],
+            states: vec![vec![0], vec![1]],
+            baseline_probabilities: vec![1e-320, 1.0],
+            parents_by_node: vec![vec![]],
+            families: vec![FiniteMechanismFamily {
+                cardinality: 2,
+                target: 0,
+            }],
+            regimes: vec![FiniteObservedRegime {
+                levels: vec![1],
+                probabilities: vec![0.5, 0.5],
+            }],
+            tolerance: 1e-12,
+        })
+        .unwrap();
+        assert_eq!(report.status, CompletionStatus::IdentifiedFeasible);
+        assert!(
+            report.potentials[0]
+                .log_ratio
+                .iter()
+                .all(|value| value.is_finite())
         );
     }
 }
