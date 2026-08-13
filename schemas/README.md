@@ -9,6 +9,9 @@
 - `benchmark_oracle.schema.json` defines study identity and expected routes that remain sealed until scoring.
 - `design_diagnostic_receipt.schema.json` defines deterministic, discovery-only relevance and positivity diagnostics; raw table bytes alone cannot claim those checks passed.
 - `finite_completion_request.schema.json` defines bounded finite-state fixed-DAG/target probability-table diagnostics; its output is model-relative and never certificate authority.
+- `dictionary_search_plan.schema.json` freezes the reference convention, code family, folds, rank grid, ranking rule, and hard search budget before dictionary fitting.
+- `transport_dictionary_draft.schema.json` closes the complete adapter attempt library, including completed, rejected, and unexecuted parameterizations.
+- `mechanism_dictionary_proposal.schema.json` defines the serialize-only transport-dictionary proposal. Despite the historical filename, its `artifact_kind` is `transport_dictionary_proposal`; all causal-family, mechanism, target, grouping, selection, and edge authority remains unavailable.
 
 JSON Schema cannot enforce that corner sampling proportions sum to one or that all design points share one dimension. Both constraints are checked by `scripts/check_repo.py` and `mic-data`.
 

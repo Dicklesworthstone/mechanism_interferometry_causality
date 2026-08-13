@@ -93,7 +93,53 @@ The result has fixed authority `proposal_only`. It stores raw score semantics, r
 
 `mic propose-tilt INPUT.json` exposes this boundary without adding certificate authority. [`examples/proposal_inputs/parity_active_tilt.json`](../examples/proposal_inputs/parity_active_tilt.json) and [`schemas/active_tilt_input.schema.json`](../schemas/active_tilt_input.schema.json) define the executable input; [`examples/proposals/parity_active_tilt.json`](../examples/proposals/parity_active_tilt.json) and [`schemas/proposal_batch.schema.json`](../schemas/proposal_batch.schema.json) define its deterministic output. The chosen candidate remains a recommendation for a new randomized regime, not a resolution of the current audit.
 
-## 8. Audit artifacts
+## 8. Algebraic transport dictionaries
+
+`mic_proposal::freeze_transport_dictionary_proposal` freezes a complete,
+preregistered search over factorizations of environment log transports. The
+artifact deliberately says `transport_dictionary_proposal`: an atom is an
+algebraic transport field, not an established mechanism, target, same-target
+family, ancestor, or edge.
+
+The freezer binds the validated self-driving request, upstream shift library,
+search plan, unit-fold plan, common discovery cohort, state representation,
+reference law, every attempted parameterization, rejected and unexecuted
+attempts, external atom artifacts, learner provenance, and seed. It enforces
+hard ceilings before multiplying code-matrix dimensions. Candidate atoms may
+refer only to `regime_information_support`; marginal response sets are a
+different object.
+
+Four algebraic cases are represented explicitly:
+
+1. known incidence with full rank, including the intercept column when the
+   density-ratio reference is not the factorial zero law;
+2. full-rank marked pure anchors, retaining conventional scale and label
+   ambiguity when amplitudes or identities are not externally supplied;
+3. a complete binary cube with all distinct binary vertices and independent
+   edge functions, retaining coordinate permutation and, without a marked
+   zero, independent bit complements;
+4. incomplete unknown codes, which retain general invertible mixing.
+
+The exact three-law shear witness is locked in the Rust tests: observed
+transports `{0,f,g}` fit both atoms `(f,g)` with codes `00,10,01` and atoms
+`(f,g-f)` with codes `00,10,11`. The two models predict different missing
+laws. Consequently sparse reconstruction cannot choose a causal vocabulary.
+
+Every frozen output has `authority: proposal_only`,
+`certificate_eligible: false`, `input_claims_verified: false`,
+`causal_family_status: not_evaluated`, no edge authority, unestablished
+selection, and only a sealed confirmation commitment. The discovery command
+accepts no confirmation input. Locality, conditional normalization,
+same-target semantics, unit and selection receipts, and held-out closure belong
+to later independent audits.
+
+`mic freeze-dictionary REQUEST.json SHIFT_DRAFT.json PLAN.json
+DICTIONARY_DRAFT.json` exposes this boundary with the same 64 MiB bounded JSON
+reader as the fitted transport commands. The closed plan, draft, and output
+schemas live in `schemas/`; no dictionary output can be converted into a
+certificate gate.
+
+## 9. Audit artifacts
 
 The report bundle should include `proposals.json` whenever proposal adapters affect search order. It records:
 

@@ -20,7 +20,10 @@ where \(h_s=\log p_s\).
 
 ## 2. Population certificate
 
-Given a proposed DAG `G` and distinct proposed primitive targets `t_j`, the regime family has a context-invariant modular soft-intervention representation if and only if:
+Assume a complete common-support regime cube, a proposed DAG `G`, distinct
+proposed primitive targets `t_j`, and a reference law `p_0` that factorizes over
+`G`. Under these standing premises, the regime family has a context-invariant
+modular soft-intervention representation if and only if:
 
 1. **Locality:** `r_j` is measurable with respect to `{t_j} ∪ pa(t_j)`.
 2. **Conditional normalization:** `E_0[r_j | X_pa(t_j)] = 1`.
@@ -33,7 +36,8 @@ Square flatness implies global additivity because every edge increment is invari
 Factor \(j\) may instead have a finite level set \(\mathcal A_j\) with marked
 baseline \(0_j\). Nonbaseline levels are mutually exclusive alternative
 replacements of one proposed target; distinct factors still target distinct
-mechanisms. On the complete product grid, define
+mechanisms. Retain the common-support and baseline-factorization premises from
+Section 2. On the complete product grid, define
 
 \[
 r_{j,a}(x)=\frac{p_{(0,\ldots,a,\ldots,0)}(x)}{p_0(x)}.

@@ -1206,12 +1206,14 @@ function-valued row
 H_e(x)=\log\frac{p_e(x)}{p_0(x)}.
 \label{eq:environment-transport}
 \end{equation}
-A fixed-primitive model has
+A fixed-primitive model relative to an arbitrary density-ratio reference has
 \begin{equation}
-H_e(x)=\sum_{j=1}^K A_{ej}\phi_j(x),
+H_e(x)=b(x)+\sum_{j=1}^K A_{ej}\phi_j(x),
 \qquad r_j(x)=\exp\{\phi_j(x)\}.
 \label{eq:environment-factorization}
 \end{equation}
+Here \(b\) is the transport from the density-ratio reference to the factorial
+zero law.  It vanishes only when those two laws coincide.
 This display separates three identification problems that must not be
 collapsed: recovering the algebraic factors \(\phi_j\), establishing that each
 factor is a local normalized causal replacement, and assembling the resulting
@@ -1220,22 +1222,27 @@ families into a graph.
 \begin{proposition}[Environment-axis identification]
 \label{prop:environment-axes}
 If the incidence or dosage matrix \(A\) in
-\eqref{eq:environment-factorization} is known and has column rank \(K\), then
-the function-valued factor vector \((\phi_1,\ldots,\phi_K)\) is unique almost
-everywhere.  If instead the environment labels are unknown but all \(2^K\)
+\eqref{eq:environment-factorization} is known and the augmented matrix
+\([\mathbf 1,A]\) has column rank \(K+1\), then \(b\) and the function-valued
+factor vector \((\phi_1,\ldots,\phi_K)\) are unique almost everywhere.  When
+the density-ratio reference is the marked zero-code law, \(b=0\) and column
+rank \(K\) of \(A\) suffices.  If instead the environment labels are unknown
+but all \(2^K\)
 vertices
 \begin{equation}
 \left\{b+\sum_{j=1}^K s_j\phi_j:s\in\{0,1\}^K\right\}
 \end{equation}
 are observed and the \(\phi_j\) are linearly independent, the primitive axes
-and binary codes are identified up to coordinate permutation and bit reversal.
+and binary codes are identified up to coordinate permutation and independent
+coordinate bit complementation.
 A separately marked factorial zero vertex fixes the parallelotope origin and
 edge signs; coordinate permutation remains.  Merely choosing an external
 density-ratio reference in \eqref{eq:environment-transport} does not mark a
 factorial vertex unless that law belongs to the observed cube.
 \end{proposition}
 
-The first claim follows by applying a left inverse of \(A\) pointwise.  For the
+The first claim follows by applying a left inverse of \([\mathbf 1,A]\)
+pointwise, or of \(A\) after subtracting a marked zero-code row.  For the
 second, the observed set is the vertex set of a nondegenerate parallelotope in
 the finite-dimensional span of the \(\phi_j\).  Its convex-hull one-skeleton
 recovers which vertices differ along one primitive direction; only renaming an
@@ -1246,6 +1253,34 @@ not define intervention adjacency.  The proposition identifies algebraic
 factors only.  For nonbinary dosage entries, \(\exp\{a\phi_j\}\) need not be a
 normalized conditional replacement even when \(\exp\{\phi_j\}\) is; a dosage
 interpretation requires a separately normalized parametric mechanism path.
+
+A marked pure-environment design is a useful corollary of the first claim.  If
+the factorial baseline \(e_0\) and one environment with code \(e_j\) are
+externally justified as changing only primitive \(j\), then
+\(\phi_j=H_{e_j}-H_{e_0}\) directly.  When the density-ratio reference is that
+factorial baseline, \(H_{e_0}=0\).  Linear independence of the recovered
+functions makes the real coefficient vector of every other environment unique
+whenever it lies in their span.  This is an algebraic dictionary result, not
+evidence that the columns are causal mechanisms.  If a physical anchor
+amplitude in \(H_{e_j}-H_{e_0}=\lambda_j\phi_j\) is unknown, the data identify
+only its factor ray; taking the observed anchor difference as a unit potential
+fixes scale by convention.  Arbitrary rescaling generally fails conditional
+normalization and cannot silently be called another replacement.
+Without known codes, pure anchors, known single-change adjacency, or the
+complete parallelotope, even exact sparse-looking factorizations can remain
+ambiguous.  Choose linearly independent observed transports \(h_1,h_2\).  Both
+\begin{equation}
+  (h_1,h_2),\quad A=\begin{bmatrix}1&0\\0&1\end{bmatrix},
+  \qquad\text{and}\qquad
+  (h_1,h_2-h_1),\quad A'=\begin{bmatrix}1&0\\1&1\end{bmatrix}
+\end{equation}
+reproduce the same three rows \((0,h_1,h_2)\) exactly but predict different
+missing fourth laws.  More generally \(A\Phi=(AT)(T^{-1}\Phi)\)
+for every invertible \(T\).  Sparsity can score representatives of this orbit,
+but it does not by itself prove which vocabulary generated the environments.
+Repeated backgrounds become identifying only under an explicit uniqueness
+theorem or independently supplied primitive adjacency; selecting apparently
+parallel edges and validating them on the same laws is circular.
 
 Algebraic recovery is still not causal recovery.  For an identified factor let
 \(F_j\) be its minimal coordinate-measurability support and define

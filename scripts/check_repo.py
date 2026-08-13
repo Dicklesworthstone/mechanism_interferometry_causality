@@ -746,6 +746,9 @@ def required_files() -> None:
         "schemas/self_driving_request.schema.json",
         "schemas/shift_factorization_draft.schema.json",
         "schemas/shift_factorization_proposal.schema.json",
+        "schemas/dictionary_search_plan.schema.json",
+        "schemas/transport_dictionary_draft.schema.json",
+        "schemas/mechanism_dictionary_proposal.schema.json",
         "schemas/benchmark_routing_view.schema.json",
         "schemas/design_authority_receipt.schema.json",
         "schemas/benchmark_oracle.schema.json",
@@ -762,6 +765,9 @@ def required_files() -> None:
         "examples/scout_inputs/self_driving_request.json",
         "examples/scout_inputs/shift_factorization_draft.json",
         "examples/scout_proposals/shift_factorization.json",
+        "examples/dictionary_inputs/search_plan.json",
+        "examples/dictionary_inputs/transport_dictionary_draft.json",
+        "examples/dictionary_proposals/transport_dictionary.json",
         "examples/benchmarks/authority_ablation_template/README.md",
         "examples/benchmarks/authority_ablation_template/source_table.csv",
         "examples/benchmarks/authority_ablation_template/routing_data.csv",
@@ -820,6 +826,9 @@ def validate_schemas_and_manifests() -> None:
     scout_request_schema = schemas.get("self_driving_request.schema.json")
     scout_draft_schema = schemas.get("shift_factorization_draft.schema.json")
     scout_proposal_schema = schemas.get("shift_factorization_proposal.schema.json")
+    dictionary_plan_schema = schemas.get("dictionary_search_plan.schema.json")
+    dictionary_draft_schema = schemas.get("transport_dictionary_draft.schema.json")
+    dictionary_proposal_schema = schemas.get("mechanism_dictionary_proposal.schema.json")
     audit_report_schema = schemas.get("audit_report.schema.json")
     four_law_report_schema = schemas.get("four_law_report.schema.json")
     finding_schema = schemas.get("evidence_finding.schema.json")
@@ -1121,6 +1130,138 @@ def validate_schemas_and_manifests() -> None:
                         candidate_request, candidate_draft, candidate_proposal
                     ),
                     f"scout validator accepted adversary: {name}",
+                )
+
+    check(dictionary_plan_schema is not None, "dictionary search-plan schema was not loaded")
+    check(dictionary_draft_schema is not None, "transport-dictionary draft schema was not loaded")
+    check(
+        dictionary_proposal_schema is not None,
+        "transport-dictionary proposal schema was not loaded",
+    )
+    if (
+        dictionary_plan_schema is not None
+        and dictionary_draft_schema is not None
+        and dictionary_proposal_schema is not None
+    ):
+        dictionary_registry = Registry().with_resource(
+            str(dictionary_draft_schema["$id"]),
+            Resource.from_contents(dictionary_draft_schema),
+        )
+        dictionary_plan_validator = Draft202012Validator(dictionary_plan_schema)
+        dictionary_draft_validator = Draft202012Validator(dictionary_draft_schema)
+        dictionary_proposal_validator = Draft202012Validator(
+            dictionary_proposal_schema, registry=dictionary_registry
+        )
+        dictionary_plan = load_json(ROOT / "examples" / "dictionary_inputs" / "search_plan.json")
+        dictionary_draft = load_json(
+            ROOT / "examples" / "dictionary_inputs" / "transport_dictionary_draft.json"
+        )
+        dictionary_proposal = load_json(
+            ROOT / "examples" / "dictionary_proposals" / "transport_dictionary.json"
+        )
+        for name, validator, value in [
+            ("dictionary search plan", dictionary_plan_validator, dictionary_plan),
+            ("transport-dictionary draft", dictionary_draft_validator, dictionary_draft),
+            ("transport-dictionary proposal", dictionary_proposal_validator, dictionary_proposal),
+        ]:
+            for error in sorted(validator.iter_errors(value), key=lambda error: list(error.path)):
+                location = ".".join(str(part) for part in error.path) or "<root>"
+                fail(f"{name} schema violation at {location}: {error.message}")
+
+        def dictionary_semantic_errors(plan: dict, draft: dict, proposal: dict) -> list[str]:
+            errors: list[str] = []
+            scout_request = load_json(ROOT / "examples" / "scout_inputs" / "self_driving_request.json")
+            scout_proposal = load_json(
+                ROOT / "examples" / "scout_proposals" / "shift_factorization.json"
+            )
+            if not isinstance(scout_request, dict) or not isinstance(scout_proposal, dict):
+                return ["dictionary fixtures could not resolve the upstream scout bundle"]
+            if plan.get("self_driving_request_fingerprint") != scout_proposal.get(
+                "request_fingerprint"
+            ):
+                errors.append("dictionary plan is detached from the scout request fingerprint")
+            if plan.get("shift_library_fingerprint") != scout_proposal.get(
+                "candidate_library_fingerprint"
+            ):
+                errors.append("dictionary plan is detached from the shift library")
+            if proposal.get("request_fingerprint") != plan.get(
+                "self_driving_request_fingerprint"
+            ):
+                errors.append("dictionary proposal request fingerprint is stale")
+            if proposal.get("shift_library_fingerprint") != plan.get(
+                "shift_library_fingerprint"
+            ):
+                errors.append("dictionary proposal shift-library fingerprint is stale")
+            if proposal.get("attempts") != draft.get("attempts"):
+                errors.append("dictionary proposal does not retain the complete attempt library")
+            if proposal.get("seed") != scout_request.get("seed"):
+                errors.append("dictionary proposal seed is detached from the discovery request")
+            incomplete = any(
+                isinstance(attempt, dict)
+                and isinstance(attempt.get("outcome"), dict)
+                and isinstance(attempt["outcome"].get("candidate"), dict)
+                and attempt["outcome"]["candidate"].get("algebraic_case", {}).get("case")
+                == "incomplete_unknown_codes"
+                for attempt in draft.get("attempts", [])
+            )
+            if incomplete and "general_linear_mixing" not in proposal.get("ambiguities", []):
+                errors.append("incomplete unknown codes dropped general-linear ambiguity")
+            if proposal.get("candidate_library_fingerprint") != (
+                "b670f208cb1f210f9e78daa654ca6ef4b7c98e043caf8789ec0c0fe81d059b1a"
+            ):
+                errors.append("dictionary candidate-library fingerprint is stale")
+            return errors
+
+        if (
+            isinstance(dictionary_plan, dict)
+            and isinstance(dictionary_draft, dict)
+            and isinstance(dictionary_proposal, dict)
+        ):
+            for error in dictionary_semantic_errors(
+                dictionary_plan, dictionary_draft, dictionary_proposal
+            ):
+                fail(error)
+
+            def dictionary_bundle_rejected(plan: dict, draft: dict, proposal: dict) -> bool:
+                return bool(
+                    list(dictionary_plan_validator.iter_errors(plan))
+                    or list(dictionary_draft_validator.iter_errors(draft))
+                    or list(dictionary_proposal_validator.iter_errors(proposal))
+                    or dictionary_semantic_errors(plan, draft, proposal)
+                )
+
+            mutations: list[tuple[str, dict, dict, dict]] = []
+            forged_authority = copy.deepcopy(dictionary_proposal)
+            forged_authority["authority"] = "certificate"
+            mutations.append(
+                ("forged dictionary authority", dictionary_plan, dictionary_draft, forged_authority)
+            )
+            forged_target = copy.deepcopy(dictionary_proposal)
+            forged_target["target"] = "c_001"
+            mutations.append(
+                ("forged dictionary target", dictionary_plan, dictionary_draft, forged_target)
+            )
+            dropped_ambiguity = copy.deepcopy(dictionary_proposal)
+            dropped_ambiguity["ambiguities"] = []
+            mutations.append(
+                ("dropped dictionary ambiguity", dictionary_plan, dictionary_draft, dropped_ambiguity)
+            )
+            changed_rejection = copy.deepcopy(dictionary_draft)
+            changed_rejection["attempts"][1]["outcome"]["reason"] = "support_failure"
+            mutations.append(
+                ("changed rejected attempt", dictionary_plan, changed_rejection, dictionary_proposal)
+            )
+            stale_library = copy.deepcopy(dictionary_proposal)
+            stale_library["candidate_library_fingerprint"] = "0" * 64
+            mutations.append(
+                ("stale dictionary library", dictionary_plan, dictionary_draft, stale_library)
+            )
+            for name, candidate_plan, candidate_draft, candidate_proposal in mutations:
+                check(
+                    dictionary_bundle_rejected(
+                        candidate_plan, candidate_draft, candidate_proposal
+                    ),
+                    f"dictionary validator accepted adversary: {name}",
                 )
 
     check(audit_report_schema is not None, "audit report schema was not loaded")
@@ -1648,7 +1789,7 @@ def validate_schemas_and_manifests() -> None:
     if four_law_report_schema is not None:
         four_law_validator = Draft202012Validator(four_law_report_schema)
         four_law_report = {
-            "schema_version": "2.0.0",
+            "schema_version": "2.1.0",
             "experiment_id": "schema-conformance",
             "status": "abstained",
             "gates": {
@@ -1669,6 +1810,17 @@ def validate_schemas_and_manifests() -> None:
                 "clusters_spanning_regimes": [],
                 "missing_regimes": [],
             },
+            "information_content": {
+                "n_rows": 0,
+                "n_unit_labels": 0,
+                "units_are_rows": False,
+                "n_distinct_supported_regimes": 0,
+                "n_complete_testable_squares": 0,
+                "units_per_corner_min": None,
+                "units_per_corner_max": None,
+                "confirmation_count_ready": False,
+                "note": "count-only readiness; no confirmation authority",
+            },
             "four_law": [],
             "projection": {},
             "ledger": {
@@ -1680,7 +1832,7 @@ def validate_schemas_and_manifests() -> None:
         }
         check(
             not list(four_law_validator.iter_errors(four_law_report)),
-            "valid non-certifying four-law v2 report was rejected",
+            "valid non-certifying four-law v2.1 report was rejected",
         )
         invalid_four_law_reports: list[dict] = []
         passed_four_law = copy.deepcopy(four_law_report)
@@ -1701,6 +1853,19 @@ def validate_schemas_and_manifests() -> None:
         malformed_manifest_binding = copy.deepcopy(four_law_report)
         malformed_manifest_binding["preflight"]["manifest_canonical_sha256"] = "not-a-sha256"
         invalid_four_law_reports.append(malformed_manifest_binding)
+        forged_count_ready = copy.deepcopy(four_law_report)
+        forged_count_ready["information_content"]["confirmation_count_ready"] = True
+        invalid_four_law_reports.append(forged_count_ready)
+        hidden_count_ready = copy.deepcopy(four_law_report)
+        hidden_count_ready["information_content"].update(
+            {
+                "n_complete_testable_squares": 1,
+                "units_per_corner_min": 2,
+                "units_per_corner_max": 2,
+                "confirmation_count_ready": False,
+            }
+        )
+        invalid_four_law_reports.append(hidden_count_ready)
         for index, report in enumerate(invalid_four_law_reports):
             check(
                 bool(list(four_law_validator.iter_errors(report))),

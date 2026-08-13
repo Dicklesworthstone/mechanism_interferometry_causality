@@ -72,6 +72,7 @@ cargo run -p mic-cli -- predict-combination-refits examples/primitive_transport_
 cargo run -p mic-cli -- orient examples/orientation/parity_demo.json
 cargo run -p mic-cli -- propose-tilt examples/proposal_inputs/parity_active_tilt.json
 cargo run -p mic-cli -- freeze-scout examples/scout_inputs/self_driving_request.json examples/scout_inputs/shift_factorization_draft.json
+cargo run -p mic-cli -- freeze-dictionary examples/scout_inputs/self_driving_request.json examples/scout_inputs/shift_factorization_draft.json examples/dictionary_inputs/search_plan.json examples/dictionary_inputs/transport_dictionary_draft.json
 cargo run -p mic-engine --bin mic-tabular -- report examples/configs/four_law_discrete.json --base-dir .
 cargo run -p mic-engine --bin mic-tabular -- survey examples/data/four_law_discrete.csv --cluster cluster_id --base-dir .
 
@@ -190,6 +191,15 @@ isolation inputs as unresolved caller claims, derives mandatory blockers, binds
 the complete ordered candidate library and request, and cannot deserialize or
 convert into certificate gates. It does not read confirmation outcomes or claim
 that the supplied isolation facts are true.
+
+`mic freeze-dictionary` freezes a preregistered algebraic factorization search
+over those discovery environments. It binds every attempted, rejected, and
+unexecuted parameterization and serializes the surviving gauge explicitly. In
+particular, incomplete unknown codes retain general invertible-mixing
+ambiguity. The artifact is a `transport_dictionary_proposal`, not a recovered
+mechanism dictionary: causal-family, mechanism, target, grouping, selection,
+and edge authority all remain unavailable until separate audits on independent
+data establish them.
 
 ## Citation
 

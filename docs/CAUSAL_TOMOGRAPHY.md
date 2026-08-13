@@ -144,8 +144,8 @@ There is one important unlabeled exception to generic factor ambiguity. If all
 `2^K` laws of an exact flat cube occur and the `K` primitive log potentials are
 linearly independent as functions, the laws are the vertices of a
 parallelotope in function space. Its edge directions identify the primitive
-axes up to coordinate permutation and bit reversal. An externally identified
-reference corner fixes the bit reversals. Partial point clouds do not inherit
+axes up to coordinate permutation and independent coordinate bit complements.
+An externally identified reference corner fixes the complements. Partial point clouds do not inherit
 this result: without a complete cube or known single-change adjacency, an
 invertible mixing of factors is generally observationally equivalent.
 
@@ -154,6 +154,75 @@ unique, and one coordinate must satisfy the nonlinear conditional-normalization
 identity. Exact low rank, globally normalized laws, and zero curvature can all
 hold while every proposed primitive fails conditional normalization for every
 possible target.
+
+### Interventional dictionary learning: identified cases and the hard wall
+
+A transport-dictionary candidate relative to an arbitrary reference law is a
+factorization
+
+```text
+H_e(x) = b(x) + sum_j A_ej phi_j(x)
+```
+
+under one fixed density-ratio reference convention. Here `b` transports the
+reference law to the factorial zero law; it is zero only when those laws
+coincide. Its columns are recurring
+primitive transports, not generic latent features. A column may be active in
+several backgrounds only when it denotes literally the same replacement. Two
+alternative guides, doses, or implementations of one target conditional are
+categorical levels of one mechanism family; they are not additive columns that
+may be coactivated unless an additional normalized parametric path supplies
+that semantics.
+
+Three population cases are exact:
+
+1. **Known full-rank codes.** If `A` is externally known and `[1,A]` has full
+   column rank, a left inverse identifies `b` and every `phi_j` pointwise. If
+   the density-ratio reference is the marked zero-code law, then `b=0` and
+   full column rank of `A` suffices. A known factorial baseline
+   plus one externally justified pure environment per column is the simplest
+   instance: `phi_j = H_ej - H_e0`. If the recovered factors are linearly independent,
+   every other environment has at most one real coefficient vector, and
+   therefore at most one binary code, in their span. If the physical anchor
+   amplitude is unknown, the observed anchor difference fixes a unit scale by
+   convention; algebra alone identifies only its ray, and arbitrary rescaling
+   need not remain conditionally normalized.
+2. **Complete unlabeled binary grid.** The parallelotope result above recovers
+   axes and codes only up to the stated cube gauge. Marking the factorial zero
+   vertex fixes origin and edge signs; coordinate permutation remains.
+3. **Incomplete unknown codes.** No generic identification follows from low
+   rank or sparse-looking fits. For any invertible `T`, `A Phi = (A T)
+   (T^-1 Phi)`. In the smallest two-row witness, choose linearly independent
+   transports `h1,h2`; they admit both
+   factors `(h1,h2)` with codes `(10,01)` and factors `(h1,h2-h1)` with codes
+   `(10,11)`. Both exactly reproduce the laws but predict different missing
+   fourth laws. A sparsity preference can rank
+   them, but cannot establish which intervention vocabulary generated them.
+
+Repeated backgrounds add a falsifier, not automatic identification. Once two
+environment edges have been independently justified as the same primitive,
+their transport fields must agree and their observed combination loops must
+close. Discovering parallel edges by searching the same point cloud and then
+using that parallelism as confirmation is circular. Unknown-code
+identification outside the complete-grid case therefore needs explicit anchor
+or separability assumptions, a theorem that makes sparse codes unique, and an
+untouched combination or background on which the frozen dictionary predicts a
+law. Those conditions are research targets, not current software claims.
+
+After algebraic recovery, every factor still has to pass the minimal-support,
+conditional-normalization, unit, selection, and held-out closure audits. The
+flat rank-two noncausal cube is the locked adversary: a dictionary learner may
+recover its two axes, but it must reject every causal-family interpretation. A
+deterministic proxy is a second adversary: if `Z=X`, minimal support may be
+written in either coordinate and target identity is not unique. The proposal
+must serialize the surviving gauge/equivalence class rather than select a
+convenient representative and call it a mechanism.
+
+The complete-cube result does not automatically extend to unlabeled
+multi-level grids. The same four laws `{0,f,g,f+g}` can be represented as two
+binary families or one four-level categorical family. Family arities and
+same-family level grouping therefore require metadata or a separate
+indecomposability theorem. No such automatic grouping is claimed here.
 
 ### Repeated tilts: familywise target orientation
 

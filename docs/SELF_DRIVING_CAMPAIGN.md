@@ -1,6 +1,6 @@
 # Self-driving causal tomography campaign
 
-Status date: 2026-08-12
+Status date: 2026-08-13
 
 This document is the execution ledger for turning Mechanism Interferometry into
 a useful system for large, heterogeneous tabular datasets. The objective is not
@@ -321,8 +321,23 @@ qualification.
 - [x] Make the linear closure cross-fit pooling-honest and corner-stratified;
   export signed and non-cancelling out-of-fold baseline curvature moments while
   retaining `calibrated_test: false`.
-- [ ] Specify interventional mechanism dictionary learning with sparse environment codes, anchors, local support, normalization, and label/gauge ambiguity.
-- [ ] Prove or delimit dictionary identifiability under sparse combinations and repeated backgrounds.
+- [x] Specify interventional mechanism dictionary learning with fixed-reference
+  environment codes, pure anchors, complete-cube recovery, local support,
+  normalization, categorical same-target levels, and explicit gauge ambiguity.
+- [x] Prove or delimit population dictionary identifiability: known full-rank
+  codes and complete unlabeled cubes are identified up to their stated gauges;
+  partial unknown codes retain an exact invertible-mixing ambiguity, while
+  repeated backgrounds are falsifiers unless adjacency is independently bound.
+- [x] Add a private, serialize-only `transport_dictionary_proposal` freezer,
+  closed plan/draft/output schemas, hard search budgets, complete attempt-library
+  fingerprint, bounded CLI, and exact three-law shear witness. Every causal,
+  target, grouping, selection, and edge field remains unavailable.
+- [ ] Implement a many-environment, environment-stratified unit fold plan that
+  fails when any training or held-out slice loses an environment.
+- [ ] Implement the reference known-code and complete-binary-cube dictionary
+  estimators behind adapter boundaries; keep unknown-code learning exploratory.
+- [ ] Add untouched whole-environment prediction and composition scoring after
+  rank, support, representation, and learner selection are frozen.
 - [ ] Specify curvature tomography only under an infinitesimal or explicit latent-score factor model.
 - [x] Add an exact hidden-sensor conformance world with complete-state flatness,
   omission curvature, rank-one infinitesimal score covariance, and a resolving

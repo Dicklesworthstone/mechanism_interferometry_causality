@@ -21,9 +21,10 @@ documents. One stronger theorem, one estimator, one controlled-real demo.
 **Landed (2026-08-13, BeigeGorge, not a theorem).** `classify_observed_family`
 decides two required fails: `D={00,11}` + correlated combo → `infeasible`;
 complete catalog square with no same-target tilt family → orientation
-`untestable`. Geometry never returns `unique`. Multi-level coded matrix and
-rectangle enumeration exist. Survey 1.1.0 prints information-content and
-stamps every atlas square `orientation=untestable`. Exact `δ = p_AB-p_A p_B/p_0`
+`untestable`. Geometry never returns a causal completion verdict without laws
+and a fixed model. Multi-level coded matrix and rectangle enumeration exist.
+Survey 1.2.0 prints information-content, separates completion evaluation from
+testability, and stamps every atlas square `orientation=untestable`. Exact `δ = p_AB-p_A p_B/p_0`
 and `κ̃ = κ + Δlogπ − ΔlogZ` plus Γ-intervals live in `mic-core` as
 `DiagnosticOnly`. `rank_missing_boolean_corners` ranks the next cell by
 identified-set reduction, then lack-of-fit gain (`D={00,11}` → collect `01` or
@@ -63,9 +64,10 @@ is **not confirmed**. The adopted review plus the public-extract campaign kill
 the unsupervised-certification reading: a complete square is a design fact, not
 an arrow. Q-001 remains useful only as a *negative* control on the survey
 (proposal-only, never `passed`). The positive question of record is now: given
-a labeled or partially labeled family of perturbations, can MIC classify the
-observed design as unique / set-identified / infeasible / untestable, and
-refuse the complete squares that are catalogs rather than mechanisms?
+a labeled or partially labeled family of perturbations, can MIC report a fixed
+model's evaluated completion fiber as point identified / set identified /
+infeasible, keep algebraic testability on a separate axis, and refuse complete
+squares that are catalogs rather than mechanisms?
 
 ## Hypotheses (including a third alternative)
 
