@@ -81,15 +81,14 @@ fn decode_policy(policy_json: &str) -> Result<PreflightPolicy, String> {
         return Ok(PreflightPolicy::default());
     }
     let supplied: serde_json::Map<String, serde_json::Value> = decode("policy", policy_json)?;
-    let mut merged = match serde_json::to_value(PreflightPolicy::default()) {
-        Ok(serde_json::Value::Object(map)) => map,
-        _ => {
-            return Err(BoundaryError::new(
-                "policy",
-                "the default preflight policy did not serialize as an object",
-            )
-            .to_json());
-        }
+    let Ok(serde_json::Value::Object(mut merged)) =
+        serde_json::to_value(PreflightPolicy::default())
+    else {
+        return Err(BoundaryError::new(
+            "policy",
+            "the default preflight policy did not serialize as an object",
+        )
+        .to_json());
     };
     for (key, value) in supplied {
         if !merged.contains_key(&key) {
