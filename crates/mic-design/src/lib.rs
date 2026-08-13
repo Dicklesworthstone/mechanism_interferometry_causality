@@ -5,14 +5,16 @@ mod multilevel;
 
 pub use multilevel::{
     FamilyClassificationInput, MultiLevelPoint, NextCornerCandidate, NextCornerKind,
-    ObservedFamilyClassification, OrientationTestability, RectangleFace, RectangleLawAudit,
-    audit_rectangle_laws, classify_multilevel_family, classify_observed_family,
+    NextQueryPurpose, ObservedFamilyClassification, OrientationTestability, RectangleFace,
+    RectangleLawAudit, audit_rectangle_laws, classify_multilevel_family, classify_observed_family,
     enumerate_rectangles, multilevel_main_effects_matrix, orientation_testability,
     rank_missing_boolean_corners, rank_missing_boolean_corners_from_observed,
     rank_missing_boolean_corners_with_costs, rank_missing_multilevel_cells,
     rank_missing_multilevel_cells_with_costs, rectangle_contrast,
 };
 
+use num_bigint::BigInt;
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
@@ -218,6 +220,8 @@ pub struct DesignAudit {
     pub dimension: usize,
     /// Rank of the intercept-plus-main-effects matrix.
     pub main_effects_rank: usize,
+    /// Arithmetic used for the main-effect rank decision.
+    pub rank_arithmetic: RankArithmetic,
     /// Dimension of the pointwise lack-of-fit space.
     pub lack_of_fit_dimension: usize,
     /// Deterministic basis of contrasts orthogonal to all main effects.
@@ -230,13 +234,21 @@ pub struct DesignAudit {
     pub squares_span_lack_of_fit: bool,
 }
 
+/// Numerical authority of a reported design-matrix rank.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RankArithmetic {
+    /// Exact elimination over integers using arbitrary-precision intermediates.
+    ExactInteger,
+}
+
 /// Audits an arbitrary observed Boolean design.
 pub fn audit_design(points: &[DesignPoint], tolerance: f64) -> Result<DesignAudit, DesignError> {
     validate_tolerance(tolerance)?;
     validate_points(points)?;
     let dimension = points[0].dimension();
     let matrix = main_effects_matrix(points);
-    let rank = matrix_rank(matrix.clone(), tolerance)?;
+    let rank = exact_boolean_main_effects_rank(points);
     let lack_of_fit_basis = null_space_basis(transpose(&matrix)?, tolerance)?;
     let faces = enumerate_square_faces(points)?;
     let square_vectors = square_contrast_vectors(points, &faces);
@@ -247,12 +259,60 @@ pub fn audit_design(points: &[DesignPoint], tolerance: f64) -> Result<DesignAudi
         corner_count: points.len(),
         dimension,
         main_effects_rank: rank,
+        rank_arithmetic: RankArithmetic::ExactInteger,
         lack_of_fit_dimension: lack,
         lack_of_fit_basis,
         square_faces: faces,
         square_contrast_rank: square_rank,
         squares_span_lack_of_fit: square_rank == lack,
     })
+}
+
+/// Exact rank of the Boolean intercept-plus-main-effects matrix.
+#[must_use]
+pub fn exact_boolean_main_effects_rank(points: &[DesignPoint]) -> usize {
+    let matrix = points
+        .iter()
+        .map(|point| {
+            let mut row = Vec::with_capacity(point.dimension() + 1);
+            row.push(BigInt::from(1_u8));
+            row.extend(point.bits.iter().map(|bit| BigInt::from(u8::from(*bit))));
+            row
+        })
+        .collect();
+    exact_bigint_rank(matrix)
+}
+
+pub(crate) fn exact_bigint_rank(mut matrix: Vec<Vec<BigInt>>) -> usize {
+    if matrix.is_empty() {
+        return 0;
+    }
+    let columns = matrix[0].len();
+    let mut pivot_row = 0;
+    for column in 0..columns {
+        let Some(candidate) = (pivot_row..matrix.len()).find(|row| !matrix[*row][column].is_zero())
+        else {
+            continue;
+        };
+        matrix.swap(pivot_row, candidate);
+        let pivot = matrix[pivot_row][column].clone();
+        let pivot_values = matrix[pivot_row].clone();
+        for row_values in matrix.iter_mut().skip(pivot_row + 1) {
+            if row_values[column].is_zero() {
+                continue;
+            }
+            let factor = row_values[column].clone();
+            for (entry, pivot_entry) in row_values[column..].iter_mut().zip(&pivot_values[column..])
+            {
+                *entry = &pivot * &*entry - &factor * pivot_entry;
+            }
+        }
+        pivot_row += 1;
+        if pivot_row == matrix.len() {
+            break;
+        }
+    }
+    pivot_row
 }
 
 /// Builds the intercept-plus-main-effects design matrix.
