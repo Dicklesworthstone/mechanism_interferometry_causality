@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-13T03:21:10Z",
+  "generated_at_utc": "2026-08-13T03:23:03Z",
   "hash_algorithm": "sha256",
   "file_count": 186,
-  "aggregate_sha256": "3be62ad049adc0013894233f2642775691c465edf7a191e066fc2dd4bc1d216f",
+  "aggregate_sha256": "a360f266bf08f2f90253ee623d9c4c4aace02f1f2eaa07424a324a0d65ed2b38",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -178,8 +178,8 @@
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 48645,
-      "sha256": "3d8b2936c3475536ee93753084b497c7746b19578219c58c6381af1c15eabd15"
+      "bytes": 52643,
+      "sha256": "2276e011b91133cd783bcd2f7422fa05b164db1140e31ec892dbc3dfaf44d154"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
@@ -813,8 +813,8 @@
     },
     {
       "path": "scripts/public_extracts/common.py",
-      "bytes": 4645,
-      "sha256": "909cb3c67854f52ac0df2d0ecad0e73debb89dd586e84b4464ce89c45d9062b2"
+      "bytes": 4699,
+      "sha256": "bc454a96feb6619eb55bacd619ede194ab333b05478a82d8f5dc72ede9c2799b"
     },
     {
       "path": "scripts/public_extracts/process_alts.py",
