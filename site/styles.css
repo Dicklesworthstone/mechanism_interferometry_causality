@@ -1505,15 +1505,20 @@ main > section.hero {
 .spec-table td.yes { color: var(--flat-ink); }
 .spec-table td.no { color: var(--block-ink); }
 
+/* Token-driven rather than hardcoded white, so the same class can sit on a
+   light section as well as on a deep band. On a deep band the band's local
+   tokens already resolve --fg to near-white. */
 .pullquote {
-  max-width: 30ch;
+  max-width: 34ch;
   margin: 0 0 1.6rem;
   font: 800 clamp(1.35rem, 2.8vw, 2rem)/1.22 var(--sans);
   letter-spacing: -.025em;
-  color: #fff;
-  border-inline-start: 3px solid #3fd7a4;
+  color: var(--fg);
+  border-inline-start: 3px solid var(--flat);
   padding-inline-start: 1.1rem;
 }
+
+.band--deep .pullquote { color: #fff; }
 
 /* .label sets `margin: 0 0 .7rem`, whose shorthand resets margin-top and so
    defeats .mt on the same element. Space the group from the readouts here. */
