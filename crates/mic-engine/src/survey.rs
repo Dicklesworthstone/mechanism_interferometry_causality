@@ -224,13 +224,13 @@ pub fn run_unsupervised_survey(
         .iter()
         .find(|item| item.complete_square)
         .and_then(|item| suggested_four_law_manifest(&table, item, cluster_column.as_deref()));
-    let next_step = survey_next_step(&interferometers, cluster_unit_basis);
     let information_content = information_content(
         &table,
         cluster_column.as_deref(),
         cluster_unit_basis,
         &interferometers,
     )?;
+    let next_step = survey_next_step(&interferometers, &information_content);
     Ok(SurveyReport {
         schema_version: "1.1.0".into(),
         authority: SurveyAuthority::ProposalOnly,
@@ -568,6 +568,7 @@ fn information_content(
     let incomplete = interferometers
         .iter()
         .find(|item| item.recommended_next_corner.is_some());
+    let units_are_rows = unit_basis == ClusterUnitBasis::Row || n_independent_units == n_rows;
     Ok(CausalInformationContent {
         n_rows,
         n_independent_units,
@@ -576,27 +577,40 @@ fn information_content(
         n_complete_testable_squares,
         confirmatory_units_per_corner_min,
         confirmatory_units_per_corner_max,
-        recommended_next_corner: incomplete
-            .and_then(|item| item.recommended_next_corner.clone()),
+        recommended_next_corner: incomplete.and_then(|item| item.recommended_next_corner.clone()),
         identified_set_dimension: incomplete.and_then(|item| item.identified_set_dimension),
         recommended_next_corner_cost: incomplete.and_then(|item| item.recommended_next_corner_cost),
         recommended_next_corner_kind: incomplete.and_then(|item| item.recommended_next_corner_kind),
         ranked_next_corners: incomplete
             .map(|item| item.ranked_next_corners.clone())
             .unwrap_or_default(),
-        units_are_rows: unit_basis == ClusterUnitBasis::Row,
-        note: "Independent units are clusters when a unit column is declared or inferred, otherwise rows. Complete squares are design facts, not arrows.".into(),
+        units_are_rows,
+        note: information_content_note(unit_basis, units_are_rows),
     })
+}
+
+fn information_content_note(unit_basis: ClusterUnitBasis, units_are_rows: bool) -> String {
+    if !units_are_rows {
+        return "Independent units are clusters when a unit column is declared or inferred, otherwise rows. Complete squares are design facts, not arrows.".into();
+    }
+    if unit_basis == ClusterUnitBasis::Row {
+        "No unit column; independent units fell back to rows. More rows are not more experimental units. Complete squares are design facts, not arrows.".into()
+    } else {
+        "Cluster column is one-to-one with rows. Independent units equal row count. More rows are not more experimental units unless that column is the randomization unit. Complete squares are design facts, not arrows.".into()
+    }
 }
 
 fn survey_next_step(
     interferometers: &[InterferometerProposal],
-    unit_basis: ClusterUnitBasis,
+    info: &CausalInformationContent,
 ) -> String {
-    if interferometers.iter().any(|item| item.complete_square) {
-        return "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Orientation is untestable: this atlas has no same-target tilt family. Do not treat this atlas as orientation.".into();
-    }
-    if let Some(item) = interferometers
+    let header = format_information_header(info);
+    let action = if interferometers.iter().any(|item| item.complete_square) {
+        format!(
+            "Freeze a complete square as a four_law manifest, assign a selection contract you actually know, and run mic-tabular four-law on confirmation clusters. Orientation is untestable: this atlas has no same-target tilt family. Do not treat this atlas as orientation.{}",
+            row_unit_clause(info)
+        )
+    } else if let Some(item) = interferometers
         .iter()
         .find(|item| !item.missing_corners.is_empty() || !item.dropped_corners.is_empty())
     {
@@ -618,20 +632,40 @@ fn survey_next_step(
             _ => String::new(),
         };
         let ranked = format_ranked_list(&item.ranked_next_corners);
-        let unit = row_unit_clause(unit_basis);
-        return format!(
+        format!(
             "No complete square was observed. Highest-ranked incomplete design `{}` has never-seen corners [{}] and under-supported dropped corners [{}]. Collect the never-seen arms; do not impute either class.{}{}{} The atlas is a design proposal, not a graph.",
             item.interferometer_id,
             item.missing_corners.join(","),
             item.dropped_corners.join(","),
             next,
             ranked,
-            unit
-        );
-    }
+            row_unit_clause(info)
+        )
+    } else {
+        format!(
+            "No complete square was observed. Add the missing corners or collect a factorial follow-up.{} The atlas is a design proposal, not a graph.",
+            row_unit_clause(info)
+        )
+    };
+    format!("{header}{action}")
+}
+
+fn format_information_header(info: &CausalInformationContent) -> String {
+    let confirmatory = match (
+        info.confirmatory_units_per_corner_min,
+        info.confirmatory_units_per_corner_max,
+    ) {
+        (Some(min), Some(max)) if min == max => min.to_string(),
+        (Some(min), Some(max)) => format!("{min}–{max}"),
+        _ => "none".into(),
+    };
     format!(
-        "No complete square was observed. Add the missing corners or collect a factorial follow-up.{} The atlas is a design proposal, not a graph.",
-        row_unit_clause(unit_basis)
+        "Rows: {}. Independent experimental units: {}. Distinct supported regimes: {}. Complete testable squares: {}. Confirmatory units per corner: {}. ",
+        info.n_rows,
+        info.n_independent_units,
+        info.n_distinct_supported_regimes,
+        info.n_complete_testable_squares,
+        confirmatory
     )
 }
 
@@ -652,8 +686,8 @@ fn format_ranked_list(ranked: &[NextCornerCandidate]) -> String {
     format!(" Ranked list [{}].", items.join(", "))
 }
 
-fn row_unit_clause(unit_basis: ClusterUnitBasis) -> String {
-    if unit_basis == ClusterUnitBasis::Row {
+fn row_unit_clause(info: &CausalInformationContent) -> String {
+    if info.units_are_rows {
         " Independent unit is a row: more rows are not more experimental units.".into()
     } else {
         String::new()
@@ -888,7 +922,26 @@ mod tests {
         assert!(report.information_content.n_independent_units <= report.n_rows);
         assert!(report.information_content.n_complete_testable_squares >= 1);
         assert_eq!(report.information_content.n_distinct_supported_regimes, 4);
+        assert!(report.information_content.units_are_rows);
+        assert!(
+            report
+                .information_content
+                .note
+                .contains("one-to-one with rows")
+        );
         assert!(report.information_content.note.contains("not arrows"));
+        assert!(report.next_step.contains("Rows: 80."));
+        assert!(
+            report
+                .next_step
+                .contains("Independent experimental units: 80.")
+        );
+        assert!(report.next_step.contains("Complete testable squares:"));
+        assert!(
+            report
+                .next_step
+                .contains("more rows are not more experimental units")
+        );
         let suggested = report
             .suggested_manifest
             .expect("complete square should emit a draft");
@@ -1040,7 +1093,14 @@ mod tests {
             Some(NextCornerKind::NeverSeen)
         );
         assert_eq!(report.information_content.ranked_next_corners.len(), 1);
-        assert!(!report.information_content.units_are_rows);
+        assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Declared);
+        assert!(report.information_content.units_are_rows);
+        assert!(report.next_step.contains("Rows: 6."));
+        assert!(
+            report
+                .next_step
+                .contains("Independent experimental units: 6.")
+        );
     }
 
     #[test]
@@ -1067,6 +1127,46 @@ mod tests {
             report
                 .next_step
                 .contains("more rows are not more experimental units")
+        );
+    }
+
+    #[test]
+    fn repeated_rows_inside_a_declared_cluster_are_not_extra_units() {
+        let dir = std::env::temp_dir().join("mic-survey-true-cluster");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("clusters.csv");
+        std::fs::write(
+            &path,
+            "cluster_id,regime,x\n\
+             c00,00,0\nc00,00,1\n\
+             c10,10,0\nc10,10,1\n\
+             c01,01,0\nc01,01,1\n\
+             c11,11,0\nc11,11,1\n",
+        )
+        .unwrap();
+        let report =
+            run_unsupervised_survey(&path, None, Some("cluster_id"), SurveyPolicy::default())
+                .unwrap();
+        assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Declared);
+        assert_eq!(report.information_content.n_rows, 8);
+        assert_eq!(report.information_content.n_independent_units, 4);
+        assert!(!report.information_content.units_are_rows);
+        assert!(
+            report
+                .information_content
+                .note
+                .contains("Independent units are clusters")
+        );
+        assert!(report.next_step.contains("Rows: 8."));
+        assert!(
+            report
+                .next_step
+                .contains("Independent experimental units: 4.")
+        );
+        assert!(
+            !report
+                .next_step
+                .contains("Independent unit is a row: more rows are not more experimental units")
         );
     }
 
@@ -1144,7 +1244,9 @@ mod tests {
         assert_eq!(report.information_content.n_distinct_supported_regimes, 2);
         assert_eq!(square.ranked_next_corners.len(), 2);
         assert!(report.next_step.contains("Ranked list ["));
-        assert!(!report.information_content.units_are_rows);
+        assert_eq!(report.cluster_unit_basis, ClusterUnitBasis::Declared);
+        assert!(report.information_content.units_are_rows);
+        assert!(report.next_step.contains("Rows: 4."));
     }
 
     /// S2a season tautology as an atlas fixture, not a direction scout.
