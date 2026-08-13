@@ -1,6 +1,5 @@
-//! Tabular four-law surface that does not touch the reserved `mic` CLI.
-
 #![forbid(unsafe_code)]
+//! Tabular four-law surface that does not touch the reserved `mic` CLI.
 
 use mic_audit::CertificateStatus;
 use mic_data::ExperimentManifest;
