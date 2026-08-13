@@ -129,12 +129,93 @@ def parity_example(epsilon: float = 0.1) -> dict:
     }
 
 
+def hidden_sensor_tomography(a: float = 0.4, b: float = 0.5) -> dict:
+    states = [(-1.0, -1.0), (-1.0, 1.0), (1.0, -1.0), (1.0, 1.0)]
+    regimes: dict[str, dict[str, list[float]]] = {}
+    for tilt_a, tilt_b in [(False, False), (True, False), (False, True), (True, True)]:
+        complete = np.array(
+            [
+                0.25
+                * (1.0 + a * u if tilt_a else 1.0)
+                * (1.0 + b * v if tilt_b else 1.0)
+                for u, v in states
+            ]
+        )
+        observed = np.array([complete[1] + complete[2], complete[0] + complete[3]])
+        regimes[f"{int(tilt_a)}{int(tilt_b)}"] = {
+            "complete": complete.tolist(),
+            "observed_y": observed.tolist(),
+        }
+
+    curvature = np.log(np.array([1.0 - a * b, 1.0 + a * b]))
+    rows = [
+        ["observed_y", -1, float(curvature[0])],
+        ["observed_y", 1, float(curvature[1])],
+        ["reveal_hidden_u", -1, 0.0],
+        ["reveal_hidden_u", 1, 0.0],
+        ["add_independent_noise", -1, float(curvature[0])],
+        ["add_independent_noise", 1, float(curvature[1])],
+    ]
+    with (ART / "hidden_sensor_tomography.csv").open("w", newline="") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(["representation", "observed_y", "curvature"])
+        writer.writerows(rows)
+
+    positions = np.arange(2)
+    width = 0.24
+    fig, ax = plt.subplots(figsize=(7.2, 4.3))
+    ax.bar(positions - width, curvature, width, label="Observe Y only")
+    ax.bar(positions, [0.0, 0.0], width, label="Reveal hidden U")
+    ax.bar(positions + width, curvature, width, label="Add irrelevant noise")
+    ax.axhline(0.0, linewidth=1, color="black")
+    ax.set_xticks(positions, [r"$Y=-1$", r"$Y=+1$"])
+    ax.set_ylabel(r"Curvature $\kappa_{AB}$")
+    ax.set_title("The resolving sensor removes curvature; an irrelevant sensor does not")
+    ax.legend()
+    ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(
+        FIG / "hidden_sensor_tomography.pdf",
+        bbox_inches="tight",
+        metadata={
+            "CreationDate": None,
+            "ModDate": None,
+            "Creator": "Mechanism Interferometry",
+        },
+    )
+    fig.savefig(FIG / "hidden_sensor_tomography.png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+    return {
+        "a": a,
+        "b": b,
+        "state_order": ["--", "-+", "+-", "++"],
+        "regimes": regimes,
+        "observed_curvature": curvature.tolist(),
+        "complete_max_abs_curvature": 0.0,
+        "infinitesimal_score_covariance": [
+            [1.0, -1.0, -1.0, 1.0],
+            [1.0, 1.0, 1.0, 1.0],
+        ],
+        "infinitesimal_missing_rank": [1, 1],
+        "candidate_measurements": [
+            {"sensor": "hidden_u", "resolves_curvature": True},
+            {"sensor": "independent_noise", "resolves_curvature": False},
+        ],
+        "rank_scope": (
+            "rank-one conditional covariance of infinitesimal scores; "
+            "not a PSD claim about finite Boolean curvature"
+        ),
+    }
+
+
 def main() -> None:
     result = {
         "running_example": running_example(),
         "parity_orientation_failure": parity_example(),
         "latent_conservation": latent_conservation(),
         "implementation_inconsistency": implementation_inconsistency(),
+        "hidden_sensor_tomography": hidden_sensor_tomography(),
     }
     with (ART / "exact_results.json").open("w") as f:
         json.dump(result, f, indent=2, sort_keys=True)

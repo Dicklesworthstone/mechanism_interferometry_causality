@@ -1,0 +1,7 @@
+representation,observed_y,curvature
+observed_y,-1,-0.2231435513142097
+observed_y,1,0.1823215567939546
+reveal_hidden_u,-1,0.0
+reveal_hidden_u,1,0.0
+add_independent_noise,-1,-0.2231435513142097
+add_independent_noise,1,0.1823215567939546
