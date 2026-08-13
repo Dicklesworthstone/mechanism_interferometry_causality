@@ -132,6 +132,59 @@ pub struct FlatNoncausalCube {
     pub r2: [f64; 4],
 }
 
+/// One regime in the exact hidden-sensor tomography world.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct HiddenSensorLaw {
+    /// Regime code in `00,10,01,11` order.
+    pub design: String,
+    /// Complete-state probabilities in `(U,V)=--,-+,+-,++` order.
+    pub complete_probabilities: [f64; 4],
+    /// Coarsened probabilities in `Y=UV=-1,+1` order.
+    pub observed_probabilities: [f64; 2],
+}
+
+/// Curvature reduction obtained by adding one candidate measurement.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MeasurementResolution {
+    /// Opaque sensor label.
+    pub sensor: String,
+    /// Maximum absolute curvature before adding the sensor.
+    pub before_max_abs_curvature: f64,
+    /// Maximum absolute curvature after adding the sensor.
+    pub after_max_abs_curvature: f64,
+    /// Whether exact flatness is restored in this constructed world.
+    pub resolves_curvature: bool,
+}
+
+/// Exact controlled world in which hiding one binary sensor creates curvature.
+///
+/// At the complete state, `U,V` are independent Rademacher variables and the
+/// primitive ratios are `1+aU` and `1+bV`, so all four regimes compose exactly.
+/// Observing only `Y=UV` makes the primitive marginals appear unchanged while
+/// the combination law changes. Revealing either `U` or `V` is bijective with
+/// the complete state and restores flatness.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct HiddenSensorTomography {
+    /// Primitive A tilt magnitude.
+    pub a: f64,
+    /// Primitive B tilt magnitude.
+    pub b: f64,
+    /// Four exact complete and coarsened laws.
+    pub laws: Vec<HiddenSensorLaw>,
+    /// Observed curvature for `Y=-1,+1`.
+    pub observed_curvature: [f64; 2],
+    /// Maximum complete-state curvature before coarsening.
+    pub complete_max_abs_curvature: f64,
+    /// Conditional score covariance matrices for `Y=-1,+1`, row-major.
+    pub infinitesimal_score_covariance: [[f64; 4]; 2],
+    /// Rank of each conditional score covariance matrix.
+    pub infinitesimal_missing_rank: [usize; 2],
+    /// Exact candidate-measurement ranking fixture.
+    pub candidate_measurements: Vec<MeasurementResolution>,
+    /// Scope guard for interpreting the rank statement.
+    pub rank_scope: String,
+}
+
 /// Two causal models with the same observed rows and opposite effect signs.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct IdentificationTwin {
@@ -305,6 +358,58 @@ pub fn flat_noncausal_cube() -> FlatNoncausalCube {
     }
 }
 
+/// Builds the exact one-hidden-sensor curvature-tomography world.
+#[must_use]
+pub fn hidden_sensor_tomography() -> HiddenSensorTomography {
+    let a = 2.0 / 5.0;
+    let b = 1.0 / 2.0;
+    let laws = [(false, false), (true, false), (false, true), (true, true)]
+        .into_iter()
+        .map(|(tilt_a, tilt_b)| {
+            let complete_probabilities = hidden_sensor_law(a, b, tilt_a, tilt_b);
+            HiddenSensorLaw {
+                design: format!("{}{}", u8::from(tilt_a), u8::from(tilt_b)),
+                observed_probabilities: coarsen_product(complete_probabilities),
+                complete_probabilities,
+            }
+        })
+        .collect::<Vec<_>>();
+    let product = a * b;
+    let observed_curvature = [(1.0 - product).ln(), (1.0 + product).ln()];
+    let before_max_abs_curvature = observed_curvature
+        .iter()
+        .copied()
+        .map(f64::abs)
+        .fold(0.0, f64::max);
+    HiddenSensorTomography {
+        a,
+        b,
+        laws,
+        observed_curvature,
+        complete_max_abs_curvature: 0.0,
+        infinitesimal_score_covariance: [
+            [1.0, -1.0, -1.0, 1.0],
+            [1.0, 1.0, 1.0, 1.0],
+        ],
+        infinitesimal_missing_rank: [1, 1],
+        candidate_measurements: vec![
+            MeasurementResolution {
+                sensor: "hidden_u".into(),
+                before_max_abs_curvature,
+                after_max_abs_curvature: 0.0,
+                resolves_curvature: true,
+            },
+            MeasurementResolution {
+                sensor: "independent_noise".into(),
+                before_max_abs_curvature,
+                after_max_abs_curvature: before_max_abs_curvature,
+                resolves_curvature: false,
+            },
+        ],
+        rank_scope: "rank-one conditional covariance of infinitesimal scores; not a PSD claim about finite Boolean curvature".into(),
+    }
+}
+
 /// Builds exact RD, IV, and difference-in-differences observational twins.
 ///
 /// Each pair has identical observed rows under a `+1` effect model satisfying
@@ -360,6 +465,18 @@ pub fn identification_twins() -> IdentificationTwins {
 
 fn multiply(left: [f64; 4], right: [f64; 4]) -> [f64; 4] {
     std::array::from_fn(|index| left[index] * right[index])
+}
+
+fn hidden_sensor_law(a: f64, b: f64, tilt_a: bool, tilt_b: bool) -> [f64; 4] {
+    [(-1.0, -1.0), (-1.0, 1.0), (1.0, -1.0), (1.0, 1.0)].map(|(u, v)| {
+        let ratio_a = if tilt_a { 1.0 + a * u } else { 1.0 };
+        let ratio_b = if tilt_b { 1.0 + b * v } else { 1.0 };
+        0.25 * ratio_a * ratio_b
+    })
+}
+
+fn coarsen_product(complete: [f64; 4]) -> [f64; 2] {
+    [complete[1] + complete[2], complete[0] + complete[3]]
 }
 
 fn chain_law(design: u8) -> [f64; 8] {
@@ -478,5 +595,46 @@ mod tests {
             assert!(law.iter().all(|probability| *probability > 0.0));
             assert!((law.iter().sum::<f64>() - 1.0).abs() < 1e-14);
         }
+    }
+
+    #[test]
+    fn hidden_sensor_world_is_flat_before_coarsening() {
+        let example = hidden_sensor_tomography();
+        for law in &example.laws {
+            assert!(
+                law.complete_probabilities
+                    .iter()
+                    .all(|probability| *probability > 0.0)
+            );
+            assert!((law.complete_probabilities.iter().sum::<f64>() - 1.0).abs() < 1e-14);
+            assert!((law.observed_probabilities.iter().sum::<f64>() - 1.0).abs() < 1e-14);
+        }
+        for state in 0..4 {
+            let curvature = example.laws[3].complete_probabilities[state].ln()
+                + example.laws[0].complete_probabilities[state].ln()
+                - example.laws[1].complete_probabilities[state].ln()
+                - example.laws[2].complete_probabilities[state].ln();
+            assert!(curvature.abs() < 1e-14);
+        }
+    }
+
+    #[test]
+    fn hiding_and_revealing_sensor_creates_then_resolves_curvature() {
+        let example = hidden_sensor_tomography();
+        for state in 0..2 {
+            let curvature = example.laws[3].observed_probabilities[state].ln()
+                + example.laws[0].observed_probabilities[state].ln()
+                - example.laws[1].observed_probabilities[state].ln()
+                - example.laws[2].observed_probabilities[state].ln();
+            assert!((curvature - example.observed_curvature[state]).abs() < 1e-14);
+            assert_ne!(curvature, 0.0);
+        }
+        assert_eq!(example.infinitesimal_missing_rank, [1, 1]);
+        assert!(example.candidate_measurements[0].resolves_curvature);
+        assert_eq!(
+            example.candidate_measurements[0].after_max_abs_curvature,
+            0.0
+        );
+        assert!(!example.candidate_measurements[1].resolves_curvature);
     }
 }

@@ -6,8 +6,9 @@ use mic_data::ExperimentManifest;
 use mic_design::{DesignPoint, audit_design, audit_sampling_odds};
 use mic_engine::{PreflightPolicy, audit_orientation, run_preflight};
 use mic_sim::{
-    causal_tomography_chain, exact_suite, flat_noncausal_cube, identification_twins,
-    implementation_inconsistency, latent_conservation, parity_example, running_example,
+    causal_tomography_chain, exact_suite, flat_noncausal_cube, hidden_sensor_tomography,
+    identification_twins, implementation_inconsistency, latent_conservation, parity_example,
+    running_example,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -60,6 +61,7 @@ fn simulate(args: &[String]) -> Result<(), String> {
         "implementation" => serde_json::to_value(implementation_inconsistency(0.45, 0.35, 0.4)),
         "tomography" => serde_json::to_value(causal_tomography_chain()),
         "flat-noncausal" => serde_json::to_value(flat_noncausal_cube()),
+        "hidden-sensor" => serde_json::to_value(hidden_sensor_tomography()),
         "identification-twins" => serde_json::to_value(identification_twins()),
         other => return Err(format!("unknown simulation {other:?}")),
     }
@@ -379,7 +381,7 @@ fn print_help() {
     println!(
         "Mechanism Interferometry CLI\n\n\
          Usage:\n\
-           mic simulate [all|running|parity|latent|implementation|tomography|flat-noncausal|identification-twins] [--output PATH]\n\
+           mic simulate [all|running|parity|latent|implementation|tomography|flat-noncausal|hidden-sensor|identification-twins] [--output PATH]\n\
            mic design odds P00 P10 P01 P11\n\
            mic design audit CORNER...\n\
            mic design audit MANIFEST.json\n\

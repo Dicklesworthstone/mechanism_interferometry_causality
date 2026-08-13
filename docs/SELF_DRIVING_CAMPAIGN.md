@@ -315,11 +315,19 @@ qualification.
 - [ ] Specify interventional mechanism dictionary learning with sparse environment codes, anchors, local support, normalization, and label/gauge ambiguity.
 - [ ] Prove or delimit dictionary identifiability under sparse combinations and repeated backgrounds.
 - [ ] Specify curvature tomography only under an infinitesimal or explicit latent-score factor model.
-- [ ] Add the controlled hidden-sensor world: complete-state flatness, omission curvature, rank recovery, sensor nomination, and held-out collapse after reveal.
+- [x] Add an exact hidden-sensor conformance world with complete-state flatness,
+  omission curvature, rank-one infinitesimal score covariance, and a resolving
+  versus irrelevant sensor comparison.
+- [ ] Add sampled cluster-level discovery/confirmation splits and verify
+  held-out curvature collapse after the nominated sensor is revealed.
 - [x] Implement the exact selected-law curvature decomposition and minimum selection interaction needed to explain a null.
 - [ ] Add identified curvature intervals using external enrollment fractions, margins, negative controls, or measurement encouragement.
 - [ ] Add a separate singular-support intervention route rather than forcing density ratios across disjoint support.
-- [ ] Implement one global closure witness with cluster cross-fitting and untouched witness confirmation.
+- [x] Implement deterministic tied-main-effect and interaction-augmented
+  four-corner joint regime models with explicit sampling offsets and held-out
+  logarithmic-loss comparison.
+- [ ] Add cluster cross-fitting, untouched witness confirmation, and calibrated
+  inference around the global closure comparison.
 - [ ] Implement leave-the-entire-combination-arm-out law prediction with raw normalizer, ESS, overlap, and weighted-law discrepancy.
 - [ ] Calibrate cluster-level type-I error and coverage before adding flexible learner families.
 - [ ] Add one controlled-real factorial experiment before making general discovery claims.

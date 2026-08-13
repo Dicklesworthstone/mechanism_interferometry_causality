@@ -63,6 +63,7 @@ the discriminative follow-up evidence.
 ./scripts/serve_site.sh
 cargo test --workspace --no-default-features
 cargo run -p mic-cli -- simulate all --output artifacts/simulations/rust_exact_results.json
+cargo run -p mic-cli -- simulate hidden-sensor
 cargo run -p mic-cli -- design audit examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- preflight examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- orient examples/orientation/parity_demo.json
