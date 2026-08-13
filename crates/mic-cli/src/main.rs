@@ -4,7 +4,10 @@
 use mic_audit::{EvidenceLedger, ExecutionMode};
 use mic_data::ExperimentManifest;
 use mic_design::{DesignPoint, audit_design, audit_sampling_odds};
-use mic_engine::{PreflightPolicy, audit_orientation, run_preflight};
+use mic_engine::{
+    PreflightPolicy, audit_orientation, resolve_selection_evidence_from_files, run_preflight,
+    run_preflight_with_selection_evidence,
+};
 use mic_sim::{
     causal_tomography_chain, exact_suite, flat_noncausal_cube, hidden_sensor_tomography,
     identification_twins, implementation_inconsistency, latent_conservation, parity_example,
@@ -46,6 +49,7 @@ fn run(args: &[String]) -> Result<(), String> {
         "predict-combination" => predict_combination(&args[1..]),
         "predict-combination-refits" => predict_combination_refits(&args[1..]),
         "finite-completion" => finite_completion(&args[1..]),
+        "kernel-completion" => kernel_completion(&args[1..]),
         "orient" => orient(&args[1..]),
         "propose-tilt" => propose_tilt(&args[1..]),
         "freeze-scout" => freeze_scout(&args[1..]),
@@ -137,13 +141,34 @@ fn validate_manifest(args: &[String]) -> Result<(), String> {
 fn preflight(args: &[String]) -> Result<(), String> {
     let path = args
         .first()
-        .ok_or("usage: mic preflight MANIFEST.json [--output PATH]")?;
+        .ok_or("usage: mic preflight MANIFEST.json [--output PATH] [--base-dir DIR] [--allow-unvalidated-selection-model | --selection-receipt PATH --selection-authority-source PATH]")?;
     let manifest = ExperimentManifest::from_json_path(path).map_err(|error| error.to_string())?;
     let policy = PreflightPolicy {
         accept_unvalidated_selection_model: has_flag(args, "--allow-unvalidated-selection-model"),
         ..PreflightPolicy::default()
     };
-    let report = run_preflight(&manifest, policy).map_err(|error| error.to_string())?;
+    let receipt = option_value(args, "--selection-receipt");
+    let authority = option_value(args, "--selection-authority-source");
+    let report = match (receipt, authority) {
+        (None, None) => run_preflight(&manifest, policy),
+        (Some(receipt), Some(authority)) => {
+            let explicit_base = option_value(args, "--base-dir").map(PathBuf::from);
+            let base_dir = explicit_base
+                .as_deref()
+                .or_else(|| Path::new(path).parent());
+            let evidence =
+                resolve_selection_evidence_from_files(&manifest, receipt, authority, base_dir)
+                    .map_err(|error| error.to_string())?;
+            run_preflight_with_selection_evidence(&manifest, policy, &evidence)
+        }
+        _ => {
+            return Err(
+                "--selection-receipt and --selection-authority-source must be supplied together"
+                    .into(),
+            );
+        }
+    }
+    .map_err(|error| error.to_string())?;
     let value = serde_json::to_value(report).map_err(|error| error.to_string())?;
     let output = option_value(args, "--output").map(PathBuf::from);
     write_json_value(&value, output.as_deref())
@@ -154,7 +179,8 @@ fn preflight(args: &[String]) -> Result<(), String> {
 #[serde(deny_unknown_fields)]
 struct ClosureCrossFitInput {
     schema_version: String,
-    declared_independent_unit: String,
+    declared_dependence_unit: String,
+    declared_assignment_episode: String,
     sampling_proportions: [f64; 4],
     config: mic_model::ClosureCrossFitConfig,
     samples: Vec<mic_model::ClusteredMultinomialSample>,
@@ -174,11 +200,15 @@ fn closure_crossfit(args: &[String]) -> Result<(), String> {
     let input_sha256 = sha256_bytes(&bytes);
     let input: ClosureCrossFitInput =
         serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
-    if input.schema_version != "1.0.0" {
-        return Err("closure-crossfit schema_version must be 1.0.0".into());
+    if input.schema_version != "1.1.0" {
+        return Err("closure-crossfit schema_version must be 1.1.0".into());
     }
-    if input.declared_independent_unit.trim().is_empty() {
-        return Err("declared_independent_unit must not be empty".into());
+    if input.declared_dependence_unit.trim().is_empty()
+        || input.declared_assignment_episode.trim().is_empty()
+    {
+        return Err(
+            "declared_dependence_unit and declared_assignment_episode must not be empty".into(),
+        );
     }
     let diagnostic = mic_model::cross_fit_closure_models(
         &input.samples,
@@ -188,21 +218,23 @@ fn closure_crossfit(args: &[String]) -> Result<(), String> {
     .map_err(|error| error.to_string())?;
     let mut ledger = EvidenceLedger::new(ExecutionMode::Exploratory);
     ledger.provenance("closure_crossfit_input_sha256", &input_sha256);
-    ledger.provenance("closure_crossfit_seed", diagnostic.seed.to_string());
+    ledger.provenance("closure_crossfit_seed", diagnostic.seed().to_string());
     ledger.provenance(
         "closure_crossfit_fold_plan_sha256",
-        &diagnostic.fold_plan_sha256,
+        diagnostic.fold_plan_sha256(),
     );
+    ledger.provenance("declared_dependence_unit", &input.declared_dependence_unit);
     ledger.provenance(
-        "declared_independent_unit",
-        &input.declared_independent_unit,
+        "declared_assignment_episode",
+        &input.declared_assignment_episode,
     );
     let value = serde_json::json!({
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "authority": "diagnostic_only",
         "certificate_eligible": false,
         "input_sha256": input_sha256,
-        "declared_independent_unit": input.declared_independent_unit,
+        "declared_dependence_unit": input.declared_dependence_unit,
+        "declared_assignment_episode": input.declared_assignment_episode,
         "diagnostic": diagnostic,
         "ledger": ledger,
     });
@@ -498,27 +530,53 @@ struct FiniteCompletionRequest {
 }
 
 fn finite_completion(args: &[String]) -> Result<(), String> {
+    completion_command(args, false)
+}
+
+fn kernel_completion(args: &[String]) -> Result<(), String> {
+    completion_command(args, true)
+}
+
+fn completion_command(args: &[String], use_kernel_solver: bool) -> Result<(), String> {
     let (path, output) = match args {
         [path] => (path, None),
         [path, flag, output] if flag == "--output" && !output.trim().is_empty() => {
             (path, Some(PathBuf::from(output)))
         }
-        _ => return Err("usage: mic finite-completion INPUT.json [--output PATH]".into()),
+        _ => {
+            let command = if use_kernel_solver {
+                "kernel-completion"
+            } else {
+                "finite-completion"
+            };
+            return Err(format!("usage: mic {command} INPUT.json [--output PATH]"));
+        }
     };
-    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let bytes = read_bounded_request(path, MAX_FITTED_TRANSPORT_REQUEST_BYTES, "completion")?;
     let input_sha256 = sha256_bytes(&bytes);
     let request: FiniteCompletionRequest =
         serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
     if request.schema_version != "1.0.0" {
         return Err("finite-completion schema_version must be 1.0.0".into());
     }
-    let report = mic_model::solve_finite_modular_completion(&request.input)
-        .map_err(|error| error.to_string())?;
+    let report = if use_kernel_solver {
+        serde_json::to_value(
+            mic_model::solve_finite_kernel_completion(&request.input)
+                .map_err(|error| error.to_string())?,
+        )
+    } else {
+        serde_json::to_value(
+            mic_model::solve_finite_modular_completion(&request.input)
+                .map_err(|error| error.to_string())?,
+        )
+    }
+    .map_err(|error| error.to_string())?;
     let value = serde_json::json!({
         "schema_version": "1.0.0",
         "authority": "diagnostic_only",
         "certificate_eligible": false,
         "scope": "fixed_finite_state_dag_and_distinct_declared_targets",
+        "solver": if use_kernel_solver { "conditional_kernel" } else { "treatment_coded_log_potential" },
         "input_sha256": input_sha256,
         "report": report,
     });
@@ -828,6 +886,7 @@ fn print_help() {
            mic predict-combination PRIMITIVES.json CONFIRMATION.json [--output PATH]\n\
            mic predict-combination-refits PRIMITIVES.json CONFIRMATION.json REFITS.json [--output PATH]\n\
            mic finite-completion INPUT.json [--output PATH]\n\
+           mic kernel-completion INPUT.json [--output PATH]\n\
            mic orient INPUT.json [--output PATH]\n\
            mic propose-tilt INPUT.json [--output PATH]\n\
            mic freeze-scout REQUEST.json DRAFT.json [--output PATH]\n\
@@ -938,7 +997,7 @@ mod tests {
             "../../../examples/closure_crossfit_request.json"
         ))
         .unwrap();
-        assert_eq!(input.schema_version, "1.0.0");
+        assert_eq!(input.schema_version, "1.1.0");
         assert_eq!(input.samples.len(), 8);
 
         let unknown = vec!["request.json".into(), "--bogus".into(), "out.json".into()];
@@ -1097,6 +1156,10 @@ mod tests {
         assert_eq!(
             finite_completion(&missing_output).unwrap_err(),
             "usage: mic finite-completion INPUT.json [--output PATH]"
+        );
+        assert_eq!(
+            kernel_completion(&unknown).unwrap_err(),
+            "usage: mic kernel-completion INPUT.json [--output PATH]"
         );
     }
 }
