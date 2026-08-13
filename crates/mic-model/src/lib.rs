@@ -4,6 +4,7 @@
 pub mod closure;
 pub mod crossfit;
 pub mod finite_completion;
+pub mod kernel_completion;
 pub mod multinomial;
 pub mod prediction;
 pub mod transport;
@@ -15,14 +16,18 @@ pub use closure::{
     compare_held_out_closure_models_weighted,
 };
 pub use crossfit::{
-    ClosureCrossFitConfig, ClosureCrossFitError, ClusteredMultinomialSample,
-    CrossFittedClosureDiagnostic, CurvatureFieldSummary, FoldClosureDiagnostic,
-    cross_fit_closure_models,
+    ClosureCrossFitConfig, ClosureCrossFitError, ClosureObservationWeighting, ClosureUnitAuthority,
+    ClusteredMultinomialSample, CrossFittedClosureDiagnostic, FittedLinearInteractionSummary,
+    FittedOverlapSummary, FoldClosureDiagnostic, cross_fit_closure_models,
 };
 pub use finite_completion::{
     CompletionFailure, CompletionStatus, FiniteCompletionAuthority, FiniteCompletionInput,
     FiniteCompletionReport, FiniteLawSemantics, FiniteMechanismFamily, FiniteObservedRegime,
     IdentifiedPotential, solve_finite_modular_completion,
+};
+pub use kernel_completion::{
+    CompletedRegimeLaw, IdentifiedConditionalKernel, KernelCompletionFinding,
+    KernelCompletionReport, KernelCompletionStatus, solve_finite_kernel_completion,
 };
 pub use multinomial::{
     FitConfig, FitSummary, MultinomialFitError, MultinomialLinearModel, MultinomialSample,
