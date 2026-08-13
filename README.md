@@ -142,7 +142,10 @@ normalizers, a cluster-level ESS, weight-tail diagnostics, an
 `O(n_0 + F n_11)` held-out
 density-ratio proper score, and an optional exact weighted energy distance for
 small inputs. Separate primitive, fold-plan, and confirmation fingerprints make
-the stage boundary auditable. The result remains `diagnostic_only`, explicitly
+the stage boundary auditable. Each JSON request is capped at 64 MiB before
+deserialization; production-scale Arrow/Parquet streaming remains a separate
+Atlas-ingestion milestone rather than an implied property of this diagnostic.
+The result remains `diagnostic_only`, explicitly
 does not verify common support, selection, or the physical assignment unit, and
 does not prove that an upstream analyst chose the feature transform without
 seeing `11`; that historical isolation requires a trusted external receipt. It

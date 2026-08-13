@@ -1226,6 +1226,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn invalid_refit_contract_fails_before_point_fitting() {
         let (primitive, confirmation) = fixture();
         let invalid = refit_transport_uncertainty(

@@ -14,8 +14,11 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::env;
 use std::fmt::Write as _;
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read as _;
 use std::path::{Path, PathBuf};
+
+const MAX_FITTED_TRANSPORT_REQUEST_BYTES: u64 = 64 * 1024 * 1024;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -252,7 +255,11 @@ fn predict_combination(args: &[String]) -> Result<(), String> {
         }
     };
 
-    let primitive_bytes = fs::read(primitive_path).map_err(|error| error.to_string())?;
+    let primitive_bytes = read_bounded_request(
+        primitive_path,
+        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        "primitive transport",
+    )?;
     let primitive_request_sha256 = sha256_bytes(&primitive_bytes);
     let primitive: PrimitiveTransportRequest =
         serde_json::from_slice(&primitive_bytes).map_err(|error| error.to_string())?;
@@ -270,7 +277,11 @@ fn predict_combination(args: &[String]) -> Result<(), String> {
     .map_err(|error| error.to_string())?;
 
     // Deliberately open Stage B only after Stage A has been fully frozen.
-    let confirmation_bytes = fs::read(confirmation_path).map_err(|error| error.to_string())?;
+    let confirmation_bytes = read_bounded_request(
+        confirmation_path,
+        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        "combination confirmation",
+    )?;
     let confirmation_request_sha256 = sha256_bytes(&confirmation_bytes);
     let confirmation: CombinationConfirmationRequest =
         serde_json::from_slice(&confirmation_bytes).map_err(|error| error.to_string())?;
@@ -337,6 +348,31 @@ fn validate_transport_schema_version(version: &str) -> Result<(), String> {
     }
 }
 
+fn read_bounded_request(path: &str, limit: u64, label: &str) -> Result<Vec<u8>, String> {
+    let metadata = fs::metadata(path).map_err(|error| error.to_string())?;
+    if metadata.len() > limit {
+        return Err(format!(
+            "{label} request exceeds the fixed {limit}-byte input limit"
+        ));
+    }
+    let capacity = usize::try_from(metadata.len())
+        .map_err(|_| format!("{label} request length is not representable on this platform"))?;
+    let mut bytes = Vec::with_capacity(capacity);
+    let mut reader = File::open(path)
+        .map_err(|error| error.to_string())?
+        .take(limit.saturating_add(1));
+    reader
+        .read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    if u64::try_from(bytes.len()).map_or(true, |length| length > limit) {
+        return Err(format!(
+            "{label} request exceeds the fixed {limit}-byte input limit"
+        ));
+    }
+    Ok(bytes)
+}
+
+#[allow(clippy::too_many_lines)]
 fn predict_combination_refits(args: &[String]) -> Result<(), String> {
     let (primitive_path, confirmation_path, refit_path, output) = match args {
         [primitive, confirmation, refit] => (primitive, confirmation, refit, None),
@@ -349,13 +385,21 @@ fn predict_combination_refits(args: &[String]) -> Result<(), String> {
             return Err("usage: mic predict-combination-refits PRIMITIVES.json CONFIRMATION.json REFITS.json [--output PATH]".into());
         }
     };
-    let refit_bytes = fs::read(refit_path).map_err(|error| error.to_string())?;
+    let refit_bytes = read_bounded_request(
+        refit_path,
+        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        "transport refit",
+    )?;
     let refit_request_sha256 = sha256_bytes(&refit_bytes);
     let refit: TransportRefitRequest =
         serde_json::from_slice(&refit_bytes).map_err(|error| error.to_string())?;
     validate_transport_schema_version(&refit.schema_version)?;
 
-    let primitive_bytes = fs::read(primitive_path).map_err(|error| error.to_string())?;
+    let primitive_bytes = read_bounded_request(
+        primitive_path,
+        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        "primitive transport",
+    )?;
     let primitive_request_sha256 = sha256_bytes(&primitive_bytes);
     let primitive: PrimitiveTransportRequest =
         serde_json::from_slice(&primitive_bytes).map_err(|error| error.to_string())?;
@@ -380,7 +424,11 @@ fn predict_combination_refits(args: &[String]) -> Result<(), String> {
     )
     .map_err(|error| error.to_string())?;
 
-    let confirmation_bytes = fs::read(confirmation_path).map_err(|error| error.to_string())?;
+    let confirmation_bytes = read_bounded_request(
+        confirmation_path,
+        MAX_FITTED_TRANSPORT_REQUEST_BYTES,
+        "combination confirmation",
+    )?;
     let confirmation_request_sha256 = sha256_bytes(&confirmation_bytes);
     let confirmation: CombinationConfirmationRequest =
         serde_json::from_slice(&confirmation_bytes).map_err(|error| error.to_string())?;
@@ -736,6 +784,15 @@ fn print_help() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temporary_test_path(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock is after the Unix epoch")
+            .as_nanos();
+        env::temp_dir().join(format!("mic-{label}-{}-{nonce}.json", std::process::id()))
+    }
 
     fn calibration() -> OrientCalibrationInput {
         OrientCalibrationInput {
@@ -847,6 +904,82 @@ mod tests {
             predict_combination_refits(&unknown_refit).unwrap_err(),
             "usage: mic predict-combination-refits PRIMITIVES.json CONFIRMATION.json REFITS.json [--output PATH]"
         );
+    }
+
+    #[test]
+    fn fitted_transport_reader_rejects_oversized_input_before_parsing() {
+        let path = temporary_test_path("bounded-reader");
+        fs::write(&path, b"123456789").unwrap();
+        assert_eq!(
+            read_bounded_request(path.to_str().unwrap(), 8, "test").unwrap_err(),
+            "test request exceeds the fixed 8-byte input limit"
+        );
+        assert_eq!(
+            read_bounded_request(path.to_str().unwrap(), 9, "test").unwrap(),
+            b"123456789"
+        );
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn fitted_transport_refit_cli_emits_noncertificate_provenance() {
+        let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let primitive = repository.join("examples/primitive_transport_request.json");
+        let confirmation = repository.join("examples/combination_confirmation_request.json");
+        let refits = repository.join("examples/transport_refit_request.json");
+        let output = temporary_test_path("refit-output");
+        let args = vec![
+            "predict-combination-refits".into(),
+            primitive.to_string_lossy().into_owned(),
+            confirmation.to_string_lossy().into_owned(),
+            refits.to_string_lossy().into_owned(),
+            "--output".into(),
+            output.to_string_lossy().into_owned(),
+        ];
+        run(&args).unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&fs::read(&output).unwrap()).unwrap();
+        assert_eq!(value["authority"], "diagnostic_only");
+        assert_eq!(value["certificate_eligible"], false);
+        assert_eq!(value["calibrated_test"], false);
+        assert_eq!(
+            value["stage_order"],
+            "primitive_validated_before_confirmation_opened"
+        );
+        assert_eq!(value["diagnostic"]["authority"], "diagnostic_only");
+        assert_eq!(value["diagnostic"]["certificate_eligible"], false);
+        assert_eq!(value["diagnostic"]["calibrated_test"], false);
+        assert_eq!(
+            value["diagnostic"]["feature_transform_treatment"],
+            "frozen_not_refit"
+        );
+        assert_eq!(
+            value["diagnostic"]["resample_plan_sha256"]
+                .as_str()
+                .map(str::len),
+            Some(64)
+        );
+        let provenance = &value["ledger"]["provenance"];
+        assert_eq!(value["ledger"]["mode"], "exploratory");
+        assert_eq!(
+            provenance["primitive_transport_request_sha256"],
+            sha256_bytes(&fs::read(&primitive).unwrap())
+        );
+        assert_eq!(
+            provenance["combination_confirmation_request_sha256"],
+            sha256_bytes(&fs::read(&confirmation).unwrap())
+        );
+        assert_eq!(
+            provenance["transport_refit_request_sha256"],
+            sha256_bytes(&fs::read(&refits).unwrap())
+        );
+        assert_eq!(
+            provenance["transport_refit_plan_sha256"],
+            value["diagnostic"]["resample_plan_sha256"]
+        );
+        assert_eq!(provenance["primitive_transport_seed"], "41");
+        assert_eq!(provenance["transport_refit_seed"], "73");
+        assert_eq!(provenance["declared_independent_unit"], "experimental_run");
+        fs::remove_file(output).unwrap();
     }
 
     #[test]
