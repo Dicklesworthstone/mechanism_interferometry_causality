@@ -56,9 +56,9 @@ pub enum FiniteLawPredictionError {
     /// No independent baseline units were declared.
     #[error("n_baseline_units must be positive")]
     EmptyBaselineUnits,
-    /// The mandatory raw normalizer was not representable as a finite value.
-    #[error("raw product normalizer is nonfinite")]
-    NonFiniteNormalizer,
+    /// The mandatory raw normalizer was not representable as positive finite `f64`.
+    #[error("raw product normalizer is not representable as a positive finite value")]
+    InvalidNormalizer,
 }
 
 /// Predicts the `11` law from `00`, `10`, and `01`, then evaluates it on an
@@ -97,8 +97,8 @@ pub fn predict_combination_law(
         .collect::<Vec<_>>();
     let log_normalizer = log_sum_exp(&log_contributions);
     let raw_normalizer = log_normalizer.exp();
-    if !raw_normalizer.is_finite() {
-        return Err(FiniteLawPredictionError::NonFiniteNormalizer);
+    if !raw_normalizer.is_finite() || raw_normalizer <= 0.0 {
+        return Err(FiniteLawPredictionError::InvalidNormalizer);
     }
     let predicted_probabilities = log_contributions
         .iter()
