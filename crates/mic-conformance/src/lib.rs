@@ -55,7 +55,8 @@ mod tests {
                     clustered.extend((0..count).map(|_| ClusteredMultinomialSample {
                         features: vec![y],
                         class,
-                        cluster_id: cluster_id.clone(),
+                        dependence_unit_id: cluster_id.clone(),
+                        assignment_episode_id: cluster_id.clone(),
                     }));
                 }
             }
@@ -72,7 +73,7 @@ mod tests {
             40,
         )
         .unwrap();
-        assert!(complete_prediction.heldout_total_variation < 1e-14);
+        assert!(complete_prediction.heldout_total_variation() < 1e-14);
         let observed_prediction = predict_combination_law(
             &example.laws[0].observed_probabilities,
             &example.laws[1].observed_probabilities,
@@ -81,8 +82,8 @@ mod tests {
             40,
         )
         .unwrap();
-        assert!(observed_prediction.normalizer_residual.abs() < 1e-14);
-        assert!((observed_prediction.heldout_total_variation - 0.1).abs() < 1e-14);
+        assert!(observed_prediction.normalizer_residual().abs() < 1e-14);
+        assert!((observed_prediction.heldout_total_variation() - 0.1).abs() < 1e-14);
     }
 
     fn fitted_tomography_samples(
@@ -256,10 +257,10 @@ mod tests {
         .unwrap();
         let comparison =
             compare_held_out_closure_models(&restricted, &saturated, &samples).unwrap();
-        assert!(comparison.saturated_advantage > 0.0);
-        assert!(!comparison.calibrated_test);
-        assert!(saturated.curvature_field(&[-1.0]).unwrap() < 0.0);
-        assert!(saturated.curvature_field(&[1.0]).unwrap() > 0.0);
+        assert!(comparison.saturated_advantage() > 0.0);
+        assert!(!comparison.calibrated_test());
+        assert!(saturated.fitted_interaction_field(&[-1.0]).unwrap() < 0.0);
+        assert!(saturated.fitted_interaction_field(&[1.0]).unwrap() > 0.0);
 
         let seed = 41;
         let n_folds = 2;
@@ -274,10 +275,11 @@ mod tests {
             },
         )
         .unwrap();
-        assert_eq!(cross_fitted.seed, seed);
-        assert_eq!(cross_fitted.n_clusters, 8);
-        assert!(cross_fitted.saturated_advantage > 0.0);
-        assert!(!cross_fitted.calibrated_test);
+        assert_eq!(cross_fitted.seed(), seed);
+        assert_eq!(cross_fitted.n_dependence_units(), 8);
+        assert!(cross_fitted.saturated_advantage() > 0.0);
+        assert!(!cross_fitted.calibrated_test());
+        assert!(!cross_fitted.fitted_linear_interaction().calibrated_test());
     }
 
     #[test]
@@ -806,11 +808,14 @@ mod tests {
         let report = run_tabular_audit(
             &curved,
             FourLawPolicy::default(),
-            PreflightPolicy::default(),
+            PreflightPolicy {
+                accept_unvalidated_selection_model: true,
+                ..PreflightPolicy::default()
+            },
             Some(&root),
         )
         .unwrap();
-        assert_eq!(report.preflight().status(), PreflightStatus::Ready);
+        assert_eq!(report.preflight().status(), PreflightStatus::DiagnosticOnly);
         assert!(report.preflight().four_law_eligible());
         assert!(!report.preflight().product_factorial_eligible());
         assert_eq!(report.status(), CertificateStatus::Abstained);
