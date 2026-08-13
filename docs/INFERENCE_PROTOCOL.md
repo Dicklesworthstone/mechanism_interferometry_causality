@@ -14,20 +14,23 @@ Before fitting any model, the program must establish:
 A strict run stops if any required item is unknown.
 
 An experiment manifest records a selection declaration, not proof of that
-declaration. Strict readiness requires a separately resolved, content-bound
-selection-evidence receipt; rows alone cannot establish state-independent
-inclusion. The exact sensitivity algebra uses distinct validated types for
+declaration. The current resolver verifies a separately supplied receipt's
+content bindings, but arbitrary caller-supplied evidence bytes establish
+provenance rather than scientific truth and therefore do not satisfy strict
+readiness. A trusted harness must additionally attest the evidence class and
+scope; rows alone cannot establish state-independent inclusion. The exact sensitivity algebra uses distinct validated types for
 inclusion probabilities and regime inclusion rates. A normalizer interaction
 supplied without such a receipt is serialized as `declared_unverified` and has
 diagnostic authority only.
 
-The executable resolver accepts the receipt and authority source through
+The executable provenance resolver accepts the receipt and authority source through
 separate paths, hashes the analyzed table by streaming rather than loading it
-into memory, and creates an opaque readiness token only when the receipt binds
-all three byte identities and its evidence class matches the manifest
-declaration. This verifies provenance and declared authority, not the scientific
-truth of an arbitrary source document; the source must itself be an eligible
-external sampling record or validated selection-model artifact.
+into memory, and creates an opaque manifest-scoped token only when the receipt
+binds all three byte identities and its evidence class matches the manifest
+declaration. The token is deliberately insufficient for readiness: it cannot be
+replayed across manifests and it verifies provenance only. A future trusted
+resolver must establish that the source is an eligible external sampling record
+or validated selection-model artifact.
 
 Selection sensitivity also accepts validated regime enrollment rates or a
 model-derived normalizer contrast together with a `sha256:` receipt commitment.
@@ -155,8 +158,10 @@ maximum finite log-ratio magnitude. The interaction projection equals density
 curvature only under correct model specification. These summaries remain
 uncalibrated. For an independently frozen witness family,
 `mic_stats::four_law_cluster_multiplier_bounds` implements the symmetrized
-arbitrary-quota moment with law-stratified, declared-unit Rademacher multiplier
-max bounds and a recorded seed. Its output remains `diagnostic_only` and
+arbitrary-quota moment by accumulating law-centered contributions into one
+joint influence per declared dependence unit and applying one Rademacher sign
+to that unit, including in crossover designs. It reports max bounds and a
+recorded seed. Its output remains `diagnostic_only` and
 explicitly `reference_multiplier_not_coverage_validated`: adaptive witness
 training and coverage over the cluster-size, overlap, and nuisance-
 misspecification gauntlet remain outstanding.

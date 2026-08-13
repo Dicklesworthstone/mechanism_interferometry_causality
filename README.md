@@ -82,9 +82,12 @@ cargo run -p mic-engine --bin mic-tabular -- survey examples/data/four_law_discr
 # After committing the repository, produce source, website, and git-bundle releases.
 ./scripts/package_release.sh ./dist
 
-# Run every required gate and write an exact, fail-closed release receipt.
-# A dirty tree, unavailable gate, timeout, or nonzero exit keeps release_verified=false.
-.venv/bin/python scripts/generate_release_receipt.py --output ./dist/release-verification.json --include-wasm
+# Run every required gate, rebuild WASM, exercise feature-gated adapters, and
+# write an exact fail-closed receipt with Rust test counts. A dirty tree,
+# unavailable gate, PDF mismatch, timeout, or nonzero exit keeps
+# release_verified=false. Browser assertions remain explicitly not_run until a
+# real browser harness exists; a static bundle check is not mislabeled runtime proof.
+.venv/bin/python scripts/generate_release_receipt.py --output ./dist/release-verification.json --include-wasm --include-franken
 
 # Create or update the GitHub repository after gh authentication.
 # Second argument selects visibility and defaults to public.
@@ -101,13 +104,18 @@ The software has two inference modes and never silently substitutes one for the 
 2. **Product-factorial mode** uses GCM/wGCM residual products and requires product assignment odds or explicit reweighting to a product design. Every reference GCM result carries serialized references to a completed audit identifier and SHA-256 source fingerprint; those fields have no certificate authority until the engine resolves them against the evidence ledger and analyzed artifact. Unverified calculations are permanently marked `diagnostic_only`.
 
 A manifest's selection value is a caller declaration, never evidence. Strict
-preflight therefore blocks even `state_independent_within_regime` until a
-content-bound external selection receipt is resolved. The shipped resolver
+preflight therefore blocks even `state_independent_within_regime`. The shipped
+resolver
 binds the receipt to the canonical manifest, exact analyzed data bytes, declared
 selection class, and separately supplied authority-source bytes; mismatches fail
-closed. `--allow-unvalidated-selection-model` permits four-law calculation only
+closed, but this establishes provenance only: arbitrary caller-supplied source
+bytes do not prove the scientific selection premise. A future trusted-harness
+resolver must issue a non-replayable attestation before strict readiness is
+possible. `--allow-unvalidated-selection-model` permits four-law calculation only
 as `diagnostic_only` and cannot mask unrelated design, sampling, or overlap
-errors. State-dependent selection invalidates both modes unless a separately
+errors. Likewise, corner-count arithmetic never establishes product-assignment
+authority; the product-factorial route remains blocked until a trusted allocation
+or reweighting receipt is resolved. State-dependent selection invalidates both modes unless a separately
 validated recovery model is available. Rows likewise do not prove that the
 declared cluster column is the true assignment unit—a unique row identifier can
 still masquerade as one. The executable orientation path also rejects pointwise

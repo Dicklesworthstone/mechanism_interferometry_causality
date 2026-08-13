@@ -77,15 +77,18 @@ semantics and deletion-faithfulness premise to be justified separately.
 
 ## 4. Pass-count state machine
 
-The orientation result is one of:
+The numerical deletion audit is one of:
 
-- `UNIQUE_TARGET`: exactly one deletion is certified invariant and all competitors are certified changed.
+- `UNIQUE_PASS_PATTERN`: exactly one deletion is certified invariant and all competitors are certified changed.
 - `NO_PASS`: no deletion is certified invariant.
 - `MULTIPLE_PASSES`: more than one deletion is certified invariant.
 - `UNDERPOWERED`: intervention discrepancy or effective sample size is below threshold.
 - `UNDETERMINED`: simultaneous intervals overlap the equivalence boundary.
 
-Only `UNIQUE_TARGET` produces an oriented family.
+`UNIQUE_PASS_PATTERN` is still proposal-level numerical evidence. It cannot name
+a target or produce an oriented family by itself. A separate authority-bearing
+object may orient only after resolving the independently supplied single-target
+intervention semantics and deletion-faithfulness premises.
 
 Support undercoverage cannot create a unique wrong target while the true target
 remains in the support, but it can create extra passes. Deletion faithfulness on

@@ -867,9 +867,12 @@ family frozen before confirmation and evaluates the symmetrized moment
 -\frac12\left\{\widehat\E_A[w\widehat r_B]
 +\widehat\E_B[w\widehat r_A]\right\}.
 \end{equation}
-It uses independent Rademacher multipliers within the three law strata and a
-max statistic across the frozen witnesses, with the declared unit, seed, and
-witness-family fingerprint retained. This is an implemented reference
+It centers each law contribution separately, accumulates the signed terms into
+one influence vector per declared dependence unit across all three law strata,
+and applies one Rademacher sign to that joint unit.  Thus a crossover unit seen
+under several arms is never resampled as several independent units.  A max
+statistic across the frozen witnesses retains the declared unit, seed, and
+witness-family fingerprint. This is an implemented reference
 asymptotic interval procedure, not yet certificate-grade calibration: the
 current artifact explicitly records that finite-sample coverage has not been
 validated across the cluster-size, overlap, and nuisance-misspecification
@@ -1028,7 +1031,7 @@ R_v=\frac{D_v}{D_{\mathrm{full}}+\eta}
 \end{equation}
 with a preregistered tolerance \(\eps\) and small numerical stabilizer \(\eta\).  Relative calibration makes the threshold dimensionless and scales it to intervention strength.  A max-statistic bootstrap over all deletions provides simultaneous confidence bounds because the tests share samples and nested marginals.
 
-Classify a deletion as certified invariant if its upper bound is below \(\eps\), certified changed if its lower bound exceeds \(\eps\), and otherwise undetermined.  Orient only when exactly one deletion is certified invariant and every competitor is certified changed.  If \(D_{\mathrm{full}}\) is too small, abstain: an intervention too weak to detect cannot orient a family reliably.
+Classify a deletion as certified invariant if its upper bound is below \(\eps\), certified changed if its lower bound exceeds \(\eps\), and otherwise undetermined.  Exactly one invariant deletion with every competitor certified changed is a \emph{unique pass pattern}, not by itself a target.  A separate premise-bearing route may orient only after externally establishing the single-target semantics and deletion-faithfulness assumptions.  If \(D_{\mathrm{full}}\) is too small, abstain: an intervention too weak to detect cannot support that route reliably.
 
 \subsection{Overlap and selection gates}
 
@@ -1071,11 +1074,11 @@ out exact cancellation.  A declared group may pool multiple independently
 justified tilts of the same target, but grouping does not turn a coordinated
 multi-mechanism environment into a primitive intervention.
 
-A preregistered GHCN prototype illustrates both the opportunity and the
+A locally prediction-locked GHCN prototype illustrates both the opportunity and the
 boundary.  It compared January and July 2025 on a fixed panel of 9{,}109
 northern-hemisphere stations.  The fixed-panel construction made the elevation
 marginal identical by design, while the station-averaged temperature mean
-differed by ($24.24\,^{\circ}\mathrm{C}$); a within-station month-label shuffle
+differed by \(24.24\,^{\circ}\mathrm{C}\); a within-station month-label shuffle
 rendered that mean statistic undetermined.  This is a useful pass-count and
 negative-control exercise, not evidence that elevation causes temperature: the
 prototype did not test conditional laws, locality, normalization, selection,
@@ -1150,19 +1153,19 @@ characterization.
 
 \begin{theorem}[Finite partial-design kernel completion]
 \label{thm:partial-kernel-completion}
-Fix a DAG (G) on a finite Cartesian state space, a strictly positive supplied
-baseline (p_0) that factorizes over (G), and categorical families with
-pairwise distinct fixed targets.  Let (D) index strictly positive observed
+Fix a DAG \(G\) on a finite Cartesian state space, a strictly positive supplied
+baseline \(p_0\) that factorizes over \(G\), and categorical families with
+pairwise distinct fixed targets.  Let \(D\) index strictly positive observed
 regime laws, and let
-(k_v^{(s)}(x_v\mid x_{\pa(v)})) be the unique conditional kernel of node (v)
-under regime (s\in D).  The observed laws admit a modular completion if and
+\(k_v^{(s)}(x_v\mid x_{\pa(v)})\) be the unique conditional kernel of node \(v\)
+under regime \(s\in D\).  The observed laws admit a modular completion if and
 only if:
 \begin{enumerate}
-\item every (p_s) factorizes over (G);
-\item every node not targeted by an active family in (s) retains its baseline
+\item every \(p_s\) factorizes over \(G\);
+\item every node not targeted by an active family in \(s\) retains its baseline
 kernel; and
-\item whenever two regimes carry the same nonbaseline level (a) of family
-(j), their kernels for the target (t_j) agree.
+\item whenever two regimes carry the same nonbaseline level \(a\) of family
+\(j\), their kernels for the target \(t_j\) agree.
 \end{enumerate}
 For the named query consisting of the complete nonparametric family-level
 kernel dictionary and all laws on the categorical grid, and assuming every

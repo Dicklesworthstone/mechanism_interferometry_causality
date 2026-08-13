@@ -17,7 +17,7 @@ under-supported arms (`dropped_corners`) and does not invent either.
 | Manifest field | Meaning | Fail-closed if |
 |---|---|---|
 | `inference_track` | `four_law`, `product_factorial`, or `both` | `product_factorial` / `both` without product odds |
-| `selection` | caller declaration about within-regime inclusion | strict readiness until external evidence is resolved; `unknown` and unmodeled dependence also block diagnostics |
+| `selection` | caller declaration about within-regime inclusion | strict readiness without a trusted-harness attestation; content-bound caller receipts establish provenance only, while `unknown` and unmodeled dependence also block diagnostics |
 | `cluster_column` | **randomization unit**, never the measurement | a cluster appears in more than one regime |
 | `regime_column` | corner label; bit strings such as `00` are accepted | unknown label |
 | `state_columns` | current observed state \(X\) | empty |
@@ -26,9 +26,10 @@ under-supported arms (`dropped_corners`) and does not invent either.
 | `seed` | recorded in the ledger | omitted |
 
 Four-law mode does **not** require product assignment. That is the wedge for
-public data whose corner quotas are known but not balanced. GCM remains
-illegal until `mic design odds` reports product sampling or an explicit
-reweighting plan exists.
+public data whose corner quotas are known but not balanced. GCM remains illegal
+until a trusted allocation receipt establishes product sampling or a completed,
+content-bound reweighting audit is resolved. Empirical counts and arithmetic on
+caller-declared quotas are diagnostics, not authority.
 
 **Selection wall (H-002, now a proposition).** Selected rows plus a known
 inclusion rate do not identify whether inclusion is state-independent.

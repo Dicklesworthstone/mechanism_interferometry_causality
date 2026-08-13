@@ -60,7 +60,13 @@ Conservation self-checking is the survey's distinctive advantage over generic di
 
 ### Stage 3: graph assembly under abstention
 
-Families with unique targets orient; the peeling reconstruction assembles a partial DAG from oriented families. Everything else remains in its exact failure state: `multiple_passes`, `no_pass`, `underpowered`, `undetermined`. The assembled object is a partial graph in which every edge carries its evidence ledger, tier, pass-count state, curvature summary, and reason codes. There is no acyclicity forcing, no faithfulness assumption beyond the declared ones, and no completion heuristic; holes are the product, not a defect.
+A unique deletion pass pattern is still a proposal, not a target. Only a separate
+authority-bearing audit that independently resolves single-target semantics and
+deletion faithfulness may promote that pattern to an oriented family. Peeling
+may consume only those promoted families; it never consumes the survey output
+directly. Every other numerical result remains in its exact failure state:
+`multiple_passes`, `no_pass`, `underpowered`, or `undetermined`. There is no
+acyclicity forcing or completion heuristic; holes are the product, not a defect.
 
 ### Stage 4: curvature-driven measurement search
 

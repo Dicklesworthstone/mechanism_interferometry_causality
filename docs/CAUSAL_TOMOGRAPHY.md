@@ -380,8 +380,8 @@ vote:
 
 Each strategy has its own premises and falsifiers. A report distinguishes
 `candidate_forward`, `candidate_reverse`, `conflicted`, and `undetermined`.
-Certificate-path types such as `CertifiedInvariant` and `UniqueTarget` must not
-appear in a proposal artifact.
+Certificate-path types such as `CertifiedInvariant` and a premise-bearing
+`OrientationVerdict::Established` must not appear in a proposal artifact.
 
 ### 6. Response tomography and graph assembly
 

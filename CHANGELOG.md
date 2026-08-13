@@ -23,7 +23,8 @@
   uncalibrated and serialize-only.
 - Added a frozen-family four-law witness primitive with the symmetric
   arbitrary-quota moment, law-stratified independent-unit Rademacher
-  multipliers, simultaneous max bounds, and an explicit not-yet-coverage-
+  contributions accumulated into one joint influence per dependence unit (so
+  crossover units receive one multiplier sign), simultaneous max bounds, and an explicit not-yet-coverage-
   validated authority ceiling.
 - Added a discovery-only finite/discrete witness learner whose API cannot accept
   confirmation rows, is invariant to duplication within a declared dependence
@@ -37,15 +38,20 @@
   normalizer-contrast provenance, and a hidden-sensor curvature-tomography
   oracle.
 - Replaced caller-declared selection readiness with an opaque, content-bound
-  selection-evidence resolver. Strict preflight now requires an external
-  sampling record or validated-model authority source bound to the exact
-  manifest and analyzed data; the legacy override remains diagnostic-only.
+  selection-evidence provenance resolver scoped to the exact manifest and
+  analyzed bytes. Caller-supplied source documents cannot self-attest their
+  scientific authority, so strict preflight remains blocked until a trusted
+  harness supplies that missing attestation; the legacy override remains
+  diagnostic-only. Product-odds arithmetic is likewise diagnostic until a
+  trusted allocation or completed reweighting receipt is resolved.
 - Added held-out common-cohort state-expansion ranking with typed resolution,
   partial explanation, worsening, support-loss artifact, and inconclusive
   outcomes; nested conservation and overlap loss fail closed before ranking.
 - Added proposal-only survey and mechanism-transport dictionary artifacts with
   sealed confirmation commitments, complete search-library binding, explicit
-  gauge ambiguity, and no causal identity or certificate authority.
+  gauge ambiguity (including unopened atom independence and unverified cube
+  origin), and no causal identity or certificate authority. Survey-generated
+  manifests are emitted only for an already encoded single regime column.
 - Added bounded CLI request ingestion, `closure-crossfit`,
   `finite-completion`, `kernel-completion`, `predict-combination`,
   `predict-combination-refits`, `freeze-scout`, and `freeze-dictionary`.
