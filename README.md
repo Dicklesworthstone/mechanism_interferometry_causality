@@ -1,6 +1,6 @@
 # Mechanism Interferometry
 
-**A gauge-invariant soft-intervention certificate for causal modularity.**
+**Auditing the compositionality of soft interventions.**
 
 This repository contains the formal paper, an explanatory static website, exact simulation fixtures, and the architecture of a memory-safe Rust audit system for deciding whether empirical perturbations compose as autonomous causal mechanisms.
 
@@ -48,6 +48,7 @@ the discriminative follow-up evidence.
 - [Proposal-adapter boundary](docs/PROPOSAL_ADAPTERS.md)
 - [Autonomous survey boundary](docs/AUTONOMOUS_MODE.md)
 - [Causal mechanism tomography](docs/CAUSAL_TOMOGRAPHY.md)
+- [Self-driving campaign ledger](docs/SELF_DRIVING_CAMPAIGN.md)
 - [Public causal dataset gauntlet](docs/DATASET_GAUNTLET.md)
 - [Public-dataset eligibility map](docs/DATASET_ELIGIBILITY.md)
 - [Franken ecosystem integration](docs/FRANKEN_INTEGRATION.md)
@@ -64,6 +65,7 @@ cargo run -p mic-cli -- design audit examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- preflight examples/configs/feature_flag_pilot.json
 cargo run -p mic-cli -- orient examples/orientation/parity_demo.json
 cargo run -p mic-cli -- propose-tilt examples/proposal_inputs/parity_active_tilt.json
+cargo run -p mic-cli -- freeze-scout examples/scout_inputs/self_driving_request.json examples/scout_inputs/shift_factorization_draft.json
 cargo run -p mic-engine --bin mic-tabular -- report examples/configs/four_law_discrete.json --base-dir .
 cargo run -p mic-engine --bin mic-tabular -- survey examples/data/four_law_discrete.csv --cluster cluster_id --base-dir .
 
@@ -88,6 +90,12 @@ Within-regime state-dependent selection invalidates both modes unless modeled. S
 
 ## Current implementation status
 
+The design layer now covers finite categorical mechanism families as well as
+Boolean squares. It treatment-codes alternative family levels, enumerates every
+observed cross-family rectangle, reports algebraic identified-set and lack-of-fit
+dimensions separately, and never promotes geometry alone to a unique causal
+completion.
+
 The repository includes the complete mathematical paper, website, exact simulation generators, schemas, runnable example datasets, architectural contracts, and a safe-Rust reference core implementing the exact population algebra, partial-design geometry, fail-closed preflight, and deterministic audit primitives. A standard-library CSV path now produces cluster-weighted histogram four-law diagnostics, and a proposal-only survey inventories candidate squares without claiming selection, assignment, or orientation. Neither is the production FrankenPandas estimator stack: the histogram path never issues a passed certificate, and an autonomous survey can only recommend the next declared audit. Final status is derived from an opaque typed gate summary rather than a caller Boolean; only the deliberately unresolved constructor is public until content-bound locality, normalization, flatness, and orientation producers exist. The production estimators that depend on the evolving Franken* numerical APIs remain isolated behind feature-gated adapters and specified packet-by-packet in the roadmap. This keeps the mathematical contracts stable while allowing the four sibling projects to advance without contaminating the causal API.
 
 Passive DAG learners, parsimony searches, residual heuristics, and previous audit runs may be connected only as proposal adapters. They can prioritize candidate supports, measurements, or follow-up interventions, but their scores never count as certificate evidence and data-adaptive proposals require independent confirmation.
@@ -106,6 +114,13 @@ until it is frozen and tested on independent units under the ordinary audit
 contracts.
 
 The `mic-proposal` crate now implements that boundary for active follow-up design. Given a multiple-pass orientation state, it validates a same-primitive candidate-tilt library, rejects candidates without delivery, common support, or the planned Product-Factorial design evidence, and ranks the remainder by worst-case predicted hypothesis separation. Every result is serialized with `authority: proposal_only`, an explicit recommendation-or-abstention status, a SHA-256 fingerprint of the full ordered candidate library, complete adapter provenance, a deterministic seed, the frozen tie rule, and explicit rejection reasons. The `mic propose-tilt` command turns the checked input contract into that deterministic artifact; it never alters the unresolved orientation verdict.
+
+The `mic freeze-scout` command freezes a many-environment shift-factorization
+proposal. It accepts opaque discovery identifiers, treats partition, unit, and
+isolation inputs as unresolved caller claims, derives mandatory blockers, binds
+the complete ordered candidate library and request, and cannot deserialize or
+convert into certificate gates. It does not read confirmation outcomes or claim
+that the supplied isolation facts are true.
 
 ## Citation
 

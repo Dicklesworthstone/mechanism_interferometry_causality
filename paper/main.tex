@@ -147,7 +147,7 @@ The paper makes eight main contributions.
 
 \item \textbf{Partial-design geometry.}  On an arbitrary observed binary or categorical design, testable flatness is exactly the lack-of-fit space of a main-effects-only design matrix with a function-valued response.  The causal completion fiber may nevertheless be empty, point identified, or set identified; algebraic testability is a separate axis from causal feasibility.
 
-\item \textbf{A complete empirical and software protocol.}  We specify localization, orientation, curvature testing, overlap gates, compositional prediction, state expansion, simulations, engineered feature-flag validation, Perturb-seq analysis, and a safe-Rust implementation architecture.
+\item \textbf{An auditable empirical and software protocol.}  We specify localization, orientation, curvature testing, overlap gates, compositional prediction, state expansion, simulations, engineered feature-flag validation, Perturb-seq analysis, and a safe-Rust implementation architecture.  The current release implements the exact algebra, design audits, fail-closed gates, proposal boundaries, and reference diagnostics; the scalable cross-fitted estimator and autonomous mechanism-dictionary loop remain research and implementation targets rather than claimed results.
 \end{enumerate}
 
 \section{Setup and scope}
@@ -1653,26 +1653,43 @@ Every empirical run should emit a machine-readable audit bundle containing:
 \end{enumerate}
 The companion repository defines JSON schemas for these artifacts and a Rust workspace architecture for producing them.
 
+This list is a contract for the mature system, not a claim that every item is
+already production-ready.  The current implementation ships the exact
+population algebra, categorical and partial-design geometry, manifest and
+sampling audits, typed authority gates, deterministic proposal artifacts,
+simulations, and a cluster-weighted discrete reference diagnostic.  It does
+not yet ship the production cross-fitted joint regime model, a calibrated
+global full-law closure test for flexible learners, nonparametric localization,
+mechanism-dictionary identification from unknown environment codes, or the
+Python/Arrow interfaces needed for million-row scientific tables.  The
+autonomous survey is therefore proposal-only, and the reference histogram path
+cannot issue a passed certificate.  These boundaries make the software's
+current proof state inspectable instead of allowing the architecture to be
+mistaken for completed statistical capability.
+
 \subsection{Typed refusals}
 
 The contract above is only enforceable if a refusal is a value rather than a
 sentence in a log. The implementation therefore fixes a closed vocabulary of
 blocking reason codes, and every gate in this paper emits one of them:
-\texttt{non\_product\_sampling\_for\_gcm},
-\texttt{state\_dependent\_selection},
-\texttt{selection\_model\_unvalidated},
-\texttt{overlap\_failure},
-\texttt{orientation\_unresolved},
-\texttt{design\_contrast\_aliased},
-\texttt{no\_testable\_flatness},
-\texttt{non\_square\_contrasts\_required},
-\texttt{negative\_control\_curvature},
-\texttt{estimator\_family\_disagreement},
-\texttt{cluster\_spans\_regimes},
-\texttt{missing\_regime\_data},
-\texttt{empty\_common\_support},
-\texttt{declared\_empirical\_quota\_mismatch}, and
-\texttt{duplicate\_provenance}.
+
+\begin{itemize}[nosep, leftmargin=1.5em, font=\ttfamily]
+  \item non\_product\_sampling\_for\_gcm
+  \item state\_dependent\_selection
+  \item selection\_model\_unvalidated
+  \item overlap\_failure
+  \item orientation\_unresolved
+  \item design\_contrast\_aliased
+  \item no\_testable\_flatness
+  \item non\_square\_contrasts\_required
+  \item negative\_control\_curvature
+  \item estimator\_family\_disagreement
+  \item cluster\_spans\_regimes
+  \item missing\_regime\_data
+  \item empty\_common\_support
+  \item declared\_empirical\_quota\_mismatch
+  \item duplicate\_provenance
+\end{itemize}
 
 Informational findings carry a separate declared set, currently
 \texttt{estimator\_family\_agreement} and

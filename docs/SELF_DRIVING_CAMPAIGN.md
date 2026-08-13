@@ -300,17 +300,41 @@ qualification.
 - [x] Browser executes the Rust design/lens/preflight core; static authority
   panels initialize fail closed.
 - [x] Scalar-response contract that quarantines NCI-ALMANAC from MIC density claims.
+- [x] Finite categorical mechanism-family geometry and all-background rectangle enumeration.
+- [x] Two-axis partial-design result: causal completion status is separate from algebraic testability.
+- [x] Exact selection-transport identity and diagnostic Gamma-sensitivity interval.
+- [x] Cost-aware missing-corner ranking by identified-set reduction.
+
+### Research and estimator tranche
+
+- [x] State the complete finite categorical mechanism-family certificate in the paper and formal spec.
+- [x] Define the nonlinear partial-design causal-completion fiber and exact empty/singleton/multiple classification.
+- [x] Record counterexamples separating rank, flatness testability, causal feasibility, and uniqueness.
+- [ ] Implement a finite-state nonlinear completion solver for a fixed graph and target assignment.
+- [ ] Prove only solver properties actually supported by the finite-state parameterization; keep nonparametric sample classification unresolved.
+- [ ] Specify interventional mechanism dictionary learning with sparse environment codes, anchors, local support, normalization, and label/gauge ambiguity.
+- [ ] Prove or delimit dictionary identifiability under sparse combinations and repeated backgrounds.
+- [ ] Specify curvature tomography only under an infinitesimal or explicit latent-score factor model.
+- [ ] Add the controlled hidden-sensor world: complete-state flatness, omission curvature, rank recovery, sensor nomination, and held-out collapse after reveal.
+- [x] Implement the exact selected-law curvature decomposition and minimum selection interaction needed to explain a null.
+- [ ] Add identified curvature intervals using external enrollment fractions, margins, negative controls, or measurement encouragement.
+- [ ] Add a separate singular-support intervention route rather than forcing density ratios across disjoint support.
+- [ ] Implement one global closure witness with cluster cross-fitting and untouched witness confirmation.
+- [ ] Implement leave-the-entire-combination-arm-out law prediction with raw normalizer, ESS, overlap, and weighted-law discrepancy.
+- [ ] Calibrate cluster-level type-I error and coverage before adding flexible learner families.
+- [ ] Add one controlled-real factorial experiment before making general discovery claims.
+- [ ] Add Python, Arrow, Parquet, Polars/pandas, and AnnData surfaces only after the reference estimator is end to end.
 
 ### Stage A: isolation and proposal artifacts
 
-- [ ] Add closed `self_driving_request` schema.
-- [ ] Add private-field, serialize-only shift-factorization proposal types.
-- [ ] Add support-semantics enum and reject cross-semantics relations.
+- [x] Add closed self-driving-request schema.
+- [x] Add private-field, serialize-only shift-factorization proposal types.
+- [x] Add support-semantics enum and reject cross-semantics relations.
 - [ ] Add explicit `not_run`, `recommended`, `inconclusive`, and `abstained`
   statuses with stable reasons; never use `null` for swallowed failures.
 - [ ] Add caller-seeded split-before-discovery orchestration at the declared unit.
-- [ ] Add immutable common-cohort and candidate-library fingerprints.
-- [ ] Add confirmation-outcome and oracle isolation tests.
+- [x] Add immutable request and candidate-library fingerprints; common-cohort execution binding remains open.
+- [x] Add confirmation-outcome and oracle isolation contract tests; trusted-harness execution remains open.
 - [ ] Add header/candidate-order permutation invariance under a budget.
 - [ ] Add row-duplication-within-unit invariance.
 
@@ -337,10 +361,10 @@ qualification.
 
 ### Stage D: active next-query engine
 
-- [ ] Rank missing corners separately from dropped-corner replication.
+- [x] Rank missing corners by identified-set reduction and cost; dropped-corner replication remains separately typed.
 - [ ] Rank asymmetric tilts for multiple-pass disambiguation.
 - [ ] Rank candidate state additions using nested held-out curvature accounting.
-- [ ] Emit missing authority-contract requests as first-class proposals.
+- [x] Emit missing authority-contract requests as first-class proposals.
 - [ ] Bind every ranking to serialized hypotheses, predictions, feasibility,
   delivery, overlap, seed, and deterministic tie rule.
 

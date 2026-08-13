@@ -28,9 +28,15 @@ and `κ̃ = κ + Δlogπ − ΔlogZ` plus Γ-intervals live in `mic-core` as
 `DiagnosticOnly`. `rank_missing_boolean_corners` ranks the next cell by
 identified-set reduction, then lack-of-fit gain (`D={00,11}` → collect `01` or
 `10`; the three-corner L → collect `11` to create a testable contrast).
-Histogram four-law now reports exact `δ` beside `κ`. Still blocked: RoseLark's
-identified-set *theorem*, the gated estimator, Chambers hidden-sensor
-collection, dictionary learning, tomography. Γ-intervals do not refute H-002.
+Histogram four-law now reports exact `δ` beside `κ`. Next-corner ranking
+accepts optional positive integer costs (zero fails closed); expensive
+primitives lose to cheaper ones with the same reduction. `rectangle_contrast`
+evaluates a supplied log-law rectangle. `audit_rectangle_laws` scores every
+observed rectangle under supplied log-laws and stays diagnostic even when all
+are flat. Incomplete-survey `next_step` names the ranked next corner and its
+default cost. Still blocked: RoseLark's identified-set *theorem*,
+the gated estimator, Chambers hidden-sensor collection, dictionary learning,
+tomography. Γ-intervals do not refute H-002.
 
 ## Question of record
 

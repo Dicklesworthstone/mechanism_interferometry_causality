@@ -28,6 +28,30 @@ Given a proposed DAG `G` and distinct proposed primitive targets `t_j`, the regi
 
 Square flatness implies global additivity because every edge increment is invariant under flips of the other design coordinates. Higher-order Möbius tests are redundant on a complete cube, though they may be useful diagnostics under estimation error.
 
+### 2.1 Finite categorical mechanism families
+
+Factor \(j\) may instead have a finite level set \(\mathcal A_j\) with marked
+baseline \(0_j\). Nonbaseline levels are mutually exclusive alternative
+replacements of one proposed target; distinct factors still target distinct
+mechanisms. On the complete product grid, define
+
+\[
+r_{j,a}(x)=\frac{p_{(0,\ldots,a,\ldots,0)}(x)}{p_0(x)}.
+\]
+
+The grid has a modular representation if and only if every \(r_{j,a}\) is local
+to \(\{t_j\}\cup\operatorname{pa}(t_j)\), every level conditionally normalizes
+over \(t_j\), and every cross-family rectangle vanishes at every background:
+
+\[
+h_{a,b,u}+h_{a',b',u}-h_{a,b',u}-h_{a',b,u}=0.
+\]
+
+It suffices to use \(a'=0_j,b'=0_k\) only when those rectangles are checked at
+every background \(u\). Levels within one family need not lie on a linear or
+ordered dose path. A continuous dosage model requires a separately normalized
+parametric mechanism path.
+
 ## 3. Master marginal identity
 
 For any regime `e` and coordinate set `A`,
@@ -116,7 +140,11 @@ Curvature is invariant under invertible transformations. It is also preserved by
 
 ## 8. Partial designs
 
-For observed corners `D`, define the main-effects design matrix `M_D=[1,s_1,...,s_K]`. Pointwise flatness is `h_D(x) ∈ col(M_D)`. The complete testable contrast space is `ker(M_D^T)`. A report must distinguish:
+For observed corners \(D\), define the main-effects design matrix
+\(M_D=[1,s_1,\ldots,s_K]\); for categorical families use one treatment-coded
+column per nonbaseline level. Pointwise flatness is
+\(h_D(x)\in\operatorname{col}(M_D)\). The complete testable contrast space is
+\(\ker(M_D^\top)\). A report must distinguish:
 
 - estimable flatness contrasts;
 - aliased contrasts;
@@ -129,6 +157,23 @@ and conditional normalization may be unidentifiable even when the lack-of-fit
 space is trivial. Certificate-grade use requires observed or otherwise
 identified primitive potentials with separate locality and normalization
 evidence, or an explicit existence/feasibility test for such potentials.
+
+For a fixed proposed graph and target assignment, define the causal completion
+fiber as all main-effect potential systems reproducing \(h_D\) while satisfying
+baseline factorization, locality, conditional normalization, positivity, and
+common support. Report two separate objects:
+
+- **Completion status:** infeasible, point identified, or set identified,
+  relative to a named query and declared label/gauge symmetries.
+- **Design testability:** main-effects rank, left-null lack-of-fit dimension,
+  identified potential subspace, observed closure rectangles, and untested
+  directions.
+
+Untestable is not a mutually exclusive completion status. For example,
+\(D=\{00,10,01\}\) can uniquely identify the two primitive potentials and
+predict \(11\) while leaving composition untested because no combination law
+was observed. Conversely, \(D=\{00,11\}\) has no flatness contrast but can be
+causally infeasible under distinct-root replacements.
 
 ## 9. Longitudinal data
 
