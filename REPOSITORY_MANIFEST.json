@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "repository": "Dicklesworthstone/mechanism_interferometry_causality",
-  "generated_at_utc": "2026-08-13T03:00:00Z",
+  "generated_at_utc": "2026-08-13T13:53:17Z",
   "hash_algorithm": "sha256",
   "file_count": 206,
-  "aggregate_sha256": "7c358708912e4637b31bd838f5478983a65afd10c95e2b7cdc365779449fe1f5",
+  "aggregate_sha256": "18937bddbf9695a0e1d549788742245242f2e9825b1d3fb9a9b04819fb8de4cd",
   "files": [
     {
       "path": ".cargo/config.toml",
@@ -53,8 +53,8 @@
     },
     {
       "path": "LICENSE",
-      "bytes": 283,
-      "sha256": "73cb9434d7deefa18880688d01d6693dfef325838aed5cbb2829124766cee2de"
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "path": "Makefile",
@@ -123,8 +123,8 @@
     },
     {
       "path": "crates/mic-core/src/lib.rs",
-      "bytes": 29637,
-      "sha256": "0c84b784704706f3b70bf53cf66efb8c163d68ca1e1c559b7ec95516b8ff537b"
+      "bytes": 29902,
+      "sha256": "48ede536900a443767b30be7e933b8503604546796ec679f217f4e777e713477"
     },
     {
       "path": "crates/mic-data/Cargo.toml",
@@ -159,7 +159,7 @@
     {
       "path": "crates/mic-design/src/multilevel.rs",
       "bytes": 44717,
-      "sha256": "de8817c8b1981efbd5009932a6a525e8126e07afc14072450b215ddfb6c57032"
+      "sha256": "9bcb6e9e4d27c8ad7e0ddab1dd15a6f6547ac2dc007685f3d3d764ddd4ee6471"
     },
     {
       "path": "crates/mic-engine/Cargo.toml",
@@ -178,8 +178,8 @@
     },
     {
       "path": "crates/mic-engine/src/survey.rs",
-      "bytes": 57624,
-      "sha256": "1091a5c81f6e94f3331d98d4e6f874cb060a75199c064a1a1bf1e27999d3292e"
+      "bytes": 59072,
+      "sha256": "397642683304f9a8f85d7e1bb072544c917ab7e58d6560c173d312cecb4e69f8"
     },
     {
       "path": "crates/mic-engine/src/tabular.rs",
@@ -868,8 +868,8 @@
     },
     {
       "path": "scripts/build_wasm.sh",
-      "bytes": 2853,
-      "sha256": "af89c69642ab4bd50b95ac80f0c4782cd4962b66e5312613d85ba6a5cb160e9b"
+      "bytes": 4355,
+      "sha256": "9ea5ac22d822b892d3cf2daf60a76382ec2278a879ba2a9cd3c4344a167b88bd"
     },
     {
       "path": "scripts/check_repo.py",
@@ -1013,8 +1013,8 @@
     },
     {
       "path": "site/pkg/mic_bg.wasm",
-      "bytes": 310325,
-      "sha256": "8843206a71729befba3b517f89e4293c2a2bf2a6d87494a2d4dea776011d1e13"
+      "bytes": 368707,
+      "sha256": "75dee55bbd58ad7fdbd70837755de533ab38fd11330ecfc9b25fd5b34183c543"
     },
     {
       "path": "site/pkg/mic_bg.wasm.d.ts",
