@@ -147,7 +147,7 @@ pub struct EnvironmentCodeRow {
 
 /// Exact algebraic case claimed for a completed parameterization.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(tag = "case", rename_all = "snake_case")]
+#[serde(tag = "case", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AlgebraicRecoveryCase {
     /// Codes are known; the observed augmented or baseline-subtracted rank is recorded.
     KnownCodes {
@@ -171,7 +171,7 @@ pub enum AlgebraicRecoveryCase {
     CompleteBinaryCube {
         /// Rank of the edge functions in the claimed representation.
         observed_edge_rank: usize,
-        /// Whether the factorial zero vertex is externally marked.
+        /// Whether the factorial zero vertex is declared marked by the adapter.
         marked_zero: bool,
         /// Always false in this proposal layer because atom bytes are not opened.
         edge_function_independence_verified: bool,
@@ -222,7 +222,7 @@ pub struct DictionaryCandidateDraft {
 
 /// Complete outcome of one preregistered attempt.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "status", rename_all = "snake_case")]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DictionaryAttemptOutcome {
     /// Budget ordering prevented execution; the attempt remains fingerprinted.
     NotRun {
@@ -285,8 +285,12 @@ pub enum DictionaryAmbiguity {
     RankDegeneracy,
     /// Deterministic or proxy coordinates leave atom support nonunique.
     AlmostEverywhereSupportAliasing,
+    /// No independent audit established uniqueness of the atom's coordinate support.
+    SupportUniquenessUnverified,
     /// External atom content was not opened to establish functional independence.
     ExternalAtomIndependenceUnverified,
+    /// The proposal layer did not verify that the declared cube origin is the physical zero law.
+    ReferenceOriginUnverified,
 }
 
 /// Operational state of the proposal artifact, never a causal verdict.
@@ -851,12 +855,11 @@ fn validate_candidate(
                 anchor_environment_ids,
                 n_atoms,
             )?;
-            if !amplitudes_calibrated {
-                ambiguities.insert(DictionaryAmbiguity::ConventionalScale);
+            if *amplitudes_calibrated || *anchor_labels_assigned {
+                return invalid("proposal layer cannot verify anchor amplitude or label claims");
             }
-            if !anchor_labels_assigned {
-                ambiguities.insert(DictionaryAmbiguity::CoordinatePermutation);
-            }
+            ambiguities.insert(DictionaryAmbiguity::ConventionalScale);
+            ambiguities.insert(DictionaryAmbiguity::CoordinatePermutation);
         }
         AlgebraicRecoveryCase::CompleteBinaryCube {
             observed_edge_rank,
@@ -886,8 +889,12 @@ fn validate_candidate(
             }
             ambiguities.insert(DictionaryAmbiguity::ExternalAtomIndependenceUnverified);
             ambiguities.insert(DictionaryAmbiguity::CoordinatePermutation);
-            if !marked_zero {
-                ambiguities.insert(DictionaryAmbiguity::BitComplement);
+            // This proposal layer never resolves a content-bound physical-origin
+            // receipt, so the cube complement gauge survives even when an adapter
+            // labels its displayed zero row as marked.
+            ambiguities.insert(DictionaryAmbiguity::BitComplement);
+            if *marked_zero {
+                ambiguities.insert(DictionaryAmbiguity::ReferenceOriginUnverified);
             }
         }
         AlgebraicRecoveryCase::IncompleteUnknownCodes {
@@ -919,6 +926,7 @@ fn validate_candidate(
     if candidate.support_aliasing_detected {
         ambiguities.insert(DictionaryAmbiguity::AlmostEverywhereSupportAliasing);
     }
+    ambiguities.insert(DictionaryAmbiguity::SupportUniquenessUnverified);
     n_atoms.checked_mul(n_environments).ok_or_else(|| {
         ProposalError::InvalidDictionaryContract("code-matrix size overflowed".into())
     })
@@ -942,10 +950,14 @@ fn validate_source(source: &ProposalSource) -> Result<(), ProposalError> {
     ] {
         require_text(name, value)?;
     }
-    if !source
+    if source
         .feature_flags
-        .windows(2)
-        .all(|pair| pair[0] < pair[1])
+        .iter()
+        .any(|flag| require_text("feature flag", flag).is_err())
+        || !source
+            .feature_flags
+            .windows(2)
+            .all(|pair| pair[0] < pair[1])
         || source
             .feature_flags
             .iter()
@@ -1618,6 +1630,109 @@ mod tests {
             next_queries: vec![],
         };
         assert!(freeze_transport_dictionary_proposal(&request, &shift, &plan, &draft).is_err());
+    }
+
+    #[test]
+    fn complete_cube_retains_unverified_reference_origin() {
+        let request = request();
+        let mut shift = shift_draft();
+        shift.environments.push(CandidateEnvironment {
+            environment_id: "env_004".into(),
+            defining_columns: vec!["c_001".into()],
+            transform_sha256: digest('e'),
+            score: 1.0,
+            score_semantics: "held-out regime prediction gain".into(),
+        });
+        let mut plan = plan(&request, &shift);
+        plan.code_policy = DictionaryCodePolicy::CompleteBinaryCube;
+        plan.attempt_specification_sha256s = vec![digest('9')];
+        let mut completed = candidate(
+            vec![atom("atom_001", 'a'), atom("atom_002", 'b')],
+            vec![
+                vec![0.0, 0.0],
+                vec![0.0, 1.0],
+                vec![1.0, 0.0],
+                vec![1.0, 1.0],
+            ],
+        );
+        completed.algebraic_case = AlgebraicRecoveryCase::CompleteBinaryCube {
+            observed_edge_rank: 2,
+            marked_zero: true,
+            edge_function_independence_verified: false,
+        };
+        let draft = TransportDictionaryDraft {
+            proposal_id: "dictionary_001".into(),
+            execution: execution(),
+            attempts: vec![DictionaryAttemptDraft {
+                attempt_id: "attempt_001".into(),
+                specification_sha256: digest('9'),
+                outcome: DictionaryAttemptOutcome::Completed {
+                    candidate: Box::new(completed),
+                },
+            }],
+            contract_requests: vec![],
+            next_queries: vec![],
+        };
+        let frozen = freeze_transport_dictionary_proposal(&request, &shift, &plan, &draft)
+            .expect("complete cube remains a proposal with explicit unverified premises");
+        assert!(
+            frozen
+                .ambiguities()
+                .contains(&DictionaryAmbiguity::ReferenceOriginUnverified)
+        );
+        assert!(
+            frozen
+                .ambiguities()
+                .contains(&DictionaryAmbiguity::BitComplement)
+        );
+        assert!(
+            frozen
+                .ambiguities()
+                .contains(&DictionaryAmbiguity::ExternalAtomIndependenceUnverified)
+        );
+    }
+
+    #[test]
+    fn source_feature_flags_obey_the_wire_length_bound() {
+        let request = request();
+        let shift = shift_draft();
+        let mut plan = plan(&request, &shift);
+        plan.attempt_specification_sha256s = vec![digest('9')];
+        let mut completed = candidate(
+            vec![atom("atom_001", 'a'), atom("atom_002", 'b')],
+            vec![vec![0.0, 0.0], vec![1.0, 0.0], vec![0.0, 1.0]],
+        );
+        completed.source.feature_flags = vec!["x".repeat(MAX_IDENTIFIER_CHARS + 1)];
+        let draft = TransportDictionaryDraft {
+            proposal_id: "dictionary_001".into(),
+            execution: execution(),
+            attempts: vec![DictionaryAttemptDraft {
+                attempt_id: "attempt_001".into(),
+                specification_sha256: digest('9'),
+                outcome: DictionaryAttemptOutcome::Completed {
+                    candidate: Box::new(completed),
+                },
+            }],
+            contract_requests: vec![],
+            next_queries: vec![],
+        };
+        assert!(freeze_transport_dictionary_proposal(&request, &shift, &plan, &draft).is_err());
+    }
+
+    #[test]
+    fn tagged_dictionary_inputs_reject_unknown_fields() {
+        let algebraic = serde_json::json!({
+            "case": "known_codes",
+            "observed_design_rank": 2,
+            "ignored": true
+        });
+        assert!(serde_json::from_value::<AlgebraicRecoveryCase>(algebraic).is_err());
+        let outcome = serde_json::json!({
+            "status": "rejected",
+            "reason": "nonconverged",
+            "ignored": true
+        });
+        assert!(serde_json::from_value::<DictionaryAttemptOutcome>(outcome).is_err());
     }
 
     #[test]
