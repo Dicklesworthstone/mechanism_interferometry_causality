@@ -885,6 +885,21 @@ mod tests {
     }
 
     #[test]
+    fn dropped_boolean_corner_is_tagged_under_supported() {
+        let mut rows = Vec::new();
+        rows.extend(std::iter::repeat_n(vec![false, false], 8));
+        rows.extend(std::iter::repeat_n(vec![true, false], 8));
+        rows.extend(std::iter::repeat_n(vec![false, true], 8));
+        rows.push(vec![true, true]);
+        let observed = crate::observed_design_from_rows(&rows, 5).unwrap();
+        let ranked =
+            rank_missing_boolean_corners_from_observed(&observed, &BTreeMap::new(), 1e-12).unwrap();
+        assert_eq!(ranked.len(), 1);
+        assert_eq!(ranked[0].corner, "11");
+        assert_eq!(ranked[0].kind, NextCornerKind::UnderSupported);
+    }
+
+    #[test]
     fn three_corner_ell_recommends_the_missing_interaction_cell() {
         let points = [bool_point("00"), bool_point("10"), bool_point("01")];
         let ranked = rank_missing_boolean_corners(&points, 1e-12).unwrap();
