@@ -196,6 +196,14 @@ RoseLark 9397). Atlas-only `mic-tabular survey` on HEAD. No `direction_scout`.
 Scripts: `scripts/public_extracts/`. Ledger: session `LEDGER.md`.
 `cargo test -p mic-engine --lib survey` → 9 passed.
 
+**Alternate sources (same day).** Official Ausgrid zip is 404; customer-12 year is on
+GitHub (`pierre-haessig/ausgrid-solar-data`). HeartSteps V1 suggestions are
+public on `klasnja/HeartStepsV1` (decision-point unit). BDG2 weather/meters
+via GitHub LFS, not the 595 MB Zenodo zip. JUMP well/plate metadata from the
+public repo, no images. DREAM4 size-10 from the GeneNetWeaver SourceForge
+archive. Still blocked: NutNet Dryad 401, DrugComb 150–193 MB dumps, Oregon
+microdata, scPerturb/sci-Plex/Replogle matrices.
+
 ## Modes of reasoning (lead-agent synthesis, no NTM)
 
 Selected because this is a **scientific audit system**, not a product CRUD app.
