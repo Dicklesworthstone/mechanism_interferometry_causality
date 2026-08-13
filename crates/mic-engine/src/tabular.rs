@@ -1246,7 +1246,8 @@ mod tests {
         assert_eq!(info.confirmatory_units_per_corner_min, Some(1));
         assert_eq!(info.confirmatory_units_per_corner_max, Some(1));
         assert_eq!(report.four_law[0].clusters_per_corner, [1, 1, 1, 1]);
-        let markdown = report.narrative().markdown();
+        let narrative = report.narrative();
+        let markdown = narrative.markdown();
         assert!(markdown.contains("## Causal information content"));
         assert!(markdown.contains("Rows: 16."));
         assert!(
