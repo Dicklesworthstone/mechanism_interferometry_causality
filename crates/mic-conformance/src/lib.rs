@@ -14,9 +14,13 @@ mod tests {
         SurveyPolicy, audit_lens_battery, audit_orientation, run_preflight, run_tabular_audit,
         run_unsupervised_survey,
     };
-    use mic_model::PosteriorSquare;
+    use mic_model::{
+        ClosureFitConfig, ClosureModelKind, FourCornerClosureModel, MultinomialSample,
+        PosteriorSquare, compare_held_out_closure_models,
+    };
     use mic_sim::{
-        causal_tomography_chain, exact_suite, flat_noncausal_cube, identification_twins,
+        causal_tomography_chain, exact_suite, flat_noncausal_cube, hidden_sensor_tomography,
+        identification_twins,
     };
     use mic_stats::{
         CandidateSupport, OrientationOutcome, classify_deletion, parsimony_frontier,
@@ -51,6 +55,71 @@ mod tests {
             };
             assert!((square.curvature().unwrap() - example.curvature).abs() < 1e-14);
         }
+    }
+
+    #[test]
+    fn hidden_sensor_world_links_exact_curvature_to_joint_model_diagnostic() {
+        let example = hidden_sensor_tomography();
+        for state in 0..4 {
+            let complete_curvature = DensitySquare {
+                p0: example.laws[0].complete_probabilities[state],
+                pa: example.laws[1].complete_probabilities[state],
+                pb: example.laws[2].complete_probabilities[state],
+                pab: example.laws[3].complete_probabilities[state],
+            }
+            .curvature()
+            .unwrap();
+            assert!(complete_curvature.abs() < 1e-14);
+        }
+        for state in 0..2 {
+            let observed_curvature = DensitySquare {
+                p0: example.laws[0].observed_probabilities[state],
+                pa: example.laws[1].observed_probabilities[state],
+                pb: example.laws[2].observed_probabilities[state],
+                pab: example.laws[3].observed_probabilities[state],
+            }
+            .curvature()
+            .unwrap();
+            assert!((observed_curvature - example.observed_curvature[state]).abs() < 1e-14);
+        }
+
+        let mut samples = Vec::new();
+        for (class, law) in example.laws.iter().enumerate() {
+            for (state, mass) in law.observed_probabilities.iter().enumerate() {
+                let count = (mass * 10.0).round() as usize;
+                let y = if state == 0 { -1.0 } else { 1.0 };
+                samples.extend((0..count).map(|_| MultinomialSample {
+                    features: vec![y],
+                    class,
+                }));
+            }
+        }
+        let config = ClosureFitConfig {
+            l2_penalty: 0.1,
+            max_iterations: 5_000,
+            gradient_tolerance: 1e-6,
+            ..ClosureFitConfig::default()
+        };
+        let restricted = FourCornerClosureModel::fit(
+            &samples,
+            [0.25; 4],
+            ClosureModelKind::MainEffectsOnly,
+            config,
+        )
+        .unwrap();
+        let saturated = FourCornerClosureModel::fit(
+            &samples,
+            [0.25; 4],
+            ClosureModelKind::MainEffectsPlusInteraction,
+            config,
+        )
+        .unwrap();
+        let comparison =
+            compare_held_out_closure_models(&restricted, &saturated, &samples).unwrap();
+        assert!(comparison.saturated_advantage > 0.0);
+        assert!(!comparison.calibrated_test);
+        assert!(saturated.curvature_field(&[-1.0]).unwrap() < 0.0);
+        assert!(saturated.curvature_field(&[1.0]).unwrap() > 0.0);
     }
 
     #[test]

@@ -592,4 +592,40 @@ mod tests {
         .unwrap_err();
         assert_eq!(error, ClosureFitError::MissingClass { class: 3 });
     }
+
+    #[test]
+    fn weak_hidden_sensor_interaction_remains_diagnostic() {
+        let mut rows = Vec::new();
+        for (class, counts) in [[5, 5], [5, 5], [5, 5], [4, 6]].into_iter().enumerate() {
+            for (state, count) in counts.into_iter().enumerate() {
+                let x = if state == 0 { -1.0 } else { 1.0 };
+                rows.extend((0..count).map(|_| row(x, class)));
+            }
+        }
+        let config = ClosureFitConfig {
+            l2_penalty: 0.1,
+            max_iterations: 5_000,
+            gradient_tolerance: 1e-6,
+            ..ClosureFitConfig::default()
+        };
+        let restricted = FourCornerClosureModel::fit(
+            &rows,
+            [0.25; 4],
+            ClosureModelKind::MainEffectsOnly,
+            config,
+        )
+        .unwrap();
+        let saturated = FourCornerClosureModel::fit(
+            &rows,
+            [0.25; 4],
+            ClosureModelKind::MainEffectsPlusInteraction,
+            config,
+        )
+        .unwrap();
+        let comparison = compare_held_out_closure_models(&restricted, &saturated, &rows).unwrap();
+        assert!(comparison.saturated_advantage > 0.0);
+        assert!(!comparison.calibrated_test);
+        assert!(saturated.curvature_field(&[-1.0]).unwrap() < 0.0);
+        assert!(saturated.curvature_field(&[1.0]).unwrap() > 0.0);
+    }
 }
