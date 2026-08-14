@@ -3,10 +3,15 @@
 No build step is required to **serve** the site, and it has no remote dependencies.
 
 ```bash
-python -m http.server 8765 --directory site
+./scripts/serve_site.sh          # or: make site
 ```
 
-Open `http://127.0.0.1:8765`.
+Open `http://127.0.0.1:8099`. Override with `PORT=... ./scripts/serve_site.sh`.
+
+Do not serve this on **8765** — that is MCP Agent Mail's well-known port, and
+`http.server` binds the wildcard address, so it would sit on `*:8765` next to
+am's `127.0.0.1:8765` and clients would reach whichever one the resolver
+returned first.
 
 There is one build step to **rebuild the audit module**, which is only needed when the Rust
 changes:

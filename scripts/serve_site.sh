@@ -17,6 +17,13 @@ else
   printf 'error: need uv (preferred) or python3 on PATH\n' >&2
   exit 2
 fi
-PORT="${PORT:-8765}"
-printf '\033[1;36mServing Mechanism Interferometry at http://127.0.0.1:%s\033[0m\n' "$PORT"
-exec "${PYTHON[@]}" -m http.server "$PORT" --directory "$ROOT/site"
+# 8765 is MCP Agent Mail's well-known port. A preview server there collides with
+# it: `http.server` binds the wildcard address, so it takes *:8765 alongside
+# am's 127.0.0.1:8765 and clients reach whichever the resolver hands them first.
+PORT="${PORT:-8099}"
+# Bind loopback explicitly. The default wildcard bind publishes this directory
+# to every interface on the machine, which a local doc preview has no business
+# doing.
+BIND="${BIND:-127.0.0.1}"
+printf '\033[1;36mServing Mechanism Interferometry at http://%s:%s\033[0m\n' "$BIND" "$PORT"
+exec "${PYTHON[@]}" -m http.server "$PORT" --bind "$BIND" --directory "$ROOT/site"

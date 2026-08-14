@@ -23,7 +23,7 @@ rust:
 	cargo test --workspace --no-default-features
 
 site:
-	$(PYTHON) -m http.server 8765 --directory site
+	./scripts/serve_site.sh
 
 clean:
 	cd paper && latexmk -C
