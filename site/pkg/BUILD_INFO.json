@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0.0",
-  "source_digest_sha256": "95e55e6c17f2e2ca87878429d16717b80c348fedb64cb0be5b4009bddf3757e8",
-  "source_revision": "3f9c84f28d7d5f39aac879e1d77ee7eee918b6b5",
+  "source_digest_sha256": "00c42d2e562b7e9776deb17c744905cda7da5d7689ad4556e84f7c6d3e8a3637",
+  "source_revision": "abf6a14b869c213fd3df04df0b8c3c56cfd47226",
   "source_crates": ["mic-wasm", "mic-core", "mic-data", "mic-design", "mic-engine", "mic-sim"],
-  "raw_bytes": 368707,
-  "gzip_bytes": 149901
+  "raw_bytes": 369377,
+  "gzip_bytes": 150069
 }

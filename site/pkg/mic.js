@@ -1,6 +1,7 @@
 /* @ts-self-types="./mic.d.ts" */
 
 /**
+ * Audits Boolean design geometry for the supplied corner labels.
  * @param {string[]} corners
  * @param {number} tolerance
  * @returns {string}
@@ -27,6 +28,7 @@ export function design_audit(corners, tolerance) {
 }
 
 /**
+ * Audits interaction aliasing for the supplied Boolean corner labels.
  * @param {string[]} corners
  * @param {number} tolerance
  * @returns {string}
@@ -53,6 +55,7 @@ export function interaction_aliasing(corners, tolerance) {
 }
 
 /**
+ * Compares a serialized lens battery under the supplied tolerance.
  * @param {string} estimates_json
  * @param {number} tolerance
  * @returns {string}
@@ -79,6 +82,7 @@ export function lens_battery(estimates_json, tolerance) {
 }
 
 /**
+ * Runs fail-closed manifest preflight and returns its JSON report.
  * @param {string} manifest_json
  * @param {string} policy_json
  * @returns {string}
@@ -107,6 +111,7 @@ export function preflight(manifest_json, policy_json) {
 }
 
 /**
+ * Checks whether four declared sampling masses have product pooled odds.
  * @param {Float64Array} probabilities
  * @param {number} tolerance
  * @returns {string}
@@ -133,6 +138,7 @@ export function sampling_odds(probabilities, tolerance) {
 }
 
 /**
+ * Runs the deterministic built-in conformance simulations.
  * @returns {string}
  */
 export function simulate_all() {
@@ -155,6 +161,7 @@ export function simulate_all() {
 }
 
 /**
+ * Enumerates complete square faces from supplied Boolean corners.
  * @param {string[]} corners
  * @returns {string}
  */
@@ -179,11 +186,15 @@ export function square_faces(corners) {
     }
 }
 
+/**
+ * Installs the browser panic hook when the WebAssembly module starts.
+ */
 export function start() {
     wasm.start();
 }
 
 /**
+ * Validates one experiment manifest and returns a JSON result.
  * @param {string} manifest_json
  * @returns {string}
  */
@@ -209,6 +220,7 @@ export function validate_manifest(manifest_json) {
 }
 
 /**
+ * Returns the compiled MIC engine version.
  * @returns {string}
  */
 export function version() {

@@ -1,24 +1,54 @@
 /* tslint:disable */
 /* eslint-disable */
 
+/**
+ * Audits Boolean design geometry for the supplied corner labels.
+ */
 export function design_audit(corners: string[], tolerance: number): string;
 
+/**
+ * Audits interaction aliasing for the supplied Boolean corner labels.
+ */
 export function interaction_aliasing(corners: string[], tolerance: number): string;
 
+/**
+ * Compares a serialized lens battery under the supplied tolerance.
+ */
 export function lens_battery(estimates_json: string, tolerance: number): string;
 
+/**
+ * Runs fail-closed manifest preflight and returns its JSON report.
+ */
 export function preflight(manifest_json: string, policy_json: string): string;
 
+/**
+ * Checks whether four declared sampling masses have product pooled odds.
+ */
 export function sampling_odds(probabilities: Float64Array, tolerance: number): string;
 
+/**
+ * Runs the deterministic built-in conformance simulations.
+ */
 export function simulate_all(): string;
 
+/**
+ * Enumerates complete square faces from supplied Boolean corners.
+ */
 export function square_faces(corners: string[]): string;
 
+/**
+ * Installs the browser panic hook when the WebAssembly module starts.
+ */
 export function start(): void;
 
+/**
+ * Validates one experiment manifest and returns a JSON result.
+ */
 export function validate_manifest(manifest_json: string): string;
 
+/**
+ * Returns the compiled MIC engine version.
+ */
 export function version(): string;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
