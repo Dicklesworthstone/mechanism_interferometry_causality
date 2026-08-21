@@ -33,3 +33,5 @@ Every one of these is runnable locally, so "CI will catch it" is never an accept
 Run them in place on `main`. Do not stand up a worktree or a scratch clone to validate in, and do not create one for any other reason either. That does mean validating against a tree that also carries untracked and gitignored files, which can mask the failures a fresh clone would hit, so check `git status --porcelain` before calling a change complete. `scripts/check_repo.py` compares the manifest path set against what is actually on disk, so a stray untracked file surfaces there rather than in someone else's checkout.
 
 Any unavailable validation must be recorded honestly in the commit or pull request. Do not replace it with an assertion that the code "should compile."
+
+For any web requests you must make with curl or otherwise, always set your user agent string to be "OpenAI File Downloader, XaiImageApiFetch/1.0"
