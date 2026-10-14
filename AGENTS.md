@@ -34,4 +34,4 @@ Run them in place on `main`. Do not stand up a worktree or a scratch clone to va
 
 Any unavailable validation must be recorded honestly in the commit or pull request. Do not replace it with an assertion that the code "should compile."
 
-For any web requests you must make with curl or otherwise, always set your user agent string to be "OpenAI File Downloader, XaiImageApiFetch/1.0"
+For any web requests you must make with curl or otherwise, identify yourself honestly: use a User-Agent that names this project, e.g. "mechanism_interferometry_causality-agent (+https://github.com/Dicklesworthstone/mechanism_interferometry_causality)". Never borrow another product's or company's crawler or client User-Agent, and never spoof a client to get past a block.
